@@ -111,6 +111,13 @@ else
                                                 {
                                                     <span style="font-size:0.6rem;color:#4361EE;">Godkjenn?</span>
                                                 }
+                                                else if (cell.Status == "Godkjent" && cell.Hours > 0)
+                                                {
+                                                    <span style="display:flex;align-items:center;justify-content:center;gap:1px;">
+                                                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#166534" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+                                                        @cell.Hours.ToString("0.#")
+                                                    </span>
+                                                }
                                                 else if (cell.AbsenceType is not null)
                                                 {
                                                     <span style="font-size:0.55rem;">@cell.AbsenceType</span>
@@ -236,8 +243,17 @@ else
                                     }
                                 }
 
-                                @* Approve button *@
-                                @if (_dayDetail.DayStatus == "Registrert")
+                                @* Approve button / approved indicator *@
+                                @if (_dayDetail.DayStatus == "Godkjent")
+                                {
+                                    <MudPaper Elevation="0" Style="background:#D1FAE5;border-radius:8px;padding:10px;text-align:center;">
+                                        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.Center" Spacing="2">
+                                            <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small" Style="color:#166534;" />
+                                            <MudText Typo="Typo.body2" Style="font-weight:600;color:#166534;">Godkjent</MudText>
+                                        </MudStack>
+                                    </MudPaper>
+                                }
+                                else if (_dayDetail.DayStatus == "Registrert")
                                 {
                                     <MudButton Variant="Variant.Filled" Color="Color.Success" FullWidth="true"
                                                OnClick="ApproveSelectedDay" Disabled="_approving"
@@ -564,8 +580,11 @@ else
 
     private async Task ApproveCell(int row, int col)
     {
+        var cell = _filteredRows[row].Cells[col];
+        if (cell.Status == "Godkjent") return; // Already approved
+
         var personId = _filteredRows[row].PersonId;
-        var date = _filteredRows[row].Cells[col].Date;
+        var date = cell.Date;
 
         var count = await HoursService.ApproveDayAsync(personId, date);
         if (count > 0)
