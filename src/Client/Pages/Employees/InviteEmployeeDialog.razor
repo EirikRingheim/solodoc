@@ -5,11 +5,11 @@
     <DialogContent>
         <MudStack Spacing="3">
             <MudTextField @bind-Value="_email" Label="E-postadresse" Variant="Variant.Outlined"
-                          Required="true" RequiredError="E-post er pakrevd"
+                          Required="true" RequiredError="E-post er påkrevd"
                           InputType="InputType.Email"
                           Placeholder="navn@eksempel.no" />
             <MudSelect T="string" @bind-Value="_role" Label="Rolle" Variant="Variant.Outlined"
-                       Required="true" RequiredError="Rolle er pakrevd">
+                       Required="true" RequiredError="Rolle er påkrevd">
                 <MudSelectItem T="string" Value="@("feltarbeider")">Feltarbeider</MudSelectItem>
                 <MudSelectItem T="string" Value="@("prosjektleder")">Prosjektleder</MudSelectItem>
                 <MudSelectItem T="string" Value="@("admin")">Administrator</MudSelectItem>

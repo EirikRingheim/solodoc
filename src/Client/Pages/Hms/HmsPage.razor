@@ -170,7 +170,7 @@
                 <MudText Typo="Typo.subtitle2" Class="mb-3">Nytt HMS-mote</MudText>
                 <MudStack Spacing="3">
                     <MudTextField @bind-Value="_meetingTitle" Label="Tittel" Variant="Variant.Outlined"
-                                  Required="true" RequiredError="Tittel er pakrevd" />
+                                  Required="true" RequiredError="Tittel er påkrevd" />
                     <MudDatePicker @bind-Date="_meetingDate" Label="Dato" Variant="Variant.Outlined"
                                    DateFormat="dd.MM.yyyy" />
                     <MudTextField @bind-Value="_meetingLocation" Label="Sted" Variant="Variant.Outlined" />
@@ -304,7 +304,7 @@
         new("Risikovurdering",
             "Risikovurderinger skal gjennomfores for alle arbeidsoppgaver som kan medfore fare for liv og helse.\n\nMetodikk: Identifiser farer, vurder sannsynlighet og konsekvens, bestem tiltak. Dokumenteres i Solodocs risikovurderingsmodul. Gjennomgas og oppdateres minimum arlig."),
         new("Sikker jobbanalyse (SJA)",
-            "SJA skal utfores for arbeid med forhoydet risiko eller nar arbeidsforholdene endrer seg.\n\nAlle deltakere i arbeidet skal delta i SJA-gjennomgangen og signere. Bruk Solodocs SJA-modul for a opprette, gjennomfore og arkivere SJA-er."),
+            "SJA skal utfores for arbeid med forhoydet risiko eller når arbeidsforholdene endrer seg.\n\nAlle deltakere i arbeidet skal delta i SJA-gjennomgangen og signere. Bruk Solodocs SJA-modul for a opprette, gjennomfore og arkivere SJA-er."),
         new("Vernerunder",
             "Vernerunder gjennomfores regelmessig for a kontrollere at arbeidsmiljoet er forsvarlig.\n\nFrekvens bestemmes av virksomheten, men bor gjennomfores minimum manedlig. Funn dokumenteres og ikke-konforme forhold registreres som avvik."),
         new("Avviksbehandling",
@@ -363,7 +363,7 @@
     {
         if (string.IsNullOrWhiteSpace(_meetingTitle))
         {
-            Snackbar.Add("Tittel er pakrevd", Severity.Warning);
+            Snackbar.Add("Tittel er påkrevd", Severity.Warning);
             return;
         }
 

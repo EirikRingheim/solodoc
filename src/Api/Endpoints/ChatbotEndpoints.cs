@@ -16,7 +16,7 @@ public static class ChatbotEndpoints
 
     private static readonly string SystemPrompt = """
         Du er Solodoc-assistenten — en hjelpsom AI som hjelper brukere med kvalitets- og prosjektstyringssystemet Solodoc.
-        Svar alltid pa norsk. Vær kort og presis. Bruk du-form.
+        Svar alltid på norsk. Vær kort og presis. Bruk du-form.
 
         Solodoc er et system for bygg, anlegg, handverkere og landbruk med disse modulene:
 

@@ -37,7 +37,7 @@
                 <MudButton Variant="@(_viewMode == ViewMode.Month ? Variant.Filled : Variant.Outlined)"
                            Color="Color.Primary" Size="Size.Small"
                            OnClick="() => SetViewMode(ViewMode.Month)"
-                           Style="text-transform:none;border-radius:8px 0 0 8px;">Maned</MudButton>
+                           Style="text-transform:none;border-radius:8px 0 0 8px;">Måned</MudButton>
                 <MudButton Variant="@(_viewMode == ViewMode.Week ? Variant.Filled : Variant.Outlined)"
                            Color="Color.Primary" Size="Size.Small"
                            OnClick="() => SetViewMode(ViewMode.Week)"
@@ -454,7 +454,7 @@ else
     {
         if (string.IsNullOrWhiteSpace(_newTitle))
         {
-            Snackbar.Add("Tittel er pakrevd", Severity.Warning);
+            Snackbar.Add("Tittel er påkrevd", Severity.Warning);
             return;
         }
 

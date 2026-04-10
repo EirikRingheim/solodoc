@@ -14,7 +14,7 @@
 <MudPaper Class="pa-5" Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;">
     <MudStack Spacing="3">
         <MudTextField @bind-Value="_name" Label="Navn" Variant="Variant.Outlined"
-                      Required="true" RequiredError="Navn er pakrevd" />
+                      Required="true" RequiredError="Navn er påkrevd" />
         <MudTextField @bind-Value="_description" Label="Beskrivelse" Variant="Variant.Outlined"
                       Lines="4" Placeholder="Hva beskriver denne prosedyren?" />
         <MudStack Row="true" Spacing="2" Justify="Justify.FlexEnd">
@@ -42,7 +42,7 @@
     {
         if (string.IsNullOrWhiteSpace(_name))
         {
-            Snackbar.Add("Navn er pakrevd", Severity.Warning);
+            Snackbar.Add("Navn er påkrevd", Severity.Warning);
             return;
         }
 

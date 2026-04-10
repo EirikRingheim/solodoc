@@ -4,17 +4,17 @@
             <MudDatePicker @bind-Date="_startDate" Label="Fra dato"
                            Variant="Variant.Outlined"
                            DateFormat="dd.MM.yyyy"
-                           Required="true" RequiredError="Fra dato er pakrevd"
+                           Required="true" RequiredError="Fra dato er påkrevd"
                            Placeholder="Velg startdato" />
             <MudDatePicker @bind-Date="_endDate" Label="Til dato"
                            Variant="Variant.Outlined"
                            DateFormat="dd.MM.yyyy"
-                           Required="true" RequiredError="Til dato er pakrevd"
+                           Required="true" RequiredError="Til dato er påkrevd"
                            Placeholder="Velg sluttdato" />
             <MudNumericField @bind-Value="_days" Label="Antall dager"
                              Variant="Variant.Outlined"
                              Min="0.5m" Step="0.5m"
-                             Required="true" RequiredError="Antall dager er pakrevd" />
+                             Required="true" RequiredError="Antall dager er påkrevd" />
         </MudStack>
     </DialogContent>
     <DialogActions>

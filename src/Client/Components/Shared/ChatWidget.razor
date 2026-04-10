@@ -85,7 +85,7 @@
         <div style="padding:8px 12px 12px;border-top:1px solid #e9ecef;display:flex;gap:8px;">
             <input type="text" @bind="_input" @bind:event="oninput"
                    @onkeydown="OnKeyDown"
-                   placeholder="Skriv et sporsmol..."
+                   placeholder="Skriv et spørsmål..."
                    style="flex:1;padding:8px 12px;border:1px solid #e9ecef;border-radius:8px;font-size:0.85rem;outline:none;font-family:inherit;" />
             <button @onclick="Send" disabled="@(_thinking || string.IsNullOrWhiteSpace(_input))"
                     style="@($"width:36px;height:36px;border-radius:8px;border:none;background:{(string.IsNullOrWhiteSpace(_input) ? "#E5E7EB" : "#4361EE")};color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;")">
@@ -150,12 +150,12 @@
             }
             else
             {
-                _messages.Add(new("assistant", "Beklager, jeg kunne ikke svare pa det. Prov igjen eller kontakt support."));
+                _messages.Add(new("assistant", "Beklager, jeg kunne ikke svare pa det. Prøv igjen eller kontakt support."));
             }
         }
         catch
         {
-            _messages.Add(new("assistant", "Noe gikk galt. Sjekk internettforbindelsen og prov igjen."));
+            _messages.Add(new("assistant", "Noe gikk galt. Sjekk internettforbindelsen og prøv igjen."));
         }
 
         _thinking = false;

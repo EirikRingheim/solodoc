@@ -17,7 +17,7 @@
 
         <MudStack Spacing="3">
             <MudTextField @bind-Value="_model.Description" T="string"
-                          Label="Beskrivelse" Required="true" RequiredError="Beskrivelse er pakrevd"
+                          Label="Beskrivelse" Required="true" RequiredError="Beskrivelse er påkrevd"
                           Variant="Variant.Outlined"
                           Lines="3"
                           Placeholder="Beskriv oppdraget..." />
@@ -84,7 +84,7 @@
 
     private class CreateJobModel
     {
-        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Beskrivelse er pakrevd")]
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Beskrivelse er påkrevd")]
         public string? Description { get; set; }
         public string? CustomerName { get; set; }
         public string? Address { get; set; }

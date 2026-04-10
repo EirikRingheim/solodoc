@@ -66,7 +66,7 @@ else if (_info is not null)
                     </div>
                     <MudText Typo="Typo.h6" Style="font-weight:600;" Class="mb-2">Sjekket inn!</MudText>
                     <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
-                        Du er na registrert pa @_info.SiteName.
+                        Du er nå registrert pa @_info.SiteName.
                     </MudText>
                     <MudButton Variant="Variant.Outlined" Href="/"
                                Style="@($"border-radius:24px;text-transform:none;border-color:{accent};color:{accent};")">
@@ -88,7 +88,7 @@ else if (_info is not null)
                 else
                 {
                     <MudText Typo="Typo.body1" Color="Color.Secondary" Class="mb-4">
-                        Trykk for a registrere deg pa byggeplassen.
+                        Trykk for a registrere deg på byggeplassen.
                     </MudText>
                     <MudButton Variant="Variant.Filled"
                                StartIcon="@Icons.Material.Filled.Login"
@@ -158,7 +158,7 @@ else if (_info is not null)
         }
         else
         {
-            Snackbar.Add("Kunne ikke sjekke inn. Prov igjen.", Severity.Error);
+            Snackbar.Add("Kunne ikke sjekke inn. Prøv igjen.", Severity.Error);
         }
     }
 

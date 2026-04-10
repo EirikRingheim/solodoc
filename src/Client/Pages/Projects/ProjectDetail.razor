@@ -89,7 +89,7 @@ else
                         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-2">
                             <MudIcon Icon="@Icons.Material.Filled.PeopleAlt" Color="Color.Success" />
                             <MudText Typo="Typo.subtitle1" Style="font-weight:600;color:#059669;">
-                                Pa byggeplass na (@_onSitePersons.Count)
+                                Pa byggeplass nå (@_onSitePersons.Count)
                             </MudText>
                         </MudStack>
                         <MudStack Row="true" Spacing="2" Style="flex-wrap:wrap;">
@@ -377,7 +377,7 @@ else
                             var devId = dev.Id;
                             var statusColor = dev.Status switch
                             {
-                                "Apen" or "Åpen" => Color.Error,
+                                "Åpen" or "Åpen" => Color.Error,
                                 "Under behandling" => Color.Warning,
                                 "Lukket" => Color.Success,
                                 _ => Color.Default

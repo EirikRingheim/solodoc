@@ -29,8 +29,8 @@ public static class IndustryTypes
     [
         new("bygg", "Bygg og anlegg", "Byggefirma, totalentreprenor, underentreprenor"),
         new("elektro", "Elektro", "Elektriker, elektroentreprenor"),
-        new("rorlegger", "Rorlegger", "VVS, rorlegger, blikkenslager"),
-        new("snekker", "Snekker og tomrer", "Snekker, tomrer, bygningsarbeider"),
+        new("rørlegger", "Rørlegger", "VVS, rørlegger, blikkenslager"),
+        new("snekker", "Snekker og tømrer", "Snekker, tømrer, bygningsarbeider"),
         new("landbruk", "Landbruk", "Gard, skogbruk, gartneri"),
         new("maskin", "Maskin og transport", "Maskinentreprenor, transport, anlegg"),
         new("renhold", "Renhold og vedlikehold", "Renhold, vaktmester, facility management"),
@@ -46,7 +46,7 @@ public static class ModuleDefinitions
     [
         new("projects", "Prosjekter", "Store prosjekter med full livssyklus", Icons.Folder),
         new("jobs", "Oppdrag", "Raske jobber, servicebesok, reparasjoner", Icons.Wrench),
-        new("hours", "Timeforing", "Stemple inn/ut, timelister, overtid", Icons.Clock),
+        new("hours", "Timeføring", "Stemple inn/ut, timelister, overtid", Icons.Clock),
         new("deviations", "Avvik", "Rapporter og folg opp avvik", Icons.Warning),
         new("checklists", "Sjekklister", "Maler, utfylling, godkjenning", Icons.Checklist),
         new("hms", "HMS", "SJA, vernerunder, hendelsesrapporter", Icons.Shield),
@@ -64,7 +64,7 @@ public static class ModuleDefinitions
     {
         "bygg" => ["projects", "hours", "checklists", "deviations", "hms", "checkin", "contacts"],
         "elektro" => ["jobs", "hours", "checklists", "deviations", "chemicals", "contacts"],
-        "rorlegger" => ["jobs", "hours", "checklists", "deviations", "chemicals", "contacts"],
+        "rørlegger" => ["jobs", "hours", "checklists", "deviations", "chemicals", "contacts"],
         "snekker" => ["projects", "jobs", "hours", "checklists", "deviations", "contacts"],
         "landbruk" => ["equipment", "chemicals", "hms", "checklists", "hours"],
         "maskin" => ["projects", "equipment", "hours", "hms", "checklists"],

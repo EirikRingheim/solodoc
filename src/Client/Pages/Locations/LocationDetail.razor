@@ -102,7 +102,7 @@ else
                         var devId = dev.Id;
                         var statusColor = dev.Status switch
                         {
-                            "Åpen" or "Apen" => Color.Error,
+                            "Åpen" or "Åpen" => Color.Error,
                             "Under behandling" => Color.Warning,
                             "Lukket" => Color.Success,
                             _ => Color.Default

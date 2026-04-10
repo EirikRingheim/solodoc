@@ -22,7 +22,7 @@ else
         <MudText Typo="Typo.subtitle1" Style="font-weight:600;" Class="mb-3">Profilinformasjon</MudText>
         <MudStack Spacing="3">
             <MudTextField @bind-Value="_fullName" Label="Fullt navn" Variant="Variant.Outlined"
-                          Required="true" RequiredError="Navn er pakrevd" />
+                          Required="true" RequiredError="Navn er påkrevd" />
             <MudTextField Value="@_profile.Email" Label="E-post" Variant="Variant.Outlined"
                           ReadOnly="true" Disabled="true" />
             <MudTextField @bind-Value="_phone" Label="Telefon" Variant="Variant.Outlined"

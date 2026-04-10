@@ -196,7 +196,7 @@ else
     <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;" Class="pa-4 mb-4">
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-3">
             <MudIcon Icon="@Icons.Material.Filled.PeopleAlt" Color="Color.Primary" />
-            <MudText Typo="Typo.subtitle1" Style="font-weight:600;">Pa jobb na</MudText>
+            <MudText Typo="Typo.subtitle1" Style="font-weight:600;">På jobb na</MudText>
             <MudChip T="string" Size="Size.Small" Color="Color.Primary" Style="height:22px;">
                 @_siteOverview.Sum(s => s.PersonCount) personer
             </MudChip>
@@ -783,7 +783,7 @@ else if (_announcements.Count > 0)
             }
             else
             {
-                Snackbar.Add("Kunne ikke sjekke inn. Prov igjen.", Severity.Error);
+                Snackbar.Add("Kunne ikke sjekke inn. Prøv igjen.", Severity.Error);
             }
         }
         catch
@@ -807,7 +807,7 @@ else if (_announcements.Count > 0)
             }
             else
             {
-                Snackbar.Add("Kunne ikke sjekke ut. Prov igjen.", Severity.Error);
+                Snackbar.Add("Kunne ikke sjekke ut. Prøv igjen.", Severity.Error);
             }
         }
         catch
