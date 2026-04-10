@@ -356,7 +356,7 @@ else
 
             @foreach (var item in group)
             {
-                var resp = _responses[item.Id];
+                var resp = _responses.GetValueOrDefault(item.Id) ?? new ItemResponse();
                 var isCompleted = IsResponseCompleted(item, resp);
                 var leftBorder = isCompleted ? "border-left:4px solid #4CAF50;" : "";
 
@@ -634,7 +634,7 @@ else
     private async Task MarkOk(ChecklistInstanceItemDto item)
     {
         _hasUnsavedChanges = true;
-        var resp = _responses[item.Id];
+        if (!_responses.TryGetValue(item.Id, out var resp)) return;
         resp.CheckValue = true;
         resp.IsIrrelevant = false;
         resp.IrrelevantComment = null;
@@ -644,7 +644,7 @@ else
     private async Task MarkIrrelevant(ChecklistInstanceItemDto item)
     {
         _hasUnsavedChanges = true;
-        var resp = _responses[item.Id];
+        if (!_responses.TryGetValue(item.Id, out var resp)) return;
         resp.CheckValue = null;
         resp.IsIrrelevant = true;
         await SaveItemAsync(item);
@@ -677,7 +677,7 @@ else
         _savingItem = true;
         try
         {
-            var resp = _responses[item.Id];
+            if (!_responses.TryGetValue(item.Id, out var resp)) return;
             await ChecklistService.SubmitItemAsync(_instance.Id, item.Id,
                 new SubmitChecklistItemRequest(
                     resp.Value,
@@ -847,7 +847,7 @@ else
 
             if (key is not null)
             {
-                var resp = _responses[item.Id];
+                var resp = _responses.GetValueOrDefault(item.Id) ?? new ItemResponse();
                 resp.PhotoFileKey = key;
 
                 // Save the photo key to the server
