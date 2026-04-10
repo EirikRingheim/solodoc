@@ -29,5 +29,18 @@ public class CalendarService(ApiHttpClient api)
         return null;
     }
 
+    public async Task<List<CrossTenantCalendarEventDto>> GetCrossTenantEventsAsync(DateTimeOffset? from = null, DateTimeOffset? to = null)
+    {
+        var url = "api/calendar/cross-tenant";
+        var sep = '?';
+        if (from.HasValue) { url += $"{sep}from={from.Value.UtcDateTime:yyyy-MM-ddTHH:mm:ssZ}"; sep = '&'; }
+        if (to.HasValue) url += $"{sep}to={to.Value.UtcDateTime:yyyy-MM-ddTHH:mm:ssZ}";
+
+        var response = await api.GetAsync(url);
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<List<CrossTenantCalendarEventDto>>() ?? [];
+        return [];
+    }
+
     private record IdResponse(Guid Id);
 }

@@ -221,8 +221,9 @@ public static class EmployeeEndpoints
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
         var soonThreshold = today.AddDays(30);
 
+        // Certifications follow the person across tenants (per spec)
         var certifications = await db.EmployeeCertifications
-            .Where(c => c.PersonId == personId && c.TenantId == tenantId)
+            .Where(c => c.PersonId == personId)
             .OrderBy(c => c.ExpiryDate)
             .Select(c => new CertificationDto(
                 c.Id,
@@ -440,8 +441,9 @@ public static class EmployeeEndpoints
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
         var soonThreshold = today.AddDays(30);
 
+        // Certifications follow the person across tenants
         var certs = await db.EmployeeCertifications
-            .Where(c => c.PersonId == personId && c.TenantId == tenantId)
+            .Where(c => c.PersonId == personId)
             .OrderBy(c => c.ExpiryDate)
             .Select(c => new CertificationDto(
                 c.Id,

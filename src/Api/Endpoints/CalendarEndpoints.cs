@@ -13,6 +13,7 @@ public static class CalendarEndpoints
     public static WebApplication MapCalendarEndpoints(this WebApplication app)
     {
         app.MapGet("/api/calendar/events", ListEvents).RequireAuthorization();
+        app.MapGet("/api/calendar/cross-tenant", ListCrossTenantEvents).RequireAuthorization();
         app.MapPost("/api/calendar/events", CreateEvent).RequireAuthorization();
         app.MapPut("/api/calendar/events/{id:guid}", UpdateEvent).RequireAuthorization();
         app.MapDelete("/api/calendar/events/{id:guid}", DeleteEvent).RequireAuthorization();
@@ -200,5 +201,84 @@ public static class CalendarEndpoints
 
         await db.SaveChangesAsync(ct);
         return Results.NoContent();
+    }
+
+    // ─── Cross-Tenant Calendar ──────────────────────────
+
+    private static async Task<IResult> ListCrossTenantEvents(
+        ClaimsPrincipal user,
+        SolodocDbContext db,
+        CancellationToken ct,
+        DateTimeOffset? from = null,
+        DateTimeOffset? to = null)
+    {
+        var personIdClaim = user.FindFirstValue(ClaimTypes.NameIdentifier)
+                            ?? user.FindFirstValue("sub");
+        if (!Guid.TryParse(personIdClaim, out var personId))
+            return Results.Unauthorized();
+
+        // Get all tenant memberships for this person
+        var memberships = await db.TenantMemberships
+            .Where(m => m.PersonId == personId && m.State == TenantMembershipState.Active)
+            .Select(m => new { m.TenantId, TenantName = m.Tenant.Name })
+            .ToListAsync(ct);
+
+        if (memberships.Count == 0)
+            return Results.Ok(new List<CrossTenantCalendarEventDto>());
+
+        var tenantIds = memberships.Select(m => m.TenantId).ToList();
+        var tenantNames = memberships.ToDictionary(m => m.TenantId, m => m.TenantName);
+
+        var fromDate = from ?? DateTimeOffset.UtcNow.AddDays(-7);
+        var toDate = to ?? DateTimeOffset.UtcNow.AddDays(60);
+
+        // Fetch calendar events from all tenants
+        var events = await db.CalendarEvents
+            .IgnoreQueryFilters()
+            .Where(e => !e.IsDeleted && tenantIds.Contains(e.TenantId)
+                && (e.StartAt >= fromDate || (e.EndAt != null && e.EndAt >= fromDate))
+                && e.StartAt <= toDate)
+            .OrderBy(e => e.StartAt)
+            .Select(e => new CrossTenantCalendarEventDto(
+                e.Id, e.TenantId, tenantNames.ContainsKey(e.TenantId) ? tenantNames[e.TenantId] : "",
+                e.Title, e.Description, e.StartAt, e.EndAt, e.IsAllDay, e.Location))
+            .ToListAsync(ct);
+
+        // Also fetch planner entries from all tenants
+        var fromOnly = DateOnly.FromDateTime(fromDate.UtcDateTime);
+        var toOnly = DateOnly.FromDateTime(toDate.UtcDateTime);
+
+        var plannerDays = await db.PlannerEntries
+            .IgnoreQueryFilters()
+            .Where(p => !p.IsDeleted && p.PersonId == personId
+                && tenantIds.Contains(p.TenantId)
+                && p.Date >= fromOnly && p.Date <= toOnly)
+            .Select(p => new { p.Id, p.TenantId, p.Date, p.ShiftDefinitionId, p.ProjectId })
+            .ToListAsync(ct);
+
+        if (plannerDays.Count > 0)
+        {
+            var shiftIds = plannerDays.Select(p => p.ShiftDefinitionId).Distinct().ToList();
+            var shifts = await db.ShiftDefinitions
+                .IgnoreQueryFilters()
+                .Where(s => !s.IsDeleted && shiftIds.Contains(s.Id))
+                .ToDictionaryAsync(s => s.Id, s => s, ct);
+
+            foreach (var day in plannerDays)
+            {
+                if (!shifts.TryGetValue(day.ShiftDefinitionId, out var shift)) continue;
+                if (!shift.IsWorkDay) continue;
+
+                var start = new DateTimeOffset(day.Date.ToDateTime(shift.StartTime ?? new TimeOnly(7, 0)), TimeSpan.Zero);
+                var end = new DateTimeOffset(day.Date.ToDateTime(shift.EndTime ?? new TimeOnly(15, 0)), TimeSpan.Zero);
+                var tName = tenantNames.GetValueOrDefault(day.TenantId, "");
+
+                events.Add(new CrossTenantCalendarEventDto(
+                    day.Id, day.TenantId, tName,
+                    $"{shift.Name} — {tName}", null, start, end, false, null));
+            }
+        }
+
+        return Results.Ok(events.OrderBy(e => e.StartAt).ToList());
     }
 }

@@ -41,6 +41,14 @@
                            OnClick="() => SetViewMode(ViewMode.Week)"
                            Style="text-transform:none;border-radius:0 8px 8px 0;">Uke</MudButton>
             </MudButtonGroup>
+            <MudToggleIconButton Toggled="_showAllCompanies"
+                                 ToggledChanged="OnToggleAllCompanies"
+                                 Icon="@Icons.Material.Filled.Business"
+                                 ToggledIcon="@Icons.Material.Filled.Business"
+                                 Color="Color.Default"
+                                 ToggledColor="Color.Primary"
+                                 Size="Size.Small"
+                                 Title="@(_showAllCompanies ? "Viser alle bedrifter" : "Vis alle bedrifter")" />
         </MudStack>
     </MudStack>
 </MudPaper>
@@ -241,6 +249,7 @@ else
     private List<CalendarEventDto> _events = [];
     private SortedDictionary<DateOnly, List<CalendarEventDto>> _groupedEvents = [];
     private bool _loading = true;
+    private bool _showAllCompanies;
 
     private readonly string[] _dayNames = ["Man", "Tir", "Ons", "Tor", "Fre", "Lor", "Son"];
 
@@ -268,11 +277,30 @@ else
     {
         _loading = true;
         var (from, to) = GetCurrentRange();
-        _events = await CalendarService.GetEventsAsync(
-            new DateTimeOffset(from, TimeSpan.Zero),
-            new DateTimeOffset(to, TimeSpan.Zero));
+        var fromDto = new DateTimeOffset(from, TimeSpan.Zero);
+        var toDto = new DateTimeOffset(to, TimeSpan.Zero);
+
+        if (_showAllCompanies)
+        {
+            // Cross-tenant: show events from all companies
+            var crossEvents = await CalendarService.GetCrossTenantEventsAsync(fromDto, toDto);
+            _events = crossEvents.Select(e => new CalendarEventDto(
+                e.Id, $"{e.Title} [{e.TenantName}]", e.Description, e.StartAt, e.EndAt, e.IsAllDay, e.Location
+            )).ToList();
+        }
+        else
+        {
+            _events = await CalendarService.GetEventsAsync(fromDto, toDto);
+        }
+
         GroupEvents();
         _loading = false;
+    }
+
+    private async Task OnToggleAllCompanies(bool toggled)
+    {
+        _showAllCompanies = toggled;
+        await LoadEvents();
     }
 
     private void GroupEvents()
