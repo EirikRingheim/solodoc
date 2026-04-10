@@ -608,31 +608,29 @@
                 </div>
             </div>
             <div class="contact-right">
-                <form class="contact-form" action="https://formspree.io/f/mdaprzjw" method="POST">
+                <form class="contact-form" onsubmit="sendContact(event)">
                     <div class="form-group">
                         <label>Bedriftsnavn</label>
-                        <input type="text" name="company" placeholder="Ditt firma AS" required>
+                        <input type="text" id="cf-company" placeholder="Ditt firma AS" required>
                     </div>
                     <div class="form-row">
                         <div class="form-group">
                             <label>Navn</label>
-                            <input type="text" name="name" placeholder="Ola Nordmann" required>
+                            <input type="text" id="cf-name" placeholder="Ola Nordmann" required>
                         </div>
                         <div class="form-group">
                             <label>Telefon</label>
-                            <input type="tel" name="phone" placeholder="999 99 999">
+                            <input type="tel" id="cf-phone" placeholder="999 99 999">
                         </div>
                     </div>
                     <div class="form-group">
                         <label>E-post</label>
-                        <input type="email" name="email" placeholder="ola@firma.no" required>
+                        <input type="email" id="cf-email" placeholder="ola@firma.no" required>
                     </div>
                     <div class="form-group">
                         <label>Melding</label>
-                        <textarea rows="3" name="message" placeholder="Fortell oss litt om bedriften og hva dere trenger..."></textarea>
+                        <textarea rows="3" id="cf-message" placeholder="Fortell oss litt om bedriften og hva dere trenger..."></textarea>
                     </div>
-                    <input type="hidden" name="_subject" value="Ny henvendelse fra solodoc.no">
-                    <input type="hidden" name="_next" value="https://solodoc.no#contact">
                     <button type="submit" class="btn btn-primary btn-lg" style="width:100%;">Send melding</button>
                 </form>
             </div>
@@ -685,6 +683,25 @@ document.getElementById('menuBtn').addEventListener('click', function() {
 window.addEventListener('scroll', function() {
     document.getElementById('navbar').classList.toggle('scrolled', window.scrollY > 20);
 });
+
+// Contact form — opens user's email client
+function sendContact(e) {
+    e.preventDefault();
+    var company = document.getElementById('cf-company').value;
+    var name = document.getElementById('cf-name').value;
+    var phone = document.getElementById('cf-phone').value;
+    var email = document.getElementById('cf-email').value;
+    var message = document.getElementById('cf-message').value;
+    var subject = encodeURIComponent('Henvendelse fra ' + company);
+    var body = encodeURIComponent(
+        'Bedrift: ' + company + '\n' +
+        'Navn: ' + name + '\n' +
+        'Telefon: ' + phone + '\n' +
+        'E-post: ' + email + '\n\n' +
+        message
+    );
+    window.location.href = 'mailto:kontakt@solodoc.no?subject=' + subject + '&body=' + body;
+}
 
 // Smooth scroll
 document.querySelectorAll('a[href^="#"]').forEach(a => {
