@@ -47,6 +47,12 @@ public class EmployeeService(ApiHttpClient api)
         return response.IsSuccessStatusCode;
     }
 
+    public async Task<bool> ChangeRoleAsync(Guid personId, string role)
+    {
+        var response = await api.PatchAsJsonAsync($"api/employees/{personId}/role", new ChangeRoleRequest(role));
+        return response.IsSuccessStatusCode;
+    }
+
     public async Task<bool> RemoveAsync(Guid personId)
     {
         var response = await api.DeleteAsync($"api/employees/{personId}");

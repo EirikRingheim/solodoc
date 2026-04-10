@@ -21,6 +21,7 @@ public static class EmployeeEndpoints
         app.MapPatch("/api/employees/{personId:guid}/suspend", SuspendEmployee).RequireAuthorization();
         app.MapPatch("/api/employees/{personId:guid}/activate", ActivateEmployee).RequireAuthorization();
         app.MapDelete("/api/employees/{personId:guid}", RemoveEmployee).RequireAuthorization();
+        app.MapPatch("/api/employees/{personId:guid}/role", ChangeEmployeeRole).RequireAuthorization();
 
         // Project crew (derived from time entries)
         app.MapGet("/api/projects/{projectId:guid}/crew", GetProjectCrew).RequireAuthorization();
@@ -422,6 +423,46 @@ public static class EmployeeEndpoints
 
         await db.SaveChangesAsync(ct);
         return Results.Ok(new { status = "Removed" });
+    }
+
+    // ─── Change Role ────────────────────────────────────────────────
+
+    private static async Task<IResult> ChangeEmployeeRole(
+        Guid personId,
+        ChangeRoleRequest request,
+        ClaimsPrincipal user,
+        SolodocDbContext db,
+        ITenantProvider tenantProvider,
+        CancellationToken ct)
+    {
+        var (callerId, valid) = GetPersonId(user);
+        if (!valid || tenantProvider.TenantId is null)
+            return Results.Unauthorized();
+
+        var admin = await RequireAdminRole(callerId!.Value, db, ct);
+        if (admin is null) return Results.Forbid();
+
+        var membership = await db.TenantMemberships
+            .FirstOrDefaultAsync(m =>
+                m.PersonId == personId &&
+                m.TenantId == tenantProvider.TenantId.Value &&
+                m.State == TenantMembershipState.Active, ct);
+
+        if (membership is null)
+            return Results.NotFound();
+
+        // Don't allow changing your own role
+        if (personId == callerId.Value)
+            return Results.BadRequest(new { error = "Du kan ikke endre din egen rolle." });
+
+        var newRole = ParseRole(request.Role);
+        if (newRole is null)
+            return Results.BadRequest(new { error = $"Ugyldig rolle: {request.Role}" });
+
+        membership.Role = newRole.Value;
+        await db.SaveChangesAsync(ct);
+
+        return Results.Ok(new { role = RoleToString(newRole.Value) });
     }
 
     // ─── Certifications ─────────────────────────────────────────────

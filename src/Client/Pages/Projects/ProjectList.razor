@@ -2,17 +2,23 @@
 @attribute [Authorize]
 @inject ProjectService ProjectService
 @inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthStateProvider
+@inject Blazored.LocalStorage.ILocalStorageService LocalStorage
+@using System.Security.Claims
 
 <PageTitle>Solodoc - Prosjekter</PageTitle>
 
 <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4">
     <MudText Typo="Typo.h5">Prosjekter</MudText>
-    <MudButton Variant="Variant.Filled" Color="Color.Primary"
-               StartIcon="@Icons.Material.Filled.Add"
-               Href="/projects/new"
-               Style="text-transform:none;border-radius:8px;">
-        Nytt prosjekt
-    </MudButton>
+    @if (_canCreateProject)
+    {
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.Add"
+                   Href="/projects/new"
+                   Style="text-transform:none;border-radius:8px;">
+            Nytt prosjekt
+        </MudButton>
+    }
 </MudStack>
 
 <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;overflow:hidden;">
@@ -89,7 +95,21 @@
 @code {
     private string? _search;
     private bool _loading;
+    private bool _canCreateProject = true;
     private MudDataGrid<Solodoc.Shared.Projects.ProjectListItemDto>? _grid;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Check role — only admin and project-leader can create projects
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var role = authState.User.FindFirst("role")?.Value ?? authState.User.FindFirst(ClaimTypes.Role)?.Value;
+
+        // Also check impersonation role from localStorage
+        var viewAsRole = await LocalStorage.GetItemAsStringAsync("viewAsRole");
+        var effectiveRole = !string.IsNullOrWhiteSpace(viewAsRole) ? viewAsRole.Trim('"') : role;
+
+        _canCreateProject = effectiveRole is "tenant-admin" or "admin" or "project-leader" or "prosjektleder";
+    }
 
     private async Task<GridData<Solodoc.Shared.Projects.ProjectListItemDto>> LoadServerData(
         GridState<Solodoc.Shared.Projects.ProjectListItemDto> state, CancellationToken ct)

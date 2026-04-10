@@ -2,17 +2,23 @@
 @attribute [Authorize]
 @inject JobService JobService
 @inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthStateProvider
+@inject Blazored.LocalStorage.ILocalStorageService LocalStorage
+@using System.Security.Claims
 
 <PageTitle>Solodoc - Oppdrag</PageTitle>
 
 <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4">
     <MudText Typo="Typo.h5">Oppdrag</MudText>
-    <MudButton Variant="Variant.Filled" Color="Color.Primary"
-               StartIcon="@Icons.Material.Filled.Add"
-               Href="/jobs/new"
-               Style="text-transform:none;border-radius:8px;background-color:#4361EE;">
-        Nytt oppdrag
-    </MudButton>
+    @if (_canCreateJob)
+    {
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.Add"
+                   Href="/jobs/new"
+                   Style="text-transform:none;border-radius:8px;background-color:#4361EE;">
+            Nytt oppdrag
+        </MudButton>
+    }
 </MudStack>
 
 <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;overflow:hidden;">
@@ -80,7 +86,18 @@
 @code {
     private string? _search;
     private bool _loading;
+    private bool _canCreateJob = true;
     private MudDataGrid<JobListItemDto>? _grid;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Everyone except subcontractors can create jobs
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var role = authState.User.FindFirst("role")?.Value ?? authState.User.FindFirst(ClaimTypes.Role)?.Value;
+        var viewAsRole = await LocalStorage.GetItemAsStringAsync("viewAsRole");
+        var effectiveRole = !string.IsNullOrWhiteSpace(viewAsRole) ? viewAsRole.Trim('"') : role;
+        _canCreateJob = effectiveRole is not "subcontractor";
+    }
 
     private async Task<GridData<JobListItemDto>> LoadServerData(
         GridState<JobListItemDto> state, CancellationToken ct)

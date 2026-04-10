@@ -103,3 +103,5 @@ public record VacationOverviewDto(
 public record InviteEmployeeRequest(
     string Email,
     string Role);
+
+public record ChangeRoleRequest(string Role);

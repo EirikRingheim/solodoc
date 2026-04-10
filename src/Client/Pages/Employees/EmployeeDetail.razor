@@ -14,6 +14,8 @@
     @if (_employee is not null)
     {
         <MudChip T="string" Size="Size.Small" Color="Color.Default">@_employee.Role</MudChip>
+        <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                       OnClick="() => _roleEditOpen = true" Title="Endre rolle" />
     }
 </MudStack>
 
@@ -39,7 +41,12 @@ else
             </MudItem>
             <MudItem xs="6" sm="3">
                 <MudText Typo="Typo.caption" Color="Color.Secondary">Rolle</MudText>
-                <MudText Typo="Typo.body2" Style="font-weight:500;">@_employee.Role</MudText>
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                    <MudText Typo="Typo.body2" Style="font-weight:500;">@_employee.Role</MudText>
+                    <MudIconButton Icon="@Icons.Material.Filled.SwapHoriz" Size="Size.Small"
+                                   OnClick="() => _roleEditOpen = true" Title="Endre rolle"
+                                   Style="padding:2px;" />
+                </MudStack>
             </MudItem>
             <MudItem xs="6" sm="3">
                 <MudText Typo="Typo.caption" Color="Color.Secondary">Tidssone</MudText>
@@ -372,6 +379,49 @@ else
     </MudTabs>
 }
 
+@* ── Role Edit Dialog ── *@
+<MudDialog @bind-Visible="_roleEditOpen" Options="@(new DialogOptions { MaxWidth = MaxWidth.ExtraSmall, FullWidth = true })">
+    <TitleContent><MudText Typo="Typo.h6">Endre rolle</MudText></TitleContent>
+    <DialogContent>
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+            Velg ny rolle for @(_employee?.FullName ?? "ansatt")
+        </MudText>
+        <MudStack Spacing="2">
+            @foreach (var role in _availableRoles)
+            {
+                var isSelected = _newRole == role.Key;
+                var capturedKey = role.Key;
+                <MudPaper Elevation="0" Class="pa-3"
+                          Style="@($"border:2px solid {(isSelected ? "#4361EE" : "#e9ecef")};border-radius:10px;cursor:pointer;{(isSelected ? "background:#EBF0FF;" : "")}")"
+                          @onclick="() => _newRole = capturedKey">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                        @if (isSelected)
+                        {
+                            <MudIcon Icon="@Icons.Material.Filled.RadioButtonChecked" Color="Color.Primary" Size="Size.Small" />
+                        }
+                        else
+                        {
+                            <MudIcon Icon="@Icons.Material.Filled.RadioButtonUnchecked" Color="Color.Default" Size="Size.Small" />
+                        }
+                        <div>
+                            <MudText Typo="Typo.body2" Style="font-weight:600;">@role.Value</MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">@GetRoleDescription(role.Key)</MudText>
+                        </div>
+                    </MudStack>
+                </MudPaper>
+            }
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => _roleEditOpen = false" Style="text-transform:none;">Avbryt</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveRole"
+                   Disabled="_savingRole" Style="text-transform:none;border-radius:8px;">
+            @if (_savingRole) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> }
+            Lagre
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
 @code {
     [Parameter] public Guid PersonId { get; set; }
 
@@ -384,6 +434,44 @@ else
     private DateOnly _empHeatmapMonth = new(DateTime.Today.Year, DateTime.Today.Month, 1);
     private List<AbsenceListItemDto> _empAbsences = [];
     private bool _loading = true;
+
+    // Role edit
+    private bool _roleEditOpen;
+    private string _newRole = "";
+    private bool _savingRole;
+    private static readonly Dictionary<string, string> _availableRoles = new()
+    {
+        ["admin"] = "Administrator",
+        ["project-leader"] = "Prosjektleder",
+        ["field-worker"] = "Feltarbeider"
+    };
+
+    private static string GetRoleDescription(string role) => role switch
+    {
+        "admin" => "Full tilgang til alle funksjoner, innstillinger og ansattadministrasjon.",
+        "project-leader" => "Kan lede prosjekter, godkjenne timer og sjekklister, se rapporter.",
+        "field-worker" => "Kan registrere timer, fylle ut sjekklister, rapportere avvik og opprette oppdrag.",
+        _ => ""
+    };
+
+    private async Task SaveRole()
+    {
+        if (_employee is null || string.IsNullOrEmpty(_newRole)) return;
+        _savingRole = true;
+        var success = await EmployeeService.ChangeRoleAsync(PersonId, _newRole);
+        _savingRole = false;
+        if (success)
+        {
+            Snackbar.Add("Rolle endret", Severity.Success);
+            _roleEditOpen = false;
+            await LoadData();
+            StateHasChanged();
+        }
+        else
+        {
+            Snackbar.Add("Kunne ikke endre rolle", Severity.Error);
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {
