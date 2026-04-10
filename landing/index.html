@@ -608,29 +608,31 @@
                 </div>
             </div>
             <div class="contact-right">
-                <form class="contact-form" onsubmit="handleSubmit(event)">
+                <form class="contact-form" action="https://formspree.io/f/mdaprzjw" method="POST">
                     <div class="form-group">
                         <label>Bedriftsnavn</label>
-                        <input type="text" placeholder="Ditt firma AS" required>
+                        <input type="text" name="company" placeholder="Ditt firma AS" required>
                     </div>
                     <div class="form-row">
                         <div class="form-group">
                             <label>Navn</label>
-                            <input type="text" placeholder="Ola Nordmann" required>
+                            <input type="text" name="name" placeholder="Ola Nordmann" required>
                         </div>
                         <div class="form-group">
                             <label>Telefon</label>
-                            <input type="tel" placeholder="999 99 999">
+                            <input type="tel" name="phone" placeholder="999 99 999">
                         </div>
                     </div>
                     <div class="form-group">
                         <label>E-post</label>
-                        <input type="email" placeholder="ola@firma.no" required>
+                        <input type="email" name="email" placeholder="ola@firma.no" required>
                     </div>
                     <div class="form-group">
                         <label>Melding</label>
-                        <textarea rows="3" placeholder="Fortell oss litt om bedriften og hva dere trenger..."></textarea>
+                        <textarea rows="3" name="message" placeholder="Fortell oss litt om bedriften og hva dere trenger..."></textarea>
                     </div>
+                    <input type="hidden" name="_subject" value="Ny henvendelse fra solodoc.no">
+                    <input type="hidden" name="_next" value="https://solodoc.no#contact">
                     <button type="submit" class="btn btn-primary btn-lg" style="width:100%;">Send melding</button>
                 </form>
             </div>
@@ -697,18 +699,6 @@ document.querySelectorAll('a[href^="#"]').forEach(a => {
     });
 });
 
-// Contact form
-function handleSubmit(e) {
-    e.preventDefault();
-    var btn = e.target.querySelector('button[type="submit"]');
-    btn.textContent = 'Sendt!';
-    btn.style.background = '#10B981';
-    setTimeout(function() {
-        btn.textContent = 'Send melding';
-        btn.style.background = '';
-        e.target.reset();
-    }, 3000);
-}
 </script>
 
 </body>
