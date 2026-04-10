@@ -5,7 +5,9 @@
 @inject NavigationManager Navigation
 @inject AuthenticationStateProvider AuthStateProvider
 @inject Blazored.LocalStorage.ILocalStorageService LocalStorage
+@inject SyncService SyncService
 @using Solodoc.Shared.Auth
+@implements IAsyncDisposable
 
 <MudLayout>
     @* ── Super Admin Bar ── *@
@@ -153,9 +155,22 @@
 
         <MudSpacer />
 
-        <div class="sync-indicator">
-            <MudIcon Icon="@Icons.Material.Filled.CloudDone" Size="Size.Small" />
-            <span>Synkronisert</span>
+        <div class="sync-indicator" style="@(!_syncOnline ? "color:#E63946;" : _syncPendingCount > 0 ? "color:#F59E0B;" : "")">
+            @if (!_syncOnline)
+            {
+                <MudIcon Icon="@Icons.Material.Filled.CloudOff" Size="Size.Small" Style="color:#E63946;" />
+                <span>Offline</span>
+            }
+            else if (_syncPendingCount > 0)
+            {
+                <MudIcon Icon="@Icons.Material.Filled.CloudSync" Size="Size.Small" Style="color:#F59E0B;" />
+                <span>@_syncPendingCount venter</span>
+            }
+            else
+            {
+                <MudIcon Icon="@Icons.Material.Filled.CloudDone" Size="Size.Small" />
+                <span>@(_syncLastSynced is not null ? $"Synk {_syncLastSynced.Value.ToLocalTime():HH:mm}" : "Synkronisert")</span>
+            }
         </div>
 
         <MudDivider Class="mt-2" />
@@ -194,6 +209,28 @@
 
     @* Main content *@
     <MudMainContent Class="main-content">
+        @if (!_syncOnline)
+        {
+            <MudPaper Elevation="0" Style="background:#FEF2F2;border-bottom:1px solid #FECACA;padding:8px 16px;">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@Icons.Material.Filled.WifiOff" Size="Size.Small" Style="color:#E63946;" />
+                    <MudText Typo="Typo.body2" Style="color:#991B1B;font-weight:500;">
+                        Ingen internettforbindelse — endringer lagres lokalt og synkroniseres nar du er tilbake online.
+                    </MudText>
+                </MudStack>
+            </MudPaper>
+        }
+        else if (_syncPendingCount > 0)
+        {
+            <MudPaper Elevation="0" Style="background:#FFFBEB;border-bottom:1px solid #FDE68A;padding:8px 16px;">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@Icons.Material.Filled.Sync" Size="Size.Small" Style="color:#D97706;" />
+                    <MudText Typo="Typo.body2" Style="color:#92400E;font-weight:500;">
+                        @_syncPendingCount elementer venter pa synkronisering...
+                    </MudText>
+                </MudStack>
+            </MudPaper>
+        }
         <div class="pa-4 pa-md-6">
             @Body
         </div>
@@ -267,6 +304,11 @@
     private List<TenantDto> _tenants = [];
     private List<Solodoc.Shared.Notifications.NotificationDto> _notifications = [];
 
+    // Sync state
+    private bool _syncOnline = true;
+    private int _syncPendingCount;
+    private DateTimeOffset? _syncLastSynced;
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
@@ -303,6 +345,28 @@
                     _openDeviationCount = await DeviationService.GetOpenCountAsync();
                     _notifications = await NotificationService.GetNotificationsAsync();
                     _unreadNotifications = _notifications.Count(n => !n.IsRead);
+
+                    // Initialize sync service
+                    try
+                    {
+                        await SyncService.InitializeAsync();
+                        _syncOnline = SyncService.IsOnline;
+                        _syncPendingCount = SyncService.PendingCount;
+                        _syncLastSynced = SyncService.LastSyncedAt;
+
+                        SyncService.OnConnectivityChanged += online =>
+                        {
+                            _syncOnline = online;
+                            InvokeAsync(StateHasChanged);
+                        };
+                        SyncService.OnQueueCountChanged += count =>
+                        {
+                            _syncPendingCount = count;
+                            _syncLastSynced = SyncService.LastSyncedAt;
+                            InvokeAsync(StateHasChanged);
+                        };
+                    }
+                    catch { }
                 }
                 StateHasChanged();
             }
@@ -369,6 +433,11 @@
     }
 
     private record NavItemModel(string Href, string Icon, string Label);
+
+    public async ValueTask DisposeAsync()
+    {
+        try { await SyncService.DisposeAsync(); } catch { }
+    }
 
     private static readonly NavItemModel[] _mobileNavItems =
     [

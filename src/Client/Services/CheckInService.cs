@@ -3,16 +3,16 @@ using Solodoc.Shared.CheckIn;
 
 namespace Solodoc.Client.Services;
 
-public class CheckInService(ApiHttpClient api)
+public class CheckInService(ApiHttpClient api, OfflineAwareApiClient offlineApi)
 {
     public async Task<bool> CheckInAsync(CheckInRequest request)
     {
-        return (await api.PostAsJsonAsync("api/checkin", request)).IsSuccessStatusCode;
+        return await offlineApi.PostWithQueueAsync("api/checkin", "checkIn", request);
     }
 
     public async Task<bool> CheckOutAsync(CheckOutRequest request)
     {
-        return (await api.PostAsJsonAsync("api/checkout", request)).IsSuccessStatusCode;
+        return await offlineApi.PostWithQueueAsync("api/checkout", "checkOut", request);
     }
 
     public async Task<MyCheckInStatusDto?> GetMyStatusAsync()

@@ -3,7 +3,7 @@ using Solodoc.Shared.Checklists;
 
 namespace Solodoc.Client.Services;
 
-public class ChecklistService(ApiHttpClient api)
+public class ChecklistService(ApiHttpClient api, OfflineAwareApiClient offlineApi)
 {
     private record IdResponse(Guid Id);
 
@@ -133,10 +133,8 @@ public class ChecklistService(ApiHttpClient api)
 
     public async Task<ChecklistInstanceDetailDto?> GetInstanceDetailAsync(Guid id)
     {
-        var response = await api.GetAsync($"api/checklists/instances/{id}");
-        if (response.IsSuccessStatusCode)
-            return await response.Content.ReadFromJsonAsync<ChecklistInstanceDetailDto>();
-        return null;
+        return await offlineApi.GetWithCacheAsync<ChecklistInstanceDetailDto>(
+            $"api/checklists/instances/{id}", "checklistInstance");
     }
 
     public async Task<Guid?> CreateInstanceAsync(CreateChecklistInstanceRequest request)
@@ -158,14 +156,16 @@ public class ChecklistService(ApiHttpClient api)
 
     public async Task<bool> SubmitItemAsync(Guid instanceId, Guid itemId, SubmitChecklistItemRequest request)
     {
-        var response = await api.PutAsJsonAsync($"api/checklists/instances/{instanceId}/items/{itemId}", request);
-        return response.IsSuccessStatusCode;
+        return await offlineApi.PutWithQueueAsync(
+            $"api/checklists/instances/{instanceId}/items/{itemId}",
+            "checklistItem", request);
     }
 
     public async Task<bool> SubmitInstanceAsync(Guid id)
     {
-        var response = await api.PatchAsync($"api/checklists/instances/{id}/submit");
-        return response.IsSuccessStatusCode;
+        return await offlineApi.PatchWithQueueAsync(
+            $"api/checklists/instances/{id}/submit",
+            "checklistInstance");
     }
 
     public async Task<bool> ApproveInstanceAsync(Guid id)

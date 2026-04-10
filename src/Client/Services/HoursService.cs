@@ -5,7 +5,7 @@ using Solodoc.Shared.Projects;
 
 namespace Solodoc.Client.Services;
 
-public class HoursService(ApiHttpClient api)
+public class HoursService(ApiHttpClient api, OfflineAwareApiClient offlineApi)
 {
     public async Task<PagedResult<TimeEntryListItemDto>> GetTimeEntriesAsync(
         int page = 1, int pageSize = 50, string? weekOf = null,
@@ -59,6 +59,10 @@ public class HoursService(ApiHttpClient api)
             var result = await response.Content.ReadFromJsonAsync<IdResponse>();
             return result?.Id;
         }
+
+        // If offline, queue and return placeholder
+        var queued = await offlineApi.PostWithQueueAsync("api/hours/clock-in", "clockIn", request);
+        if (queued) return Guid.NewGuid();
         return null;
     }
 
@@ -67,6 +71,9 @@ public class HoursService(ApiHttpClient api)
         var response = await api.PostAsJsonAsync("api/hours/clock-out", request);
         if (response.IsSuccessStatusCode)
             return await response.Content.ReadFromJsonAsync<TimeEntryDetailDto>();
+
+        // If offline, queue
+        await offlineApi.PostWithQueueAsync("api/hours/clock-out", "clockOut", request);
         return null;
     }
 
@@ -90,6 +97,10 @@ public class HoursService(ApiHttpClient api)
             var result = await response.Content.ReadFromJsonAsync<IdResponse>();
             return result?.Id;
         }
+
+        // If offline, queue
+        var queued = await offlineApi.PostWithQueueAsync("api/hours", "timeEntry", request);
+        if (queued) return Guid.NewGuid();
         return null;
     }
 

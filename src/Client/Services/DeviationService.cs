@@ -4,7 +4,7 @@ using Solodoc.Shared.Deviations;
 
 namespace Solodoc.Client.Services;
 
-public class DeviationService(ApiHttpClient api)
+public class DeviationService(ApiHttpClient api, OfflineAwareApiClient offlineApi)
 {
     public async Task<PagedResult<DeviationListItemDto>> GetDeviationsAsync(
         int page, int pageSize, string? search, string? sortBy, bool sortDesc)
@@ -43,6 +43,10 @@ public class DeviationService(ApiHttpClient api)
             var result = await response.Content.ReadFromJsonAsync<CreateResponse>();
             return result?.Id;
         }
+
+        // If offline, queue and return a temporary local ID
+        var queued = await offlineApi.PostWithQueueAsync("api/deviations", "deviation", request);
+        if (queued) return Guid.NewGuid(); // Local placeholder
         return null;
     }
 
