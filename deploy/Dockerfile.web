@@ -19,8 +19,11 @@ RUN dotnet publish src/Client/Solodoc.Client.csproj -c Release -o /app/publish -
 # Stage 2: Caddy serves static files + reverse proxies API
 FROM caddy:2-alpine AS runtime
 
-# Copy published Blazor WASM output
+# Copy published Blazor WASM output (app)
 COPY --from=build /app/publish/wwwroot /srv
+
+# Copy landing page
+COPY landing /srv-landing
 
 # Copy Caddyfile
 COPY deploy/Caddyfile /etc/caddy/Caddyfile
