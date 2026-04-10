@@ -775,6 +775,32 @@ app.MapPost("/api/invitations/{id:guid}/accept", async (
     return Results.Ok(new AcceptInvitationResponse(person.Email, invitation.TenantId, authResponse));
 }).AllowAnonymous();
 
+// Contact form (landing page — public, rate limited)
+app.MapPost("/api/contact", async (
+    ContactFormRequest request,
+    IEmailService emailService,
+    CancellationToken ct) =>
+{
+    if (string.IsNullOrWhiteSpace(request.Name) || string.IsNullOrWhiteSpace(request.Email))
+        return Results.BadRequest(new { error = "Navn og e-post er påkrevd." });
+
+    var subject = $"Ny henvendelse fra {request.Company ?? "ukjent"}";
+    var body = $"""
+        Ny henvendelse fra solodoc.no
+
+        Bedrift: {request.Company}
+        Navn: {request.Name}
+        Telefon: {request.Phone}
+        E-post: {request.Email}
+
+        Melding:
+        {request.Message}
+        """;
+
+    await emailService.SendAsync("kontakt@solodoc.no", subject, body, ct);
+    return Results.Ok(new { sent = true });
+}).AllowAnonymous().RequireRateLimiting("auth");
+
 app.MapDeviationEndpoints();
 app.MapProjectEndpoints();
 app.MapJobEndpoints();
@@ -804,4 +830,6 @@ app.Run();
 
 // Required for WebApplicationFactory in integration tests
 public partial class Program;
+
+public record ContactFormRequest(string? Company, string? Name, string? Phone, string? Email, string? Message);
 

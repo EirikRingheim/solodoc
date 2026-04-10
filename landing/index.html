@@ -684,23 +684,43 @@ window.addEventListener('scroll', function() {
     document.getElementById('navbar').classList.toggle('scrolled', window.scrollY > 20);
 });
 
-// Contact form — opens user's email client
+// Contact form — sends via API
 function sendContact(e) {
     e.preventDefault();
-    var company = document.getElementById('cf-company').value;
-    var name = document.getElementById('cf-name').value;
-    var phone = document.getElementById('cf-phone').value;
-    var email = document.getElementById('cf-email').value;
-    var message = document.getElementById('cf-message').value;
-    var subject = encodeURIComponent('Henvendelse fra ' + company);
-    var body = encodeURIComponent(
-        'Bedrift: ' + company + '\n' +
-        'Navn: ' + name + '\n' +
-        'Telefon: ' + phone + '\n' +
-        'E-post: ' + email + '\n\n' +
-        message
-    );
-    window.location.href = 'mailto:kontakt@solodoc.no?subject=' + subject + '&body=' + body;
+    var btn = e.target.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    btn.textContent = 'Sender...';
+
+    var data = {
+        company: document.getElementById('cf-company').value,
+        name: document.getElementById('cf-name').value,
+        phone: document.getElementById('cf-phone').value,
+        email: document.getElementById('cf-email').value,
+        message: document.getElementById('cf-message').value
+    };
+
+    fetch('https://app.solodoc.no/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    }).then(function(r) {
+        if (r.ok) {
+            btn.textContent = 'Sendt!';
+            btn.style.background = '#10B981';
+            e.target.reset();
+            setTimeout(function() { btn.textContent = 'Send melding'; btn.style.background = ''; btn.disabled = false; }, 4000);
+        } else {
+            btn.textContent = 'Feil — prov igjen';
+            btn.style.background = '#E63946';
+            setTimeout(function() { btn.textContent = 'Send melding'; btn.style.background = ''; btn.disabled = false; }, 3000);
+        }
+    }).catch(function() {
+        // Fallback to mailto
+        var subject = encodeURIComponent('Henvendelse fra ' + data.company);
+        var body = encodeURIComponent('Bedrift: ' + data.company + '\nNavn: ' + data.name + '\nTelefon: ' + data.phone + '\nE-post: ' + data.email + '\n\n' + data.message);
+        window.location.href = 'mailto:kontakt@solodoc.no?subject=' + subject + '&body=' + body;
+        btn.textContent = 'Send melding'; btn.disabled = false;
+    });
 }
 
 // Smooth scroll
