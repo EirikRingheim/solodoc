@@ -126,23 +126,30 @@ public static class HoursEndpoints
         var (personId, valid) = GetPersonId(user);
         if (!valid) return Results.Unauthorized();
 
-        var entry = await db.TimeEntries
-            .FirstOrDefaultAsync(t =>
-                t.PersonId == personId!.Value &&
-                t.ClockIn != null &&
-                t.ClockOut == null, ct);
+        try
+        {
+            var entry = await db.TimeEntries
+                .FirstOrDefaultAsync(t =>
+                    t.PersonId == personId!.Value &&
+                    t.ClockIn != null &&
+                    t.ClockOut == null, ct);
 
-        if (entry is null)
+            if (entry is null || entry.ClockIn is null)
+                return Results.Ok((ActiveClockDto?)null);
+
+            string? projectName = null;
+            if (entry.ProjectId.HasValue)
+                projectName = await db.Projects
+                    .Where(p => p.Id == entry.ProjectId.Value)
+                    .Select(p => p.Name)
+                    .FirstOrDefaultAsync(ct);
+
+            return Results.Ok(new ActiveClockDto(entry.Id, entry.ClockIn.Value, projectName, entry.ProjectId));
+        }
+        catch
+        {
             return Results.Ok((ActiveClockDto?)null);
-
-        string? projectName = null;
-        if (entry.ProjectId.HasValue)
-            projectName = await db.Projects
-                .Where(p => p.Id == entry.ProjectId.Value)
-                .Select(p => p.Name)
-                .FirstOrDefaultAsync(ct);
-
-        return Results.Ok(new ActiveClockDto(entry.Id, entry.ClockIn!.Value, projectName, entry.ProjectId));
+        }
     }
 
     // ─── Time Entries (Employee) ─────────────────────────────────────

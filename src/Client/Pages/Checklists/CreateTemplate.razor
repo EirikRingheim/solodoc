@@ -113,15 +113,21 @@
 
         try
         {
-            using var stream = file.OpenReadStream(maxAllowedSize: 25 * 1024 * 1024);
-            using var ms = new MemoryStream();
+            var stream = file.OpenReadStream(maxAllowedSize: 25 * 1024 * 1024);
+            var ms = new MemoryStream();
             await stream.CopyToAsync(ms);
             ms.Position = 0;
 
             var content = new MultipartFormDataContent();
-            content.Add(new StreamContent(ms), "file", file.Name);
+            var streamContent = new StreamContent(ms);
+            streamContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(file.ContentType);
+            content.Add(streamContent, "file", file.Name);
 
             var id = await ChecklistService.ImportTemplateFromFileAsync(content);
+
+            ms.Dispose();
+            stream.Dispose();
+
             if (id.HasValue)
             {
                 Snackbar.Add("Mal importert! Sjekk og juster elementene.", Severity.Success);

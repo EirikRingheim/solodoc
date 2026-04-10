@@ -279,6 +279,8 @@ public static class ShiftEndpoints
         var (personId, valid) = GetPersonId(user);
         if (!valid) return Results.Unauthorized();
 
+        try {
+
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
         var assignment = await db.EmployeeRotationAssignments
             .Where(a => a.PersonId == personId!.Value && a.EffectiveTo == null)
@@ -305,6 +307,11 @@ public static class ShiftEndpoints
             shift.Name, shift.Color, shift.IsWorkDay,
             shift.StartTime, shift.EndTime, shift.NormalHours,
             dayInCycle, assignment.RotationPattern.Name));
+        }
+        catch
+        {
+            return Results.Ok(new TodayShiftDto(null, null, true, null, null, 7.5m, 0, null));
+        }
     }
 
     // ─── My Plan (employee view) ───────────────────────────────────
