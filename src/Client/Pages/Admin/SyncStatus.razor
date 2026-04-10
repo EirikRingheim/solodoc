@@ -1,0 +1,193 @@
+@page "/admin/sync"
+@attribute [Authorize]
+@inject SyncService SyncService
+@inject OfflineStorageService OfflineStorage
+@inject ISnackbar Snackbar
+
+<PageTitle>Solodoc - Synkronisering</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4">Synkronisering</MudText>
+
+@* Status card *@
+<MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;" Class="pa-4 mb-4">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
+        @if (SyncService.IsOnline)
+        {
+            <MudIcon Icon="@Icons.Material.Filled.Wifi" Color="Color.Success" />
+            <div>
+                <MudText Typo="Typo.subtitle1" Style="font-weight:600;color:#059669;">Online</MudText>
+                @if (SyncService.LastSyncedAt.HasValue)
+                {
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                        Sist synkronisert: @SyncService.LastSyncedAt.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm:ss")
+                    </MudText>
+                }
+            </div>
+        }
+        else
+        {
+            <MudIcon Icon="@Icons.Material.Filled.WifiOff" Color="Color.Error" />
+            <div>
+                <MudText Typo="Typo.subtitle1" Style="font-weight:600;color:#E63946;">Offline</MudText>
+                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                    Endringer lagres lokalt og synkroniseres nar forbindelsen er tilbake.
+                </MudText>
+            </div>
+        }
+        <MudSpacer />
+        <MudButton Variant="Variant.Outlined" OnClick="RefreshQueue"
+                   StartIcon="@Icons.Material.Filled.Refresh"
+                   Style="text-transform:none;border-radius:8px;">
+            Oppdater
+        </MudButton>
+        @if (SyncService.IsOnline && _queue.Count > 0)
+        {
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SyncNow"
+                       StartIcon="@Icons.Material.Filled.Sync" Disabled="_syncing"
+                       Style="text-transform:none;border-radius:8px;">
+                @if (_syncing) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> }
+                Synkroniser na
+            </MudButton>
+        }
+    </MudStack>
+</MudPaper>
+
+@* Queue *@
+<MudText Typo="Typo.subtitle1" Style="font-weight:600;" Class="mb-2">
+    Ventende operasjoner (@_queue.Count)
+</MudText>
+
+@if (_queue.Count == 0)
+{
+    <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;" Class="pa-6">
+        <MudStack AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Large" Color="Color.Success" />
+            <MudText Color="Color.Secondary">Alt er synkronisert</MudText>
+        </MudStack>
+    </MudPaper>
+}
+else
+{
+    <MudStack Spacing="2">
+        @foreach (var entry in _queue)
+        {
+            var statusColor = entry.Status switch
+            {
+                "failed" => "#E63946",
+                "sending" => "#F59E0B",
+                _ => "#6B7280"
+            };
+            var typeLabel = entry.EntityType switch
+            {
+                "clockIn" => "Stemple inn",
+                "clockOut" => "Stemple ut",
+                "timeEntry" => "Timeregistrering",
+                "checklistItem" => "Sjekkliste-svar",
+                "checklistInstance" => "Sjekkliste innsendt",
+                "deviation" => "Avvik",
+                "checkIn" => "Innsjekking",
+                "checkOut" => "Utsjekking",
+                _ => entry.EntityType
+            };
+            var time = DateTimeOffset.FromUnixTimeMilliseconds(entry.Timestamp).ToLocalTime();
+
+            <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:8px;" Class="pa-3">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                        <div style="@($"width:8px;height:8px;border-radius:50%;background:{statusColor};")"></div>
+                        <div>
+                            <MudText Typo="Typo.body2" Style="font-weight:500;">@typeLabel</MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                @entry.Action @entry.Url — @time.ToString("HH:mm:ss")
+                                @if (entry.RetryCount > 0)
+                                {
+                                    <span> — @entry.RetryCount forsok</span>
+                                }
+                            </MudText>
+                        </div>
+                    </MudStack>
+                    @if (entry.Status == "failed")
+                    {
+                        <MudStack Row="true" Spacing="1">
+                            <MudButton Size="Size.Small" Variant="Variant.Outlined"
+                                       OnClick="() => RetryEntry(entry)"
+                                       Style="text-transform:none;border-radius:6px;">
+                                Prov igjen
+                            </MudButton>
+                            <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Error"
+                                       OnClick="() => DiscardEntry(entry)"
+                                       Style="text-transform:none;">
+                                Forkast
+                            </MudButton>
+                        </MudStack>
+                    }
+                </MudStack>
+            </MudPaper>
+        }
+    </MudStack>
+}
+
+@* Offline photos *@
+@if (_photos.Count > 0)
+{
+    <MudText Typo="Typo.subtitle1" Style="font-weight:600;" Class="mb-2 mt-4">
+        Bilder venter pa opplasting (@_photos.Count)
+    </MudText>
+    <MudStack Spacing="1">
+        @foreach (var photo in _photos)
+        {
+            <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:8px;" Class="pa-2">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@Icons.Material.Filled.Image" Size="Size.Small" Color="Color.Primary" />
+                    <MudText Typo="Typo.body2">@photo.FileName</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">@photo.EntityType</MudText>
+                </MudStack>
+            </MudPaper>
+        }
+    </MudStack>
+}
+
+@code {
+    private List<SyncQueueEntry> _queue = [];
+    private List<OfflinePhotoEntry> _photos = [];
+    private bool _syncing;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshQueue();
+    }
+
+    private async Task RefreshQueue()
+    {
+        try
+        {
+            _queue = await OfflineStorage.GetSyncQueueAsync();
+            _photos = await OfflineStorage.GetOfflinePhotosAsync();
+        }
+        catch { }
+    }
+
+    private async Task SyncNow()
+    {
+        _syncing = true;
+        StateHasChanged();
+        await SyncService.ProcessQueueAsync();
+        await RefreshQueue();
+        _syncing = false;
+        Snackbar.Add("Synkronisering fullfort", Severity.Success);
+    }
+
+    private async Task RetryEntry(SyncQueueEntry entry)
+    {
+        await OfflineStorage.UpdateSyncQueueEntryAsync(entry.Id, "pending", 0);
+        await SyncService.ProcessQueueAsync();
+        await RefreshQueue();
+    }
+
+    private async Task DiscardEntry(SyncQueueEntry entry)
+    {
+        await OfflineStorage.RemoveSyncQueueEntryAsync(entry.Id);
+        await RefreshQueue();
+        Snackbar.Add("Operasjon forkastet", Severity.Warning);
+    }
+}

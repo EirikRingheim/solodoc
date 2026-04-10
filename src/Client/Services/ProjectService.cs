@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Components;
 
 namespace Solodoc.Client.Services;
 
-public class ProjectService(ApiHttpClient api)
+public class ProjectService(ApiHttpClient api, OfflineAwareApiClient offlineApi)
 {
     private record IdResponse(Guid Id);
 
@@ -29,6 +29,11 @@ public class ProjectService(ApiHttpClient api)
 
     public async Task<List<ProjectListItemDto>> GetActiveProjectsAsync()
     {
+        // Try with offline cache support
+        var cached = await offlineApi.GetWithCacheAsync<PagedResult<ProjectListItemDto>>(
+            "api/projects?page=1&pageSize=100&sortDesc=false&sortBy=name", "projects");
+        if (cached is not null) return cached.Items.ToList();
+
         var result = await GetProjectsAsync(1, 100, null, "name", false);
         return result.Items.ToList();
     }

@@ -5,7 +5,7 @@
 window.solodocDb = {
     _db: null,
     _dbName: 'solodoc-offline',
-    _version: 1,
+    _version: 2,
 
     // ── Open / Initialize ──────────────────────────────
     open: function () {
@@ -34,6 +34,17 @@ window.solodocDb = {
                 // Metadata — last sync time, offline settings
                 if (!db.objectStoreNames.contains('metadata')) {
                     db.createObjectStore('metadata', { keyPath: 'key' });
+                }
+
+                // Local app state — pending clock-in, check-in, etc.
+                if (!db.objectStoreNames.contains('localState')) {
+                    db.createObjectStore('localState', { keyPath: 'key' });
+                }
+
+                // Offline photos — blobs stored for later upload
+                if (!db.objectStoreNames.contains('offlinePhotos')) {
+                    var photoStore = db.createObjectStore('offlinePhotos', { keyPath: 'id', autoIncrement: true });
+                    photoStore.createIndex('entityType', 'entityType', { unique: false });
                 }
             };
 
@@ -332,5 +343,83 @@ window.solodocDb = {
             window._solodocConnectivityHandler = null;
             window._solodocConnectivityRef = null;
         }
+    },
+
+    // ── Local State ────────────────────────────────────
+
+    setLocalState: async function (key, value) {
+        await this.open();
+        return new Promise((resolve, reject) => {
+            var tx = this._db.transaction('localState', 'readwrite');
+            var store = tx.objectStore('localState');
+            var request = store.put({ key: key, value: value, updatedAt: Date.now() });
+            request.onsuccess = () => resolve(true);
+            request.onerror = () => reject(request.error);
+        });
+    },
+
+    getLocalState: async function (key) {
+        await this.open();
+        return new Promise((resolve, reject) => {
+            var tx = this._db.transaction('localState', 'readonly');
+            var store = tx.objectStore('localState');
+            var request = store.get(key);
+            request.onsuccess = () => resolve(request.result ? request.result.value : null);
+            request.onerror = () => reject(request.error);
+        });
+    },
+
+    removeLocalState: async function (key) {
+        await this.open();
+        return new Promise((resolve, reject) => {
+            var tx = this._db.transaction('localState', 'readwrite');
+            var store = tx.objectStore('localState');
+            var request = store.delete(key);
+            request.onsuccess = () => resolve(true);
+            request.onerror = () => reject(request.error);
+        });
+    },
+
+    // ── Offline Photos ─────────────────────────────────
+
+    saveOfflinePhoto: async function (entityType, entityId, fileName, base64Data, contentType) {
+        await this.open();
+        return new Promise((resolve, reject) => {
+            var tx = this._db.transaction('offlinePhotos', 'readwrite');
+            var store = tx.objectStore('offlinePhotos');
+            var entry = {
+                entityType: entityType,
+                entityId: entityId,
+                fileName: fileName,
+                base64Data: base64Data,
+                contentType: contentType,
+                savedAt: Date.now()
+            };
+            var request = store.add(entry);
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+        });
+    },
+
+    getOfflinePhotos: async function () {
+        await this.open();
+        return new Promise((resolve, reject) => {
+            var tx = this._db.transaction('offlinePhotos', 'readonly');
+            var store = tx.objectStore('offlinePhotos');
+            var request = store.getAll();
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+        });
+    },
+
+    removeOfflinePhoto: async function (id) {
+        await this.open();
+        return new Promise((resolve, reject) => {
+            var tx = this._db.transaction('offlinePhotos', 'readwrite');
+            var store = tx.objectStore('offlinePhotos');
+            var request = store.delete(id);
+            request.onsuccess = () => resolve(true);
+            request.onerror = () => reject(request.error);
+        });
     }
 };

@@ -73,12 +73,57 @@ public class OfflineStorageService(IJSRuntime js)
         return await js.InvokeAsync<T?>("solodocDb.getMeta", key);
     }
 
+    // ── Local State ───────────────────────────────────
+
+    public async Task SetLocalStateAsync<T>(string key, T value)
+    {
+        await js.InvokeVoidAsync("solodocDb.setLocalState", key, value);
+    }
+
+    public async Task<T?> GetLocalStateAsync<T>(string key)
+    {
+        return await js.InvokeAsync<T?>("solodocDb.getLocalState", key);
+    }
+
+    public async Task RemoveLocalStateAsync(string key)
+    {
+        await js.InvokeVoidAsync("solodocDb.removeLocalState", key);
+    }
+
+    // ── Offline Photos ──────────────────────────────────
+
+    public async Task<int> SaveOfflinePhotoAsync(string entityType, string entityId, string fileName, string base64Data, string contentType)
+    {
+        return await js.InvokeAsync<int>("solodocDb.saveOfflinePhoto", entityType, entityId, fileName, base64Data, contentType);
+    }
+
+    public async Task<List<OfflinePhotoEntry>> GetOfflinePhotosAsync()
+    {
+        return await js.InvokeAsync<List<OfflinePhotoEntry>>("solodocDb.getOfflinePhotos");
+    }
+
+    public async Task RemoveOfflinePhotoAsync(int id)
+    {
+        await js.InvokeVoidAsync("solodocDb.removeOfflinePhoto", id);
+    }
+
     // ── Connectivity ────────────────────────────────────
 
     public async Task<bool> IsOnlineAsync()
     {
         return await js.InvokeAsync<bool>("solodocDb.isOnline");
     }
+}
+
+public class OfflinePhotoEntry
+{
+    public int Id { get; set; }
+    public string EntityType { get; set; } = "";
+    public string EntityId { get; set; } = "";
+    public string FileName { get; set; } = "";
+    public string Base64Data { get; set; } = "";
+    public string ContentType { get; set; } = "";
+    public long SavedAt { get; set; }
 }
 
 public class SyncQueueEntry

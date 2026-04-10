@@ -552,6 +552,11 @@ else if (_announcements.Count > 0)
 
         _summary = summaryTask.IsCompletedSuccessfully ? summaryTask.Result ?? _summary : _summary;
         _activeClock = clockTask.IsCompletedSuccessfully ? clockTask.Result : null;
+        // If no server clock-in, check for local offline pending clock-in
+        if (_activeClock is null)
+        {
+            try { _activeClock = await HoursService.GetLocalPendingClockInAsync(); } catch { }
+        }
         _todayShift = shiftTask.IsCompletedSuccessfully ? shiftTask.Result : null;
         _announcements = announcementsTask.IsCompletedSuccessfully ? announcementsTask.Result : [];
 

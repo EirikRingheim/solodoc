@@ -3,12 +3,11 @@ using Solodoc.Shared.Locations;
 
 namespace Solodoc.Client.Services;
 
-public class LocationService(ApiHttpClient api)
+public class LocationService(ApiHttpClient api, OfflineAwareApiClient offlineApi)
 {
     public async Task<List<LocationListItemDto>> GetLocationsAsync()
     {
-        var r = await api.GetAsync("api/locations");
-        return r.IsSuccessStatusCode ? await r.Content.ReadFromJsonAsync<List<LocationListItemDto>>() ?? [] : [];
+        return await offlineApi.GetWithCacheAsync<List<LocationListItemDto>>("api/locations", "locations") ?? [];
     }
 
     public async Task<LocationDetailDto?> GetLocationAsync(Guid id)

@@ -5,7 +5,7 @@ using Solodoc.Shared.Projects;
 
 namespace Solodoc.Client.Services;
 
-public class HoursService(ApiHttpClient api, OfflineAwareApiClient offlineApi)
+public class HoursService(ApiHttpClient api, OfflineAwareApiClient offlineApi, OfflineStorageService offlineStorage)
 {
     public async Task<PagedResult<TimeEntryListItemDto>> GetTimeEntriesAsync(
         int page = 1, int pageSize = 50, string? weekOf = null,
@@ -57,12 +57,26 @@ public class HoursService(ApiHttpClient api, OfflineAwareApiClient offlineApi)
         if (response.IsSuccessStatusCode)
         {
             var result = await response.Content.ReadFromJsonAsync<IdResponse>();
+            // Clear any local offline clock-in state
+            try { await offlineStorage.RemoveLocalStateAsync("pendingClockIn"); } catch { }
             return result?.Id;
         }
 
-        // If offline, queue and return placeholder
+        // If offline, queue and store local state
         var queued = await offlineApi.PostWithQueueAsync("api/hours/clock-in", "clockIn", request);
-        if (queued) return Guid.NewGuid();
+        if (queued)
+        {
+            var localId = Guid.NewGuid();
+            await offlineStorage.SetLocalStateAsync("pendingClockIn", new
+            {
+                Id = localId,
+                StartTime = DateTimeOffset.UtcNow,
+                ProjectId = request.ProjectId,
+                ProjectName = "", // We don't have the name locally
+                IsOffline = true
+            });
+            return localId;
+        }
         return null;
     }
 
@@ -70,12 +84,32 @@ public class HoursService(ApiHttpClient api, OfflineAwareApiClient offlineApi)
     {
         var response = await api.PostAsJsonAsync("api/hours/clock-out", request);
         if (response.IsSuccessStatusCode)
+        {
+            try { await offlineStorage.RemoveLocalStateAsync("pendingClockIn"); } catch { }
             return await response.Content.ReadFromJsonAsync<TimeEntryDetailDto>();
+        }
 
-        // If offline, queue
+        // If offline, queue and clear local clock-in
         await offlineApi.PostWithQueueAsync("api/hours/clock-out", "clockOut", request);
+        try { await offlineStorage.RemoveLocalStateAsync("pendingClockIn"); } catch { }
         return null;
     }
+
+    /// <summary>
+    /// Get the locally stored pending clock-in (for offline display on dashboard).
+    /// </summary>
+    public async Task<ActiveClockDto?> GetLocalPendingClockInAsync()
+    {
+        try
+        {
+            var state = await offlineStorage.GetLocalStateAsync<LocalClockInState>("pendingClockIn");
+            if (state is null) return null;
+            return new ActiveClockDto(state.Id, state.StartTime, state.ProjectName, state.ProjectId);
+        }
+        catch { return null; }
+    }
+
+    private record LocalClockInState(Guid Id, DateTimeOffset StartTime, string? ProjectName, Guid? ProjectId, bool IsOffline);
 
     public async Task<bool> DeleteEntryAsync(Guid id)
     {

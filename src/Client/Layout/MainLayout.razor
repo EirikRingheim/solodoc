@@ -155,7 +155,7 @@
 
         <MudSpacer />
 
-        <div class="sync-indicator" style="@(!_syncOnline ? "color:#E63946;" : _syncPendingCount > 0 ? "color:#F59E0B;" : "")">
+        <div class="sync-indicator" @onclick="GoToSync" style="@($"cursor:pointer;{(!_syncOnline ? "color:#E63946;" : _syncPendingCount > 0 ? "color:#F59E0B;" : "")}")">
             @if (!_syncOnline)
             {
                 <MudIcon Icon="@Icons.Material.Filled.CloudOff" Size="Size.Small" Style="color:#E63946;" />
@@ -410,6 +410,7 @@
     }
 
     private void ToggleDrawer() => _drawerOpen = !_drawerOpen;
+    private void GoToSync() => Navigation.NavigateTo("/admin/sync");
 
     private async Task HandleLogout()
     {

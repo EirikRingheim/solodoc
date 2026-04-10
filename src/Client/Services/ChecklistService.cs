@@ -11,10 +11,8 @@ public class ChecklistService(ApiHttpClient api, OfflineAwareApiClient offlineAp
 
     public async Task<List<ChecklistTemplateListItemDto>> GetTemplatesAsync()
     {
-        var response = await api.GetAsync("api/checklists/templates");
-        if (response.IsSuccessStatusCode)
-            return await response.Content.ReadFromJsonAsync<List<ChecklistTemplateListItemDto>>() ?? [];
-        return [];
+        return await offlineApi.GetWithCacheAsync<List<ChecklistTemplateListItemDto>>(
+            "api/checklists/templates", "checklistTemplates") ?? [];
     }
 
     public async Task<ChecklistTemplateDetailDto?> GetTemplateByIdAsync(Guid id)

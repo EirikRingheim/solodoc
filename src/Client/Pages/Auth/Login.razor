@@ -3,6 +3,10 @@
 @layout Solodoc.Client.Layout.AuthLayout
 @inject Solodoc.Client.Services.AuthHttpService AuthService
 @inject NavigationManager Navigation
+@inject ProjectService ProjectService
+@inject ChecklistService ChecklistService
+@inject LocationService LocationService
+@inject ContactService ContactService
 
 <PageTitle>Solodoc - Logg inn</PageTitle>
 
@@ -76,6 +80,21 @@
             {
                 if (tenants.Count == 1)
                     await AuthService.SelectTenantAsync(tenants[0].Id);
+
+                // Pre-cache data for offline use (fire-and-forget)
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await Task.WhenAll(
+                            ProjectService.GetActiveProjectsAsync(),
+                            ChecklistService.GetTemplatesAsync(),
+                            LocationService.GetLocationsAsync(),
+                            ContactService.GetContactsAsync(null));
+                    }
+                    catch { }
+                });
+
                 Navigation.NavigateTo("/", forceLoad: true);
             }
         }
