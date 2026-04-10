@@ -82,6 +82,17 @@ public class ChecklistService(ApiHttpClient api)
         return null;
     }
 
+    public async Task<Guid?> ImportTemplateFromFileAsync(MultipartFormDataContent content)
+    {
+        var response = await api.PostAsync("api/checklists/templates/import", content);
+        if (response.IsSuccessStatusCode)
+        {
+            var result = await response.Content.ReadFromJsonAsync<IdResponse>();
+            return result?.Id;
+        }
+        return null;
+    }
+
     // ─── Instances ───────────────────────────────────────
 
     public async Task<List<ChecklistInstanceListItemDto>> GetInstancesAsync(Guid? projectId = null, Guid? locationId = null)

@@ -25,6 +25,7 @@ public static class ChecklistEndpoints
         app.MapPost("/api/checklists/templates/{id:guid}/publish", PublishTemplate).RequireAuthorization();
         app.MapPost("/api/checklists/templates/{id:guid}/duplicate", DuplicateTemplate).RequireAuthorization();
         app.MapPut("/api/checklists/templates/{id:guid}/items/reorder", ReorderTemplateItems).RequireAuthorization();
+        app.MapPost("/api/checklists/templates/import", ImportTemplate).RequireAuthorization().DisableAntiforgery();
 
         // Instances
         app.MapGet("/api/checklists/instances", ListInstances).RequireAuthorization();
@@ -1039,4 +1040,188 @@ public static class ChecklistEndpoints
         ChecklistInstanceStatus.Reopened => "Gjenåpnet",
         _ => status.ToString()
     };
+
+    // ─── Template Import from File ──────────────────────────
+
+    private static async Task<IResult> ImportTemplate(
+        HttpRequest request,
+        ClaimsPrincipal user,
+        SolodocDbContext db,
+        ITenantProvider tp,
+        CancellationToken ct)
+    {
+        if (tp.TenantId is null) return Results.Unauthorized();
+
+        var personIdClaim = user.FindFirstValue(ClaimTypes.NameIdentifier) ?? user.FindFirstValue("sub");
+        if (!Guid.TryParse(personIdClaim, out var personId)) return Results.Unauthorized();
+
+        if (!request.HasFormContentType)
+            return Results.BadRequest(new { error = "Forventet fil." });
+
+        var form = await request.ReadFormAsync(ct);
+        var file = form.Files.FirstOrDefault();
+        if (file is null || file.Length == 0)
+            return Results.BadRequest(new { error = "Ingen fil mottatt." });
+
+        var ext = Path.GetExtension(file.FileName)?.ToLowerInvariant();
+        if (ext is not ".pdf" and not ".xlsx" and not ".xls" and not ".docx" and not ".doc")
+            return Results.BadRequest(new { error = "Ugyldig filformat. Stotter PDF, Excel, Word." });
+
+        // Extract text lines from the file
+        var lines = new List<string>();
+
+        try
+        {
+            using var stream = file.OpenReadStream();
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms, ct);
+            ms.Position = 0;
+
+            if (ext == ".pdf")
+            {
+                using var pdfDoc = UglyToad.PdfPig.PdfDocument.Open(ms);
+                foreach (var page in pdfDoc.GetPages())
+                {
+                    var text = page.Text;
+                    lines.AddRange(text.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+                }
+            }
+            else if (ext is ".xlsx" or ".xls")
+            {
+                using var workbook = new ClosedXML.Excel.XLWorkbook(ms);
+                var sheet = workbook.Worksheets.First();
+                foreach (var row in sheet.RowsUsed())
+                {
+                    var cellValues = row.CellsUsed().Select(c => c.GetString()).Where(s => !string.IsNullOrWhiteSpace(s));
+                    var line = string.Join(" — ", cellValues);
+                    if (!string.IsNullOrWhiteSpace(line))
+                        lines.Add(line);
+                }
+            }
+            else if (ext is ".docx" or ".doc")
+            {
+                // Simple text extraction from docx (ZIP with XML)
+                try
+                {
+                    ms.Position = 0;
+                    using var archive = new System.IO.Compression.ZipArchive(ms, System.IO.Compression.ZipArchiveMode.Read);
+                    var docEntry = archive.GetEntry("word/document.xml");
+                    if (docEntry is not null)
+                    {
+                        using var docStream = docEntry.Open();
+                        var doc = System.Xml.Linq.XDocument.Load(docStream);
+                        var ns = doc.Root?.Name.Namespace ?? System.Xml.Linq.XNamespace.None;
+                        var wNs = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+                        var paragraphs = doc.Descendants(System.Xml.Linq.XName.Get("p", wNs));
+                        foreach (var p in paragraphs)
+                        {
+                            var text = string.Join("", p.Descendants(System.Xml.Linq.XName.Get("t", wNs)).Select(t => t.Value));
+                            if (!string.IsNullOrWhiteSpace(text))
+                                lines.Add(text.Trim());
+                        }
+                    }
+                }
+                catch
+                {
+                    return Results.BadRequest(new { error = "Kunne ikke lese Word-filen." });
+                }
+            }
+        }
+        catch
+        {
+            return Results.BadRequest(new { error = "Kunne ikke lese filen." });
+        }
+
+        if (lines.Count == 0)
+            return Results.BadRequest(new { error = "Ingen tekst funnet i filen." });
+
+        // Parse lines into template items
+        // Heuristic: first line = template name, rest = checklist items
+        var templateName = lines.First();
+        if (templateName.Length > 200) templateName = templateName[..200];
+
+        // Auto-generate document number
+        var currentMax = await db.ChecklistTemplates
+            .Where(t => t.TenantId == tp.TenantId.Value && t.DocumentNumber != null)
+            .CountAsync(ct);
+        var documentNumber = $"IMP-{currentMax + 1:D3}";
+
+        var template = new ChecklistTemplate
+        {
+            TenantId = tp.TenantId.Value,
+            Name = templateName,
+            DocumentType = "Checklist",
+            DocumentNumber = documentNumber,
+            IsPublished = true,
+            CurrentVersion = 1
+        };
+        db.ChecklistTemplates.Add(template);
+
+        var version = new ChecklistTemplateVersion
+        {
+            ChecklistTemplateId = template.Id,
+            VersionNumber = 1,
+            PublishedAt = DateTimeOffset.UtcNow,
+            PublishedById = personId
+        };
+        db.ChecklistTemplateVersions.Add(version);
+
+        var sortOrder = 1;
+        foreach (var line in lines.Skip(1))
+        {
+            if (line.Length < 3) continue;
+            // Skip lines that look like headers/metadata
+            if (line.All(c => char.IsUpper(c) || char.IsWhiteSpace(c) || c == ':') && line.Length < 50)
+                continue;
+
+            var itemType = GuessItemType(line);
+
+            var item = new ChecklistTemplateItem
+            {
+                TemplateVersionId = version.Id,
+                Label = line.Length > 500 ? line[..500] : line,
+                Type = itemType,
+                SortOrder = sortOrder++,
+                IsRequired = false,
+                AllowComment = true,
+                AllowPhoto = true,
+                RequireCommentOnIrrelevant = true,
+                Source = "Import"
+            };
+            db.ChecklistTemplateItems.Add(item);
+        }
+
+        await db.SaveChangesAsync(ct);
+        return Results.Ok(new { id = template.Id });
+    }
+
+    private static ChecklistItemType GuessItemType(string line)
+    {
+        var lower = line.ToLowerInvariant();
+
+        // Lines with checkbox indicators
+        if (lower.StartsWith("[ ]") || lower.StartsWith("☐") || lower.StartsWith("□")
+            || lower.Contains("ja/nei") || lower.Contains("ok/") || lower.Contains("sjekk"))
+            return ChecklistItemType.Check;
+
+        // Lines asking for numbers/measurements
+        if (lower.Contains("antall") || lower.Contains("mengde") || lower.Contains("mal:")
+            || lower.Contains("temperatur") || lower.Contains("kg") || lower.Contains("meter"))
+            return ChecklistItemType.NumberInput;
+
+        // Lines asking for dates
+        if (lower.Contains("dato") || lower.Contains("tidspunkt") || lower.Contains("nar:"))
+            return ChecklistItemType.DateInput;
+
+        // Lines asking for signature
+        if (lower.Contains("signatur") || lower.Contains("underskrift"))
+            return ChecklistItemType.Signature;
+
+        // Lines asking for photo
+        if (lower.Contains("bilde") || lower.Contains("foto") || lower.Contains("dokumenter med bilde"))
+            return ChecklistItemType.Photo;
+
+        // Default to check item (most common in checklists)
+        return ChecklistItemType.Check;
+    }
 }

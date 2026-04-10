@@ -6,77 +6,80 @@
 
 <PageTitle>Solodoc - Ny mal</PageTitle>
 
-<MudButton Variant="Variant.Text" Color="Color.Primary"
-           StartIcon="@Icons.Material.Filled.ArrowBack"
-           Href="/checklists"
-           Style="text-transform:none;margin-bottom:16px;">
-    Tilbake til dokumenter
-</MudButton>
+<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-4">
+    <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Href="/checklists" />
+    <MudText Typo="Typo.h5">Ny mal</MudText>
+</MudStack>
 
-<MudText Typo="Typo.h5" Class="mb-4">Ny mal</MudText>
-
-<MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-5">
-    <MudForm @ref="_form">
+<div style="max-width:600px;">
+    @* ── Quick create ── *@
+    <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;" Class="pa-5 mb-4">
+        <MudText Typo="Typo.subtitle1" Style="font-weight:600;" Class="mb-3">Opprett fra bunnen</MudText>
         <MudStack Spacing="3">
-            <MudSelect @bind-Value="_documentType" Label="Type" Variant="Variant.Outlined"
-                       Required="true" RequiredError="Type er paakrevd">
-                <MudSelectItem Value="@("Checklist")">Sjekkliste</MudSelectItem>
-                <MudSelectItem Value="@("Schema")">Skjema</MudSelectItem>
-                <MudSelectItem Value="@("Procedure")">Prosedyre</MudSelectItem>
-            </MudSelect>
+            <MudTextField T="string" @bind-Value="_name" Label="Navn pa malen" Variant="Variant.Outlined"
+                          Placeholder="F.eks. Brannsjekk, Overlevering, Fuktkontroll"
+                          Required="true" Immediate="true" />
 
-            <MudTextField T="string" @bind-Value="_name" Label="Navn" Required="true"
-                          RequiredError="Navn er paakrevd" Variant="Variant.Outlined" />
-            <MudTextField T="string" @bind-Value="_description" Label="Beskrivelse"
-                          Variant="Variant.Outlined" Lines="3" />
-            <MudTextField T="string" @bind-Value="_category" Label="Kategori"
-                          Variant="Variant.Outlined"
-                          HelperText="F.eks. Elektrisk, Brann, Generell" />
-
-            <MudDivider Class="my-2" />
-
-            @if (_documentType is "Checklist" or "Schema")
-            {
-                <MudSwitch T="bool" @bind-Value="_requireSignature" Label="Krev signatur"
-                           Color="Color.Primary" />
-
-                @if (_requireSignature)
-                {
-                    <MudNumericField T="int" @bind-Value="_signatureCount"
-                                     Label="Antall signaturer" Min="1" Max="5"
-                                     Variant="Variant.Outlined" />
-                    <MudTextField T="string" @bind-Value="_signatureRoles"
-                                  Label="Signaturroller (kommaseparert)"
-                                  Variant="Variant.Outlined"
-                                  HelperText="F.eks. Utfyller, Prosjektleder, Kontrollor" />
-                }
-            }
-
-            <MudStack Row="true" Justify="Justify.FlexEnd">
-                <MudButton Variant="Variant.Filled" Color="Color.Primary"
-                           OnClick="Submit" Disabled="_submitting"
-                           Style="text-transform:none;border-radius:8px;">
-                    @if (_submitting)
-                    {
-                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
-                    }
-                    Opprett mal
-                </MudButton>
+            <MudStack Row="true" Spacing="2">
+                <MudChipSet T="string" @bind-SelectedValue="_documentType" Mandatory="true" SelectionMode="SelectionMode.SingleSelection">
+                    <MudChip T="string" Value="@("Checklist")" Variant="Variant.Outlined" Color="Color.Primary"
+                             Style="text-transform:none;">Sjekkliste</MudChip>
+                    <MudChip T="string" Value="@("Schema")" Variant="Variant.Outlined" Color="Color.Primary"
+                             Style="text-transform:none;">Skjema</MudChip>
+                    <MudChip T="string" Value="@("Procedure")" Variant="Variant.Outlined" Color="Color.Primary"
+                             Style="text-transform:none;">Prosedyre</MudChip>
+                </MudChipSet>
             </MudStack>
+
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
+                       OnClick="CreateAndEdit" Disabled="@(_submitting || string.IsNullOrWhiteSpace(_name))"
+                       Style="text-transform:none;border-radius:8px;min-height:48px;">
+                @if (_submitting) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> }
+                Opprett og rediger
+            </MudButton>
         </MudStack>
-    </MudForm>
-</MudPaper>
+    </MudPaper>
+
+    @* ── Import from file ── *@
+    <MudPaper Elevation="0" Style="border:2px dashed #4361EE40;border-radius:12px;background:#F8FAFF;" Class="pa-5">
+        <MudStack AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Filled.UploadFile" Size="Size.Large" Style="color:#4361EE;" />
+            <MudText Typo="Typo.subtitle1" Style="font-weight:600;">Importer eksisterende mal</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary" Style="text-align:center;">
+                Last opp en sjekkliste, skjema eller prosedyre du allerede bruker.
+                Vi leser filen og konverterer den til Solodoc-format.
+            </MudText>
+            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                Stotter PDF, Excel (.xlsx), Word (.docx)
+            </MudText>
+            <MudFileUpload T="IBrowserFile" Accept=".pdf,.xlsx,.xls,.docx,.doc" MaximumFileCount="1"
+                           FilesChanged="HandleFileUpload">
+                <ActivatorContent>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.CloudUpload"
+                               Style="text-transform:none;border-radius:8px;"
+                               Disabled="_importing">
+                        @if (_importing)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                            <span>Leser fil...</span>
+                        }
+                        else
+                        {
+                            <span>Velg fil</span>
+                        }
+                    </MudButton>
+                </ActivatorContent>
+            </MudFileUpload>
+        </MudStack>
+    </MudPaper>
+</div>
 
 @code {
-    private MudForm? _form;
+    private string _name = "";
     private string _documentType = "Checklist";
-    private string _name = string.Empty;
-    private string? _description;
-    private string? _category;
-    private bool _requireSignature = true;
-    private int _signatureCount = 1;
-    private string? _signatureRoles;
     private bool _submitting;
+    private bool _importing;
 
     protected override void OnInitialized()
     {
@@ -84,41 +87,56 @@
         var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
         var typeParam = query["type"];
         if (!string.IsNullOrWhiteSpace(typeParam) && typeParam is "Checklist" or "Schema" or "Procedure")
-        {
             _documentType = typeParam;
-        }
     }
 
-    private async Task Submit()
+    private async Task CreateAndEdit()
     {
-        if (_form is not null)
-            await _form.ValidateAsync();
-
-        if (_form?.IsValid != true)
-            return;
-
+        if (string.IsNullOrWhiteSpace(_name)) return;
         _submitting = true;
 
-        var request = new CreateChecklistTemplateRequest(
-            _name,
-            _description,
-            _category,
-            _documentType,
-            _requireSignature,
-            _signatureCount,
-            _signatureRoles);
+        var request = new CreateChecklistTemplateRequest(_name, null, null, _documentType);
         var id = await ChecklistService.CreateTemplateAsync(request);
-
         _submitting = false;
 
         if (id.HasValue)
-        {
-            Snackbar.Add("Mal opprettet", Severity.Success);
             Navigation.NavigateTo($"/checklists/templates/{id.Value}");
-        }
         else
-        {
             Snackbar.Add("Kunne ikke opprette mal", Severity.Error);
+    }
+
+    private async Task HandleFileUpload(IBrowserFile? file)
+    {
+        if (file is null) return;
+        _importing = true;
+        StateHasChanged();
+
+        try
+        {
+            // Upload the file to the import endpoint
+            using var stream = file.OpenReadStream(maxAllowedSize: 25 * 1024 * 1024);
+            using var content = new MultipartFormDataContent();
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms);
+            ms.Position = 0;
+            content.Add(new StreamContent(ms), "file", file.Name);
+
+            var id = await ChecklistService.ImportTemplateFromFileAsync(content);
+            if (id.HasValue)
+            {
+                Snackbar.Add("Mal importert! Sjekk og juster elementene.", Severity.Success);
+                Navigation.NavigateTo($"/checklists/templates/{id.Value}");
+            }
+            else
+            {
+                Snackbar.Add("Kunne ikke lese filen. Prov et annet format.", Severity.Warning);
+            }
         }
+        catch
+        {
+            Snackbar.Add("Feil ved opplasting", Severity.Error);
+        }
+
+        _importing = false;
     }
 }
