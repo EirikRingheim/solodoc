@@ -1,0 +1,258 @@
+@page "/admin/roles"
+@attribute [Authorize]
+@inject RoleService RoleService
+@inject ISnackbar Snackbar
+@using Solodoc.Shared.Auth
+
+<PageTitle>Solodoc - Roller</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4">
+    <MudText Typo="Typo.h5" Style="font-weight:700;">Roller og tilganger</MudText>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.Add"
+               OnClick="OpenCreateDialog"
+               Style="text-transform:none;border-radius:8px;">
+        Ny rolle
+    </MudButton>
+</MudStack>
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+}
+else
+{
+    <MudGrid Spacing="3">
+        @foreach (var role in _roles)
+        {
+            var capturedRole = role;
+            <MudItem xs="12" sm="6" md="4">
+                <MudPaper Elevation="0" Style="@($"border:1px solid {(role.Color ?? "#e9ecef")};border-radius:12px;height:100%;")" Class="pa-4">
+                    <MudStack Spacing="2">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                <div style="@($"width:32px;height:32px;border-radius:8px;background:{(role.Color ?? "#4361EE")};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.8rem;")">
+                                    @role.Name[0].ToString().ToUpper()
+                                </div>
+                                <div>
+                                    <MudText Typo="Typo.subtitle1" Style="font-weight:600;">@role.Name</MudText>
+                                    @if (role.IsSystem)
+                                    {
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary">Systemrolle</MudText>
+                                    }
+                                </div>
+                            </MudStack>
+                            <MudChip T="string" Size="Size.Small" Style="height:22px;">@role.MemberCount ansatte</MudChip>
+                        </MudStack>
+
+                        @if (!string.IsNullOrWhiteSpace(role.Description))
+                        {
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">@role.Description</MudText>
+                        }
+
+                        <div style="display:flex;flex-wrap:wrap;gap:4px;">
+                            @foreach (var perm in role.Permissions.Take(6))
+                            {
+                                <span style="padding:2px 8px;border-radius:10px;background:#F3F4F6;font-size:0.65rem;color:#6B7280;">@perm</span>
+                            }
+                            @if (role.Permissions.Count > 6)
+                            {
+                                <span style="padding:2px 8px;border-radius:10px;background:#F3F4F6;font-size:0.65rem;color:#6B7280;">+@(role.Permissions.Count - 6) til</span>
+                            }
+                        </div>
+
+                        <MudStack Row="true" Spacing="1">
+                            <MudButton Variant="Variant.Outlined" Size="Size.Small"
+                                       StartIcon="@Icons.Material.Filled.Edit"
+                                       OnClick="() => OpenEditDialog(capturedRole)"
+                                       Style="text-transform:none;border-radius:6px;flex:1;">
+                                Rediger
+                            </MudButton>
+                            @if (!role.IsSystem)
+                            {
+                                <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Error"
+                                           StartIcon="@Icons.Material.Filled.Delete"
+                                           OnClick="() => DeleteRole(capturedRole)"
+                                           Style="text-transform:none;border-radius:6px;">
+                                    Slett
+                                </MudButton>
+                            }
+                        </MudStack>
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
+        }
+    </MudGrid>
+}
+
+@* ── Create/Edit Dialog ── *@
+<MudDialog @bind-Visible="_dialogOpen" Options="@(new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = true })">
+    <TitleContent>
+        <MudText Typo="Typo.h6">@(_editingRoleId.HasValue ? "Rediger rolle" : "Ny rolle")</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudStack Row="true" Spacing="2">
+                <MudTextField T="string" @bind-Value="_dlgName" Label="Rollenavn" Variant="Variant.Outlined"
+                              Required="true" Placeholder="F.eks. Bas, Formann, Lærling" Style="flex:1;" />
+                <MudTextField T="string" @bind-Value="_dlgColor" Label="Farge" Variant="Variant.Outlined"
+                              Placeholder="#4361EE" Style="max-width:120px;"
+                              Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.Palette" />
+            </MudStack>
+            <MudTextField T="string" @bind-Value="_dlgDescription" Label="Beskrivelse" Variant="Variant.Outlined"
+                          Placeholder="Kort beskrivelse av hva denne rollen kan gjore" />
+
+            <MudDivider />
+            <MudText Typo="Typo.subtitle1" Style="font-weight:600;">Tilganger</MudText>
+
+            @foreach (var group in PermissionDefinitions.AllGroups)
+            {
+                <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:10px;" Class="pa-3">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-1">
+                        <MudText Typo="Typo.subtitle2" Style="font-weight:600;">@group.Label</MudText>
+                        <MudButton Variant="Variant.Text" Size="Size.Small"
+                                   OnClick="() => ToggleGroup(group)"
+                                   Style="text-transform:none;font-size:0.7rem;">
+                            @(IsGroupFullyChecked(group) ? "Fjern alle" : "Velg alle")
+                        </MudButton>
+                    </MudStack>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px;">
+                        @foreach (var perm in group.Permissions)
+                        {
+                            var capturedPerm = perm;
+                            <MudCheckBox T="bool" Value="@_dlgPermissions.Contains(capturedPerm.Key)"
+                                         ValueChanged="(bool val) => TogglePermission(capturedPerm.Key, val)"
+                                         Label="@capturedPerm.Label" Dense="true"
+                                         Color="Color.Primary"
+                                         Style="font-size:0.85rem;" />
+                        }
+                    </div>
+                </MudPaper>
+            }
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => _dialogOpen = false" Style="text-transform:none;">Avbryt</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveRole"
+                   Disabled="@(_saving || string.IsNullOrWhiteSpace(_dlgName))"
+                   Style="text-transform:none;border-radius:8px;">
+            @if (_saving) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> }
+            @(_editingRoleId.HasValue ? "Lagre endringer" : "Opprett rolle")
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private List<CustomRoleDto> _roles = [];
+    private bool _loading = true;
+
+    // Dialog state
+    private bool _dialogOpen;
+    private Guid? _editingRoleId;
+    private string _dlgName = "";
+    private string _dlgDescription = "";
+    private string _dlgColor = "#4361EE";
+    private HashSet<string> _dlgPermissions = [];
+    private bool _saving;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadRoles();
+    }
+
+    private async Task LoadRoles()
+    {
+        _loading = true;
+        _roles = await RoleService.GetRolesAsync();
+        _loading = false;
+    }
+
+    private void OpenCreateDialog()
+    {
+        _editingRoleId = null;
+        _dlgName = "";
+        _dlgDescription = "";
+        _dlgColor = "#4361EE";
+        _dlgPermissions = [];
+        _dialogOpen = true;
+    }
+
+    private void OpenEditDialog(CustomRoleDto role)
+    {
+        _editingRoleId = role.Id;
+        _dlgName = role.Name;
+        _dlgDescription = role.Description ?? "";
+        _dlgColor = role.Color ?? "#4361EE";
+        _dlgPermissions = [.. role.Permissions];
+        _dialogOpen = true;
+    }
+
+    private void TogglePermission(string key, bool selected)
+    {
+        if (selected) _dlgPermissions.Add(key);
+        else _dlgPermissions.Remove(key);
+    }
+
+    private void ToggleGroup(PermissionGroup group)
+    {
+        if (IsGroupFullyChecked(group))
+        {
+            foreach (var p in group.Permissions)
+                _dlgPermissions.Remove(p.Key);
+        }
+        else
+        {
+            foreach (var p in group.Permissions)
+                _dlgPermissions.Add(p.Key);
+        }
+    }
+
+    private bool IsGroupFullyChecked(PermissionGroup group)
+        => group.Permissions.All(p => _dlgPermissions.Contains(p.Key));
+
+    private async Task SaveRole()
+    {
+        _saving = true;
+        bool success;
+
+        if (_editingRoleId.HasValue)
+        {
+            success = await RoleService.UpdateRoleAsync(_editingRoleId.Value,
+                new(_dlgName, _dlgDescription, _dlgColor, _dlgPermissions.ToList()));
+        }
+        else
+        {
+            var id = await RoleService.CreateRoleAsync(
+                new(_dlgName, _dlgDescription, _dlgColor, _dlgPermissions.ToList()));
+            success = id.HasValue;
+        }
+
+        _saving = false;
+
+        if (success)
+        {
+            Snackbar.Add(_editingRoleId.HasValue ? "Rolle oppdatert" : "Rolle opprettet", Severity.Success);
+            _dialogOpen = false;
+            await LoadRoles();
+        }
+        else
+        {
+            Snackbar.Add("Kunne ikke lagre rolle", Severity.Error);
+        }
+    }
+
+    private async Task DeleteRole(CustomRoleDto role)
+    {
+        var success = await RoleService.DeleteRoleAsync(role.Id);
+        if (success)
+        {
+            Snackbar.Add("Rolle slettet", Severity.Success);
+            await LoadRoles();
+        }
+        else
+        {
+            Snackbar.Add("Kunne ikke slette rolle — har den ansatte tilknyttet?", Severity.Error);
+        }
+    }
+}

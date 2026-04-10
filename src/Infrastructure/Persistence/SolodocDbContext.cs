@@ -56,6 +56,7 @@ public class SolodocDbContext : DbContext
     public DbSet<Person> Persons => Set<Person>();
     public DbSet<Tenant> Tenants => Set<Tenant>();
     public DbSet<TenantMembership> TenantMemberships => Set<TenantMembership>();
+    public DbSet<CustomRole> CustomRoles => Set<CustomRole>();
     public DbSet<SubcontractorAccess> SubcontractorAccesses => Set<SubcontractorAccess>();
     public DbSet<Invitation> Invitations => Set<Invitation>();
     public DbSet<BankIdVerification> BankIdVerifications => Set<BankIdVerification>();
