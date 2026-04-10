@@ -8,6 +8,12 @@ public record OnboardingStatusDto(
     string SubscriptionTier,
     DateTimeOffset? TrialEndsAt);
 
+public record CreateTenantOnboardingRequest(
+    string CompanyName,
+    string? OrgNumber,
+    string IndustryType,
+    string CompanySize);
+
 public record SaveOnboardingStep1Request(
     string CompanyName,
     string IndustryType,
@@ -22,6 +28,33 @@ public record SaveOnboardingStep3Request(
 public record InviteEntry(string Email, string Role);
 
 public record CompleteOnboardingRequest(bool Completed = true);
+
+// ── Pricing ──────────────────────────────────────────
+public static class PricingConfig
+{
+    public const int BasePriceMonthly = 990;        // kr/mnd for 1-5 users
+    public const int BaseIncludedUsers = 5;
+    public const int ExtraUserPrice = 150;           // kr/mnd per extra user
+    public const int SubcontractorPrice = 49;        // kr/mnd per subcontractor
+    public const decimal YearlyDiscount = 0.10m;     // 10% off
+    public const int TrialDays = 30;
+
+    // Template pricing
+    public const int SingleTemplatePrice = 49;       // kr per template
+    public const int Pack10Price = 299;              // kr for 10
+    public const int Pack20Price = 499;              // kr for 20
+    public const int Pack50Price = 999;              // kr for 50+
+
+    public static int CalculateMonthly(int adminCount, int workerCount, int subcontractorCount)
+    {
+        var totalRegular = adminCount + workerCount;
+        var extraUsers = Math.Max(0, totalRegular - BaseIncludedUsers);
+        return BasePriceMonthly + (extraUsers * ExtraUserPrice) + (subcontractorCount * SubcontractorPrice);
+    }
+
+    public static int CalculateYearly(int monthly)
+        => (int)(monthly * 12 * (1 - YearlyDiscount));
+}
 
 public static class IndustryTypes
 {

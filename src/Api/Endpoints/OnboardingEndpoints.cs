@@ -16,6 +16,7 @@ public static class OnboardingEndpoints
     public static WebApplication MapOnboardingEndpoints(this WebApplication app)
     {
         app.MapGet("/api/onboarding/status", GetStatus).RequireAuthorization();
+        app.MapPost("/api/onboarding/create-tenant", CreateTenantOnboarding).RequireAuthorization();
         app.MapPost("/api/onboarding/step1", SaveStep1).RequireAuthorization();
         app.MapPost("/api/onboarding/step2", SaveStep2).RequireAuthorization();
         app.MapPost("/api/onboarding/step3", SaveStep3).RequireAuthorization();
@@ -26,14 +27,20 @@ public static class OnboardingEndpoints
     }
 
     private static async Task<IResult> GetStatus(
+        ClaimsPrincipal user,
         SolodocDbContext db,
         ITenantProvider tp,
         CancellationToken ct)
     {
-        if (tp.TenantId is null) return Results.Unauthorized();
+        // If no tenant, return "needs onboarding" status
+        if (tp.TenantId is null)
+        {
+            return Results.Ok(new OnboardingStatusDto(false, null, null, [], "none", null));
+        }
 
         var tenant = await db.Tenants.FirstOrDefaultAsync(t => t.Id == tp.TenantId.Value, ct);
-        if (tenant is null) return Results.NotFound();
+        if (tenant is null)
+            return Results.Ok(new OnboardingStatusDto(false, null, null, [], "none", null));
 
         var modules = new List<string>();
         if (!string.IsNullOrEmpty(tenant.EnabledModules))
@@ -48,6 +55,50 @@ public static class OnboardingEndpoints
             modules,
             tenant.SubscriptionTier,
             tenant.TrialEndsAt));
+    }
+
+    private static async Task<IResult> CreateTenantOnboarding(
+        CreateTenantOnboardingRequest request,
+        ClaimsPrincipal user,
+        SolodocDbContext db,
+        CancellationToken ct)
+    {
+        var personIdClaim = user.FindFirstValue(ClaimTypes.NameIdentifier) ?? user.FindFirstValue("sub");
+        if (!Guid.TryParse(personIdClaim, out var personId))
+            return Results.Unauthorized();
+
+        // Check if person already has a tenant
+        var existing = await db.TenantMemberships
+            .AnyAsync(m => m.PersonId == personId && m.State == TenantMembershipState.Active, ct);
+        if (existing)
+            return Results.BadRequest(new { error = "Du har allerede en bedrift." });
+
+        var tenant = new Tenant
+        {
+            Name = request.CompanyName,
+            OrgNumber = request.OrgNumber ?? "",
+            BusinessType = Domain.Enums.BusinessType.AS,
+            IndustryType = request.IndustryType,
+            CompanySize = request.CompanySize,
+            SubscriptionTier = "trial",
+            TrialStartedAt = DateTimeOffset.UtcNow,
+            TrialEndsAt = DateTimeOffset.UtcNow.AddDays(30),
+            DefaultTimeZoneId = "Europe/Oslo"
+        };
+        db.Tenants.Add(tenant);
+
+        var membership = new TenantMembership
+        {
+            PersonId = personId,
+            TenantId = tenant.Id,
+            Role = TenantRole.TenantAdmin,
+            State = TenantMembershipState.Active
+        };
+        db.TenantMemberships.Add(membership);
+
+        await db.SaveChangesAsync(ct);
+
+        return Results.Ok(new { tenantId = tenant.Id });
     }
 
     private static async Task<IResult> SaveStep1(
