@@ -136,10 +136,14 @@ public static class ChecklistEndpoints
     private static async Task<IResult> GetTemplateDetail(
         Guid id,
         SolodocDbContext db,
+        ITenantProvider tenantProvider,
         CancellationToken ct)
     {
+        if (tenantProvider.TenantId is null)
+            return Results.Unauthorized();
+
         var template = await db.ChecklistTemplates
-            .FirstOrDefaultAsync(t => t.Id == id, ct);
+            .FirstOrDefaultAsync(t => t.Id == id && t.TenantId == tenantProvider.TenantId.Value, ct);
 
         if (template is null)
             return Results.NotFound();
@@ -441,7 +445,7 @@ public static class ChecklistEndpoints
         var tenantId = tenantProvider.TenantId.Value;
 
         var original = await db.ChecklistTemplates
-            .FirstOrDefaultAsync(t => t.Id == id, ct);
+            .FirstOrDefaultAsync(t => t.Id == id && t.TenantId == tenantId, ct);
 
         if (original is null)
             return Results.NotFound();
@@ -605,10 +609,14 @@ public static class ChecklistEndpoints
     private static async Task<IResult> GetInstanceDetail(
         Guid id,
         SolodocDbContext db,
+        ITenantProvider tenantProvider,
         CancellationToken ct)
     {
+        if (tenantProvider.TenantId is null)
+            return Results.Unauthorized();
+
         var instance = await db.ChecklistInstances
-            .FirstOrDefaultAsync(i => i.Id == id, ct);
+            .FirstOrDefaultAsync(i => i.Id == id && i.TenantId == tenantProvider.TenantId.Value, ct);
 
         if (instance is null)
             return Results.NotFound();

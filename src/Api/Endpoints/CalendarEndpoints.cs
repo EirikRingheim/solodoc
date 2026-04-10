@@ -32,8 +32,11 @@ public static class CalendarEndpoints
                             ?? user.FindFirstValue("sub");
         Guid.TryParse(personIdClaim, out var personId);
 
+        if (tenantProvider.TenantId is null)
+            return Results.Unauthorized();
+
         // Regular calendar events
-        var query = db.CalendarEvents.AsQueryable();
+        var query = db.CalendarEvents.Where(e => e.TenantId == tenantProvider.TenantId.Value).AsQueryable();
         if (from.HasValue)
             query = query.Where(e => e.StartAt >= from.Value || (e.EndAt != null && e.EndAt >= from.Value));
         if (to.HasValue)

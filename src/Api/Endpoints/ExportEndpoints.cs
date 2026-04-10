@@ -110,10 +110,14 @@ public static class ExportEndpoints
     private static async Task<IResult> GetExportStatus(
         Guid id,
         SolodocDbContext db,
+        ITenantProvider tenantProvider,
         CancellationToken ct)
     {
+        if (tenantProvider.TenantId is null)
+            return Results.Unauthorized();
+
         var job = await db.ExportJobs
-            .Where(j => j.Id == id)
+            .Where(j => j.Id == id && j.TenantId == tenantProvider.TenantId.Value)
             .Select(j => new ExportJobDto(
                 j.Id,
                 j.Type,
@@ -134,9 +138,13 @@ public static class ExportEndpoints
         Guid id,
         SolodocDbContext db,
         IFileStorageService fileStorage,
+        ITenantProvider tenantProvider,
         CancellationToken ct)
     {
-        var job = await db.ExportJobs.FirstOrDefaultAsync(j => j.Id == id, ct);
+        if (tenantProvider.TenantId is null)
+            return Results.Unauthorized();
+
+        var job = await db.ExportJobs.FirstOrDefaultAsync(j => j.Id == id && j.TenantId == tenantProvider.TenantId.Value, ct);
         if (job is null)
             return Results.NotFound();
 

@@ -334,7 +334,8 @@ public static class ReportEndpoints
     {
         if (tenantProvider.TenantId is null) return Results.Unauthorized();
 
-        var project = await db.Projects.FirstOrDefaultAsync(p => p.Id == id, ct);
+        var tenantId = tenantProvider.TenantId.Value;
+        var project = await db.Projects.FirstOrDefaultAsync(p => p.Id == id && p.TenantId == tenantId, ct);
         if (project is null) return Results.NotFound();
 
         var statusStr = project.Status switch

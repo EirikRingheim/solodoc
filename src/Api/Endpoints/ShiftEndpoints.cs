@@ -237,8 +237,16 @@ public static class ShiftEndpoints
     }
 
     private static async Task<IResult> AssignRotation(
-        AssignRotationRequest req, SolodocDbContext db, CancellationToken ct)
+        AssignRotationRequest req, SolodocDbContext db, ITenantProvider tp, CancellationToken ct)
     {
+        if (tp.TenantId is null) return Results.Unauthorized();
+        var tenantId = tp.TenantId.Value;
+
+        // Validate that the rotation pattern belongs to the current tenant
+        var patternExists = await db.RotationPatterns
+            .AnyAsync(r => r.Id == req.RotationPatternId && r.TenantId == tenantId, ct);
+        if (!patternExists) return Results.NotFound();
+
         var assignment = new Domain.Entities.Hours.EmployeeRotationAssignment
         {
             PersonId = req.PersonId,
@@ -252,7 +260,11 @@ public static class ShiftEndpoints
 
     private static async Task<IResult> RemoveAssignment(Guid id, SolodocDbContext db, ITenantProvider tp, CancellationToken ct)
     {
-        var a = await db.EmployeeRotationAssignments.FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (tp.TenantId is null) return Results.Unauthorized();
+
+        var a = await db.EmployeeRotationAssignments
+            .Include(x => x.RotationPattern)
+            .FirstOrDefaultAsync(x => x.Id == id && x.RotationPattern.TenantId == tp.TenantId.Value, ct);
         if (a is null) return Results.NotFound();
         a.EffectiveTo = DateOnly.FromDateTime(DateTime.UtcNow);
         await db.SaveChangesAsync(ct);

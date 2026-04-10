@@ -103,13 +103,15 @@ public static class NotificationEndpoints
     private static async Task<IResult> ListAnnouncements(
         ClaimsPrincipal user,
         SolodocDbContext db,
+        ITenantProvider tenantProvider,
         CancellationToken ct)
     {
         var personId = GetPersonId(user);
-        if (personId is null)
+        if (personId is null || tenantProvider.TenantId is null)
             return Results.Unauthorized();
 
         var items = await db.Announcements
+            .Where(a => a.TenantId == tenantProvider.TenantId.Value)
             .OrderByDescending(a => a.CreatedAt)
             .Select(a => new AnnouncementDto(
                 a.Id,

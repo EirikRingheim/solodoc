@@ -20,9 +20,14 @@ public static class TaskGroupEndpoints
 
     private static async Task<IResult> ListTaskGroups(
         SolodocDbContext db,
+        ITenantProvider tenantProvider,
         CancellationToken ct)
     {
+        if (tenantProvider.TenantId is null)
+            return Results.Unauthorized();
+
         var items = await db.TaskGroups
+            .Where(tg => tg.TenantId == tenantProvider.TenantId.Value)
             .OrderBy(tg => tg.Name)
             .Select(tg => new TaskGroupListItemDto(
                 tg.Id,
@@ -61,10 +66,14 @@ public static class TaskGroupEndpoints
     private static async Task<IResult> GetTaskGroup(
         Guid id,
         SolodocDbContext db,
+        ITenantProvider tenantProvider,
         CancellationToken ct)
     {
+        if (tenantProvider.TenantId is null)
+            return Results.Unauthorized();
+
         var taskGroup = await db.TaskGroups
-            .Where(tg => tg.Id == id)
+            .Where(tg => tg.Id == id && tg.TenantId == tenantProvider.TenantId.Value)
             .Select(tg => new TaskGroupDetailDto(
                 tg.Id,
                 tg.Name,
@@ -79,12 +88,16 @@ public static class TaskGroupEndpoints
         Guid id,
         AddRoleRequest request,
         SolodocDbContext db,
+        ITenantProvider tenantProvider,
         CancellationToken ct)
     {
+        if (tenantProvider.TenantId is null)
+            return Results.Unauthorized();
+
         if (string.IsNullOrWhiteSpace(request.RoleName))
             return Results.BadRequest(new { error = "Rollenavn er påkrevd." });
 
-        var taskGroup = await db.TaskGroups.FirstOrDefaultAsync(tg => tg.Id == id, ct);
+        var taskGroup = await db.TaskGroups.FirstOrDefaultAsync(tg => tg.Id == id && tg.TenantId == tenantProvider.TenantId.Value, ct);
         if (taskGroup is null)
             return Results.NotFound();
 
