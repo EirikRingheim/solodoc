@@ -1,0 +1,166 @@
+@page "/templates/marketplace"
+@attribute [Authorize]
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
+@using Solodoc.Shared.Onboarding
+
+<PageTitle>Solodoc - Malbutikk</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-4">
+    <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Href="/checklists" />
+    <MudText Typo="Typo.h5" Style="font-weight:700;">Malbutikk</MudText>
+</MudStack>
+
+@* ── Pricing banner ── *@
+<MudPaper Elevation="0" Style="border:1px solid #C7D2FE;border-radius:12px;background:linear-gradient(135deg,#EBF0FF,#F8FAFF);" Class="pa-4 mb-4">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Style="flex-wrap:wrap;gap:12px;">
+        <div>
+            <MudText Typo="Typo.subtitle1" Style="font-weight:600;">Ferdiglagde maler for din bransje</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">Profesjonelle sjekklister og skjemaer — klar til bruk med ett klikk.</MudText>
+        </div>
+        <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+            <div style="text-align:center;padding:8px 16px;background:#fff;border-radius:8px;border:1px solid #e9ecef;">
+                <div style="font-weight:700;color:#4361EE;">kr @(PricingConfig.SingleTemplatePrice)</div>
+                <div style="font-size:0.6rem;color:#9CA3AF;">per mal</div>
+            </div>
+            <div style="text-align:center;padding:8px 16px;background:#fff;border-radius:8px;border:1px solid #10B981;">
+                <div style="font-weight:700;color:#059669;">kr @(PricingConfig.Pack10Price)</div>
+                <div style="font-size:0.6rem;color:#9CA3AF;">10-pakke</div>
+            </div>
+            <div style="text-align:center;padding:8px 16px;background:#fff;border-radius:8px;border:1px solid #10B981;">
+                <div style="font-weight:700;color:#059669;">kr @(PricingConfig.Pack20Price)</div>
+                <div style="font-size:0.6rem;color:#9CA3AF;">20-pakke</div>
+            </div>
+            <div style="text-align:center;padding:8px 16px;background:#D1FAE5;border-radius:8px;border:1px solid #10B981;">
+                <div style="font-weight:700;color:#059669;">kr @(PricingConfig.Pack50Price)</div>
+                <div style="font-size:0.6rem;color:#059669;">50+ maler</div>
+            </div>
+        </MudStack>
+    </MudStack>
+</MudPaper>
+
+@* ── Category tabs ── *@
+<MudChipSet T="string" @bind-SelectedValue="_selectedCategory" Mandatory="true" SelectionMode="SelectionMode.SingleSelection" Class="mb-4">
+    <MudChip T="string" Value="@("all")" Variant="Variant.Outlined" Color="Color.Primary">Alle</MudChip>
+    @foreach (var cat in _categories)
+    {
+        <MudChip T="string" Value="@cat.Key" Variant="Variant.Outlined" Color="Color.Primary">@cat.Label (@cat.Count)</MudChip>
+    }
+</MudChipSet>
+
+@* ── Template grid ── *@
+<MudGrid Spacing="3">
+    @foreach (var tmpl in FilteredTemplates)
+    {
+        <MudItem xs="12" sm="6" md="4">
+            <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;height:100%;" Class="pa-4">
+                <MudStack Spacing="2">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                        <div style="@($"width:36px;height:36px;border-radius:8px;background:{tmpl.Color};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.8rem;flex-shrink:0;")">
+                            @tmpl.Name[0]
+                        </div>
+                        <div style="flex:1;min-width:0;">
+                            <MudText Typo="Typo.subtitle2" Style="font-weight:600;">@tmpl.Name</MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">@tmpl.Category · @tmpl.ItemCount punkter</MudText>
+                        </div>
+                    </MudStack>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary" Style="font-size:0.8rem;">@tmpl.Description</MudText>
+                    <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                        <MudText Typo="Typo.body2" Style="font-weight:600;color:#4361EE;">kr @(PricingConfig.SingleTemplatePrice)</MudText>
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+                                   Style="text-transform:none;border-radius:6px;"
+                                   OnClick="() => PreviewTemplate(tmpl.Name)">
+                            Forhåndsvis
+                        </MudButton>
+                    </MudStack>
+                </MudStack>
+            </MudPaper>
+        </MudItem>
+    }
+</MudGrid>
+
+@if (FilteredTemplates.Count == 0)
+{
+    <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;" Class="pa-8">
+        <MudStack AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Filled.Construction" Size="Size.Large" Color="Color.Secondary" />
+            <MudText Color="Color.Secondary">Maler for denne kategorien kommer snart!</MudText>
+        </MudStack>
+    </MudPaper>
+}
+
+@* ── Cart / Bundle CTA ── *@
+<MudPaper Elevation="0" Style="border:2px solid #059669;border-radius:12px;background:#F0FDF4;" Class="pa-4 mt-4">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Style="flex-wrap:wrap;gap:12px;">
+        <div>
+            <MudText Typo="Typo.subtitle1" Style="font-weight:600;color:#059669;">Spar med pakker</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                10 maler for kr @(PricingConfig.Pack10Price) (spar @(PricingConfig.SingleTemplatePrice * 10 - PricingConfig.Pack10Price) kr) ·
+                20 maler for kr @(PricingConfig.Pack20Price) (spar @(PricingConfig.SingleTemplatePrice * 20 - PricingConfig.Pack20Price) kr) ·
+                50+ maler for kr @(PricingConfig.Pack50Price)
+            </MudText>
+        </div>
+        <MudButton Variant="Variant.Filled" Color="Color.Success"
+                   Style="text-transform:none;border-radius:8px;"
+                   OnClick="OrderPack">
+            Bestill pakke
+        </MudButton>
+    </MudStack>
+</MudPaper>
+
+@code {
+    private string _selectedCategory = "all";
+
+    private List<MarketplaceTemplate> FilteredTemplates =>
+        _selectedCategory == "all"
+            ? _templates
+            : _templates.Where(t => t.CategoryKey == _selectedCategory).ToList();
+
+    private record CategoryDef(string Key, string Label, int Count);
+    private record MarketplaceTemplate(string Name, string Description, string Category, string CategoryKey, string Color, int ItemCount);
+
+    private void PreviewTemplate(string name) => Snackbar.Add($"{name} — forhåndsvisning kommer snart!", Severity.Info);
+    private void OrderPack() => Snackbar.Add("Kontakt oss for å bestille en pakke: kontakt@solodoc.no", Severity.Info);
+
+    private readonly List<CategoryDef> _categories =
+    [
+        new("bygg", "Bygg", 8),
+        new("elektro", "Elektro", 5),
+        new("hms", "HMS", 6),
+        new("generell", "Generell", 4),
+    ];
+
+    private readonly List<MarketplaceTemplate> _templates =
+    [
+        // Bygg
+        new("Brannsjekk", "Kontroller røykvarslere, brannslukker, rømningsveier og nødlys.", "Bygg", "bygg", "#E63946", 12),
+        new("Overlevering bolig", "Komplett overleveringsprotokoll for nye boliger.", "Bygg", "bygg", "#4361EE", 28),
+        new("Fuktkontroll", "Måling og dokumentasjon av fukt i konstruksjoner.", "Bygg", "bygg", "#0891B2", 8),
+        new("Stillaskontroll", "Sjekkliste for daglig kontroll av stillas iht. forskrift.", "Bygg", "bygg", "#7C3AED", 15),
+        new("Betongstøp", "Dokumentasjon av betongstøp — temperatur, herdetid, prøver.", "Bygg", "bygg", "#EA580C", 10),
+        new("Tetthetsprøving", "Tetthetsprøving av bygningskropp.", "Bygg", "bygg", "#059669", 6),
+        new("Ferdigbefaring", "Sjekkliste for ferdigbefaring med kunde.", "Bygg", "bygg", "#D97706", 22),
+        new("Grunnarbeid", "Kontroll av grunnarbeid — graving, drenering, fundament.", "Bygg", "bygg", "#6B7280", 14),
+
+        // Elektro
+        new("Elektrokontroll", "Sjekkliste for kontroll av elektrisk anlegg.", "Elektro", "elektro", "#4361EE", 18),
+        new("Kabelføring", "Dokumentasjon av kabelføring og merking.", "Elektro", "elektro", "#7C3AED", 10),
+        new("Jordingsanlegg", "Kontroll av jordingsanlegg og potensialutjevning.", "Elektro", "elektro", "#059669", 8),
+        new("Tavlekontroll", "Sjekkliste for kontroll av elektriske tavler.", "Elektro", "elektro", "#EA580C", 12),
+        new("Lysanlegg", "Dokumentasjon av lysanlegg og nødlys.", "Elektro", "elektro", "#0891B2", 9),
+
+        // HMS
+        new("SHA-plan", "Sikkerhet, helse og arbeidsmiljø-plan for byggeplass.", "HMS", "hms", "#E63946", 20),
+        new("Vernerunde", "Standard vernerunde med alle lovpålagte punkter.", "HMS", "hms", "#059669", 25),
+        new("SJA — Varmt arbeid", "Sikker jobb-analyse for sveising og skjæring.", "HMS", "hms", "#EA580C", 12),
+        new("SJA — Arbeid i høyden", "Sikker jobb-analyse for arbeid over 2 meter.", "HMS", "hms", "#7C3AED", 14),
+        new("Førstehjelpsutstyr", "Kontroll av førstehjelpsutstyr og beredskap.", "HMS", "hms", "#4361EE", 8),
+        new("Støy og vibrasjon", "Kartlegging av støy- og vibrasjonseksponering.", "HMS", "hms", "#D97706", 10),
+
+        // Generell
+        new("Bilkontroll", "Daglig sjekk av firmabil — lys, dekk, olje, førstehjelp.", "Generell", "generell", "#6B7280", 10),
+        new("Verktøykontroll", "Periodisk kontroll av elektrisk håndverktøy.", "Generell", "generell", "#4361EE", 8),
+        new("Renhold", "Sjekkliste for renhold av fellesarealer.", "Generell", "generell", "#059669", 12),
+        new("IT-sikkerhet", "Sjekkliste for IT-sikkerhet og tilgangskontroll.", "Generell", "generell", "#E63946", 6),
+    ];
+}

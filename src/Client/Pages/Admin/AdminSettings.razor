@@ -2,11 +2,124 @@
 @attribute [Authorize]
 @inject DeviationService DeviationService
 @inject HoursService HoursService
+@inject OnboardingService OnboardingService
+@inject EmployeeService EmployeeService
 @inject ISnackbar Snackbar
+@inject NavigationManager Navigation
+@using Solodoc.Shared.Onboarding
 
 <PageTitle>Solodoc - Innstillinger</PageTitle>
+<PageHelp PageKey="settings" />
 
 <MudText Typo="Typo.h5" Class="mb-4">Innstillinger</MudText>
+
+@* ── Setup Progress (disappears when complete) ── *@
+@if (_onboarding is not null && !_onboarding.IsCompleted)
+{
+    <MudPaper Elevation="0" Style="border:2px solid #4361EE;border-radius:12px;background:#F8FAFF;" Class="pa-4 mb-4">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-2">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudIcon Icon="@Icons.Material.Filled.RocketLaunch" Style="color:#4361EE;" />
+                <MudText Typo="Typo.subtitle1" Style="font-weight:600;">Fullfør oppsettet</MudText>
+            </MudStack>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/onboarding"
+                       Size="Size.Small" Style="text-transform:none;border-radius:8px;">
+                Fortsett oppsett
+            </MudButton>
+        </MudStack>
+        <MudProgressLinear Value="@_setupProgress" Color="Color.Primary" Rounded="true" Size="Size.Small" />
+        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-1">
+            @((int)_setupProgress)% fullført
+        </MudText>
+    </MudPaper>
+}
+
+@* ── Subscription Card ── *@
+<MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;" Class="pa-4 mb-4">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-3">
+        <MudIcon Icon="@Icons.Material.Filled.CreditCard" Color="Color.Primary" />
+        <MudText Typo="Typo.subtitle1" Style="font-weight:600;">Abonnement</MudText>
+        @if (_onboarding?.SubscriptionTier == "trial")
+        {
+            <MudChip T="string" Size="Size.Small" Color="Color.Success" Style="height:22px;">Prøveperiode</MudChip>
+        }
+    </MudStack>
+
+    <MudGrid Spacing="3">
+        <MudItem xs="12" sm="4">
+            <div style="padding:16px;border:1px solid #e9ecef;border-radius:10px;text-align:center;">
+                <div style="font-size:0.7rem;color:#9CA3AF;">Grunnpakke</div>
+                <div style="font-size:1.5rem;font-weight:700;color:#4361EE;">kr @(PricingConfig.BasePriceMonthly)</div>
+                <div style="font-size:0.7rem;color:#9CA3AF;">/mnd · inkl. @(PricingConfig.BaseIncludedUsers) brukere</div>
+            </div>
+        </MudItem>
+        <MudItem xs="6" sm="4">
+            <div style="padding:16px;border:1px solid #e9ecef;border-radius:10px;text-align:center;">
+                <div style="font-size:0.7rem;color:#9CA3AF;">Ekstra bruker</div>
+                <div style="font-size:1.5rem;font-weight:700;color:#374151;">kr @(PricingConfig.ExtraUserPrice)</div>
+                <div style="font-size:0.7rem;color:#9CA3AF;">/mnd per bruker</div>
+            </div>
+        </MudItem>
+        <MudItem xs="6" sm="4">
+            <div style="padding:16px;border:1px solid #e9ecef;border-radius:10px;text-align:center;">
+                <div style="font-size:0.7rem;color:#9CA3AF;">Underentreprenør</div>
+                <div style="font-size:1.5rem;font-weight:700;color:#374151;">kr @(PricingConfig.SubcontractorPrice)</div>
+                <div style="font-size:0.7rem;color:#9CA3AF;">/mnd per person</div>
+            </div>
+        </MudItem>
+    </MudGrid>
+
+    @if (_onboarding?.TrialEndsAt.HasValue == true)
+    {
+        var daysLeft = (int)(_onboarding.TrialEndsAt.Value - DateTimeOffset.UtcNow).TotalDays;
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-3">
+            @if (daysLeft > 0)
+            {
+                <span>Prøveperioden utløper om <strong>@daysLeft dager</strong>. Faktura sendes på EHF.</span>
+            }
+            else
+            {
+                <span style="color:#E63946;font-weight:500;">Prøveperioden er utløpt. Kontakt oss for å aktivere abonnement.</span>
+            }
+        </MudText>
+    }
+
+    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-1">
+        10% rabatt ved årlig betaling · Faktura sendes på EHF
+    </MudText>
+</MudPaper>
+
+@* ── Quick Links ── *@
+<MudGrid Spacing="3" Class="mb-4">
+    <MudItem xs="6" sm="3">
+        <MudPaper Elevation="0" Class="pa-4 cursor-pointer" Style="border:1px solid #e9ecef;border-radius:12px;text-align:center;"
+                  @onclick="GoToRoles">
+            <MudIcon Icon="@Icons.Material.Filled.ManageAccounts" Color="Color.Primary" Class="mb-1" />
+            <MudText Typo="Typo.body2" Style="font-weight:500;">Roller</MudText>
+        </MudPaper>
+    </MudItem>
+    <MudItem xs="6" sm="3">
+        <MudPaper Elevation="0" Class="pa-4 cursor-pointer" Style="border:1px solid #e9ecef;border-radius:12px;text-align:center;"
+                  @onclick="GoToShifts">
+            <MudIcon Icon="@Icons.Material.Filled.Schedule" Color="Color.Primary" Class="mb-1" />
+            <MudText Typo="Typo.body2" Style="font-weight:500;">Skift</MudText>
+        </MudPaper>
+    </MudItem>
+    <MudItem xs="6" sm="3">
+        <MudPaper Elevation="0" Class="pa-4 cursor-pointer" Style="border:1px solid #e9ecef;border-radius:12px;text-align:center;"
+                  @onclick="GoToTemplates">
+            <MudIcon Icon="@Icons.Material.Filled.ShoppingCart" Color="Color.Primary" Class="mb-1" />
+            <MudText Typo="Typo.body2" Style="font-weight:500;">Malbutikk</MudText>
+        </MudPaper>
+    </MudItem>
+    <MudItem xs="6" sm="3">
+        <MudPaper Elevation="0" Class="pa-4 cursor-pointer" Style="border:1px solid #e9ecef;border-radius:12px;text-align:center;"
+                  @onclick="GoToSync">
+            <MudIcon Icon="@Icons.Material.Filled.Sync" Color="Color.Primary" Class="mb-1" />
+            <MudText Typo="Typo.body2" Style="font-weight:500;">Synk</MudText>
+        </MudPaper>
+    </MudItem>
+</MudGrid>
 
 <MudExpansionPanels MultiExpansion="true">
     @* Company profile *@
@@ -490,6 +603,10 @@
 </MudExpansionPanels>
 
 @code {
+    // Onboarding/subscription
+    private OnboardingStatusDto? _onboarding;
+    private double _setupProgress;
+
     // Company profile
     private string _companyName = string.Empty;
     private string _orgNumber = "912 345 678";
@@ -548,7 +665,28 @@
         var categoriesTask = LoadCategoriesAsync();
         var schedulesTask = LoadSchedulesAsync();
         var allowancesTask = LoadAllowancesAsync();
-        await Task.WhenAll(categoriesTask, schedulesTask, allowancesTask);
+        var onboardingTask = LoadOnboardingAsync();
+        await Task.WhenAll(categoriesTask, schedulesTask, allowancesTask, onboardingTask);
+    }
+
+    private void GoToRoles() => Navigation.NavigateTo("/admin/roles");
+    private void GoToShifts() => Navigation.NavigateTo("/admin/shifts");
+    private void GoToTemplates() => Navigation.NavigateTo("/checklists/templates/new");
+    private void GoToSync() => Navigation.NavigateTo("/admin/sync");
+
+    private async Task LoadOnboardingAsync()
+    {
+        try
+        {
+            _onboarding = await OnboardingService.GetStatusAsync();
+            // Calculate setup progress
+            var steps = 0;
+            if (_onboarding?.IndustryType is not null) steps++;
+            if (_onboarding?.EnabledModules.Count > 0) steps++;
+            if (_onboarding?.IsCompleted == true) steps += 2;
+            _setupProgress = steps / 4.0 * 100;
+        }
+        catch { }
     }
 
     private async Task LoadCategoriesAsync()

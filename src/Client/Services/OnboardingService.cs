@@ -11,6 +11,19 @@ public class OnboardingService(ApiHttpClient api)
         return r.IsSuccessStatusCode ? await r.Content.ReadFromJsonAsync<OnboardingStatusDto>() : null;
     }
 
+    public async Task<Guid?> CreateTenantAsync(CreateTenantOnboardingRequest request)
+    {
+        var r = await api.PostAsJsonAsync("api/onboarding/create-tenant", request);
+        if (r.IsSuccessStatusCode)
+        {
+            var result = await r.Content.ReadFromJsonAsync<TenantCreatedResult>();
+            return result?.TenantId;
+        }
+        return null;
+    }
+
+    private record TenantCreatedResult(Guid TenantId);
+
     public async Task<bool> SaveStep1Async(SaveOnboardingStep1Request request)
         => (await api.PostAsJsonAsync("api/onboarding/step1", request)).IsSuccessStatusCode;
 

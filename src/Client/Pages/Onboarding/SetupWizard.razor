@@ -7,6 +7,7 @@
 @inject RoleService RoleService
 @inject NavigationManager Navigation
 @inject ISnackbar Snackbar
+@inject Blazored.LocalStorage.ILocalStorageService LocalStorage
 @using Solodoc.Shared.Auth
 @using Solodoc.Shared.Onboarding
 
@@ -33,8 +34,12 @@
             </div>
 
             <MudStack Spacing="3">
-                <MudTextField T="string" @bind-Value="_companyName" Label="Bedriftsnavn" Variant="Variant.Outlined"
-                              Placeholder="Ditt firma AS" Required="true" />
+                <MudStack Row="true" Spacing="2">
+                    <MudTextField T="string" @bind-Value="_companyName" Label="Bedriftsnavn" Variant="Variant.Outlined"
+                                  Placeholder="Ditt firma AS" Required="true" Style="flex:2;" />
+                    <MudTextField T="string" @bind-Value="_orgNumber" Label="Org.nr (valgfritt)" Variant="Variant.Outlined"
+                                  Placeholder="999 999 999" Style="flex:1;" />
+                </MudStack>
 
                 <div>
                     <MudText Typo="Typo.subtitle2" Style="font-weight:600;" Class="mb-2">Hvilken bransje?</MudText>
@@ -92,6 +97,34 @@
                         </div>
                     </div>
                 }
+            </div>
+
+            @* Pricing summary *@
+            <div style="margin-top:20px;padding:16px;border-radius:12px;background:linear-gradient(135deg,#EBF0FF,#F8FAFF);border:1px solid #C7D2FE;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                    <span style="font-weight:600;color:#1B2A4A;">Din plan</span>
+                    <span style="padding:3px 10px;background:#D1FAE5;color:#059669;border-radius:12px;font-size:0.7rem;font-weight:600;">30 DAGER GRATIS</span>
+                </div>
+                <div style="font-size:0.85rem;color:#6B7280;margin-bottom:12px;">
+                    Alle moduler inkludert. Etter prøveperioden:
+                </div>
+                <div style="display:flex;gap:12px;flex-wrap:wrap;">
+                    <div style="flex:1;min-width:120px;padding:10px;background:#fff;border-radius:8px;text-align:center;">
+                        <div style="font-size:1.2rem;font-weight:700;color:#4361EE;">kr 990</div>
+                        <div style="font-size:0.65rem;color:#9CA3AF;">/mnd for 1-5 brukere</div>
+                    </div>
+                    <div style="flex:1;min-width:120px;padding:10px;background:#fff;border-radius:8px;text-align:center;">
+                        <div style="font-size:1.2rem;font-weight:700;color:#4361EE;">kr 150</div>
+                        <div style="font-size:0.65rem;color:#9CA3AF;">/mnd per ekstra bruker</div>
+                    </div>
+                    <div style="flex:1;min-width:120px;padding:10px;background:#fff;border-radius:8px;text-align:center;">
+                        <div style="font-size:1.2rem;font-weight:700;color:#4361EE;">kr 49</div>
+                        <div style="font-size:0.65rem;color:#9CA3AF;">/mnd per underentreprenør</div>
+                    </div>
+                </div>
+                <div style="margin-top:8px;font-size:0.7rem;color:#9CA3AF;text-align:center;">
+                    10% rabatt ved årlig betaling · Faktura sendes på EHF
+                </div>
             </div>
             break;
 
@@ -258,8 +291,10 @@
 
     // Step 1
     private string _companyName = "";
+    private string _orgNumber = "";
     private string _industry = "";
     private string _companySize = "";
+    private bool _hasTenant;
 
     // Step 2
     private HashSet<string> _enabledModules = [];
@@ -270,6 +305,18 @@
 
     // Step 4
     private List<string> _importedFiles = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var status = await OnboardingService.GetStatusAsync();
+            _hasTenant = status?.SubscriptionTier != "none";
+            if (status?.IndustryType is not null) _industry = status.IndustryType;
+            if (status?.CompanySize is not null) _companySize = status.CompanySize;
+        }
+        catch { }
+    }
 
     private void ToggleModule(string key)
     {
@@ -293,8 +340,28 @@
                         _saving = false;
                         return;
                     }
-                    await OnboardingService.SaveStep1Async(new(_companyName, _industry, _companySize));
-                    // Pre-select recommended modules
+                    // Create tenant if user doesn't have one
+                    if (!_hasTenant)
+                    {
+                        var tenantId = await OnboardingService.CreateTenantAsync(
+                            new(_companyName, _orgNumber, _industry, _companySize));
+                        if (tenantId.HasValue)
+                        {
+                            _hasTenant = true;
+                            // Store tenant and reload page to get new token
+                            await LocalStorage.SetItemAsStringAsync("selectedTenantId", tenantId.Value.ToString());
+                        }
+                        else
+                        {
+                            Snackbar.Add("Kunne ikke opprette bedrift. Prøv igjen.", Severity.Error);
+                            _saving = false;
+                            return;
+                        }
+                    }
+                    else
+                    {
+                        await OnboardingService.SaveStep1Async(new(_companyName, _industry, _companySize));
+                    }
                     _enabledModules = [.. ModuleDefinitions.GetRecommended(_industry)];
                     break;
 
