@@ -35,6 +35,12 @@
                    Style="text-transform:none;border-radius:8px;">
             Dupliser
         </MudButton>
+        <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Error"
+                   StartIcon="@Icons.Material.Filled.Delete"
+                   OnClick="DeleteTemplate"
+                   Style="text-transform:none;border-radius:8px;">
+            Slett
+        </MudButton>
     }
 </MudStack>
 
@@ -292,6 +298,23 @@ else
             _template.SignatureRoles, _template.Tags);
         var ok = await ChecklistService.UpdateTemplateAsync(Id, request);
         if (ok) await LoadTemplate();
+    }
+
+    // ── Delete ─���
+
+    private async Task DeleteTemplate()
+    {
+        if (_template is null) return;
+        var ok = await ChecklistService.DeleteTemplateAsync(Id);
+        if (ok)
+        {
+            Snackbar.Add("Mal slettet", Severity.Success);
+            Navigation.NavigateTo("/checklists");
+        }
+        else
+        {
+            Snackbar.Add("Kunne ikke slette malen", Severity.Error);
+        }
     }
 
     // ── Duplicate ──

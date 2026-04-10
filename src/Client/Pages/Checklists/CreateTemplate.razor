@@ -113,12 +113,12 @@
 
         try
         {
-            // Upload the file to the import endpoint
             using var stream = file.OpenReadStream(maxAllowedSize: 25 * 1024 * 1024);
-            using var content = new MultipartFormDataContent();
             using var ms = new MemoryStream();
             await stream.CopyToAsync(ms);
             ms.Position = 0;
+
+            var content = new MultipartFormDataContent();
             content.Add(new StreamContent(ms), "file", file.Name);
 
             var id = await ChecklistService.ImportTemplateFromFileAsync(content);
@@ -132,9 +132,9 @@
                 Snackbar.Add("Kunne ikke lese filen. Prov et annet format.", Severity.Warning);
             }
         }
-        catch
+        catch (Exception ex)
         {
-            Snackbar.Add("Feil ved opplasting", Severity.Error);
+            Snackbar.Add($"Feil ved opplasting: {ex.Message}", Severity.Error);
         }
 
         _importing = false;

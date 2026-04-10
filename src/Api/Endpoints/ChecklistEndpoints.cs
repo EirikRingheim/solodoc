@@ -24,6 +24,7 @@ public static class ChecklistEndpoints
         app.MapDelete("/api/checklists/templates/{id:guid}/items/{itemId:guid}", DeleteTemplateItem).RequireAuthorization();
         app.MapPost("/api/checklists/templates/{id:guid}/publish", PublishTemplate).RequireAuthorization();
         app.MapPost("/api/checklists/templates/{id:guid}/duplicate", DuplicateTemplate).RequireAuthorization();
+        app.MapDelete("/api/checklists/templates/{id:guid}", DeleteTemplate).RequireAuthorization();
         app.MapPut("/api/checklists/templates/{id:guid}/items/reorder", ReorderTemplateItems).RequireAuthorization();
         app.MapPost("/api/checklists/templates/import", ImportTemplate).RequireAuthorization().DisableAntiforgery();
 
@@ -520,6 +521,30 @@ public static class ChecklistEndpoints
         await db.SaveChangesAsync(ct);
 
         return Results.Created($"/api/checklists/templates/{duplicate.Id}", new { id = duplicate.Id });
+    }
+
+    private static async Task<IResult> DeleteTemplate(
+        Guid id,
+        ClaimsPrincipal user,
+        SolodocDbContext db,
+        ITenantProvider tenantProvider,
+        CancellationToken ct)
+    {
+        if (tenantProvider.TenantId is null) return Results.Unauthorized();
+
+        var template = await db.ChecklistTemplates
+            .FirstOrDefaultAsync(t => t.Id == id && t.TenantId == tenantProvider.TenantId.Value, ct);
+        if (template is null) return Results.NotFound();
+
+        var personIdClaim = user.FindFirstValue(ClaimTypes.NameIdentifier) ?? user.FindFirstValue("sub");
+        Guid.TryParse(personIdClaim, out var personId);
+
+        template.IsDeleted = true;
+        template.DeletedAt = DateTimeOffset.UtcNow;
+        template.DeletedBy = personId;
+
+        await db.SaveChangesAsync(ct);
+        return Results.NoContent();
     }
 
     private static async Task<IResult> ReorderTemplateItems(
@@ -1048,6 +1073,7 @@ public static class ChecklistEndpoints
         ClaimsPrincipal user,
         SolodocDbContext db,
         ITenantProvider tp,
+        IConfiguration config,
         CancellationToken ct)
     {
         if (tp.TenantId is null) return Results.Unauthorized();
@@ -1135,12 +1161,53 @@ public static class ChecklistEndpoints
         if (lines.Count == 0)
             return Results.BadRequest(new { error = "Ingen tekst funnet i filen." });
 
-        // Parse lines into template items
-        // Heuristic: first line = template name, rest = checklist items
-        var templateName = lines.First();
+        var fullText = string.Join("\n", lines);
+        if (fullText.Length > 15000) fullText = fullText[..15000]; // Limit for API
+
+        // Try AI parsing first, fall back to heuristic
+        var parsedItems = new List<(string label, string type)>();
+        string templateName;
+
+        var anthropicKey = config["Anthropic:ApiKey"];
+        if (!string.IsNullOrWhiteSpace(anthropicKey))
+        {
+            try
+            {
+                parsedItems = await ParseWithAI(fullText, anthropicKey, ct);
+                templateName = parsedItems.Count > 0
+                    ? file.FileName.Replace(ext!, "").Trim().Replace("_", " ").Replace("-", " ")
+                    : lines.First();
+            }
+            catch
+            {
+                parsedItems = [];
+                templateName = lines.First();
+            }
+        }
+        else
+        {
+            templateName = lines.First();
+        }
+
+        // Fallback: heuristic parsing if AI didn't work
+        if (parsedItems.Count == 0)
+        {
+            foreach (var line in lines.Skip(1))
+            {
+                if (line.Length < 3) continue;
+                if (line.All(c => char.IsUpper(c) || char.IsWhiteSpace(c) || c == ':') && line.Length < 50)
+                    continue;
+                // Skip lines that look like filled-in answers (short, no question mark, no verb)
+                if (line.Length < 20 && !line.Contains('?') && !line.Any(char.IsUpper)) continue;
+                // Skip page numbers, dates alone, etc.
+                if (line.All(c => char.IsDigit(c) || c == '.' || c == '/' || c == '-' || c == ' ')) continue;
+
+                parsedItems.Add((line.Length > 500 ? line[..500] : line, GuessItemType(line).ToString()));
+            }
+        }
+
         if (templateName.Length > 200) templateName = templateName[..200];
 
-        // Auto-generate document number
         var currentMax = await db.ChecklistTemplates
             .Where(t => t.TenantId == tp.TenantId.Value && t.DocumentNumber != null)
             .CountAsync(ct);
@@ -1167,19 +1234,15 @@ public static class ChecklistEndpoints
         db.ChecklistTemplateVersions.Add(version);
 
         var sortOrder = 1;
-        foreach (var line in lines.Skip(1))
+        foreach (var (label, type) in parsedItems)
         {
-            if (line.Length < 3) continue;
-            // Skip lines that look like headers/metadata
-            if (line.All(c => char.IsUpper(c) || char.IsWhiteSpace(c) || c == ':') && line.Length < 50)
-                continue;
-
-            var itemType = GuessItemType(line);
+            var itemType = Enum.TryParse<ChecklistItemType>(type, true, out var parsed)
+                ? parsed : ChecklistItemType.Check;
 
             var item = new ChecklistTemplateItem
             {
                 TemplateVersionId = version.Id,
-                Label = line.Length > 500 ? line[..500] : line,
+                Label = label,
                 Type = itemType,
                 SortOrder = sortOrder++,
                 IsRequired = false,
@@ -1199,29 +1262,89 @@ public static class ChecklistEndpoints
     {
         var lower = line.ToLowerInvariant();
 
-        // Lines with checkbox indicators
         if (lower.StartsWith("[ ]") || lower.StartsWith("☐") || lower.StartsWith("□")
             || lower.Contains("ja/nei") || lower.Contains("ok/") || lower.Contains("sjekk"))
             return ChecklistItemType.Check;
 
-        // Lines asking for numbers/measurements
         if (lower.Contains("antall") || lower.Contains("mengde") || lower.Contains("mal:")
             || lower.Contains("temperatur") || lower.Contains("kg") || lower.Contains("meter"))
             return ChecklistItemType.NumberInput;
 
-        // Lines asking for dates
         if (lower.Contains("dato") || lower.Contains("tidspunkt") || lower.Contains("nar:"))
             return ChecklistItemType.DateInput;
 
-        // Lines asking for signature
         if (lower.Contains("signatur") || lower.Contains("underskrift"))
             return ChecklistItemType.Signature;
 
-        // Lines asking for photo
         if (lower.Contains("bilde") || lower.Contains("foto") || lower.Contains("dokumenter med bilde"))
             return ChecklistItemType.Photo;
 
-        // Default to check item (most common in checklists)
         return ChecklistItemType.Check;
     }
+
+    private static async Task<List<(string label, string type)>> ParseWithAI(
+        string documentText, string apiKey, CancellationToken ct)
+    {
+        using var http = new HttpClient();
+        http.DefaultRequestHeaders.Add("x-api-key", apiKey);
+        http.DefaultRequestHeaders.Add("anthropic-version", "2023-06-01");
+
+        var prompt = $$"""
+            Du er en ekspert pa a lese sjekklister, skjemaer og prosedyrer fra norsk bygg- og anleggsbransje.
+
+            Nedenfor er tekst hentet fra et dokument. Det kan vaere en utfylt sjekkliste, et tomt skjema, en prosedyre, eller lignende.
+
+            Din oppgave: Trekk ut BARE sjekkpunktene/feltene som utgjor selve malen. Ignorer:
+            - Utfylte svar og verdier
+            - Metadata (dato, prosjektnavn, utfyller, sidetall)
+            - Overskrifter og logoer
+            - Kommentarer og notater
+
+            For hvert punkt, returner JSON-array med objekter:
+            {"label": "Punkttekst", "type": "Check|TextInput|NumberInput|DateInput|Dropdown|Photo|Signature"}
+
+            Bruk disse typene:
+            - Check: ja/nei, ok/ikke ok, godkjent/avvist sjekkpunkter
+            - TextInput: fritekstfelt, kommentarer, beskrivelser
+            - NumberInput: tall, malinger, mengder
+            - DateInput: datofelter
+            - Dropdown: felter med faste valg
+            - Photo: krav om bilde/dokumentasjon
+            - Signature: signaturfelter
+
+            Svar KUN med JSON-arrayen, ingen annen tekst.
+
+            DOKUMENT:
+            {{documentText}}
+            """;
+
+        var body = new
+        {
+            model = "claude-sonnet-4-20250514",
+            max_tokens = 4096,
+            messages = new[] { new { role = "user", content = prompt } }
+        };
+
+        var response = await http.PostAsJsonAsync("https://api.anthropic.com/v1/messages", body, ct);
+        if (!response.IsSuccessStatusCode) return [];
+
+        var result = await response.Content.ReadFromJsonAsync<JsonElement>(ct);
+        var text = result.GetProperty("content")[0].GetProperty("text").GetString() ?? "[]";
+
+        // Extract JSON array from response (might have markdown wrapping)
+        var jsonStart = text.IndexOf('[');
+        var jsonEnd = text.LastIndexOf(']');
+        if (jsonStart < 0 || jsonEnd < 0) return [];
+        var json = text[jsonStart..(jsonEnd + 1)];
+
+        var items = JsonSerializer.Deserialize<List<ImportedItem>>(json,
+            new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? [];
+
+        return items
+            .Where(i => !string.IsNullOrWhiteSpace(i.Label))
+            .Select(i => (i.Label!.Trim(), i.Type ?? "Check"))
+            .ToList();
+    }
+
+    private record ImportedItem(string? Label, string? Type);
 }

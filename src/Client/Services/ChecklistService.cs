@@ -82,6 +82,12 @@ public class ChecklistService(ApiHttpClient api)
         return null;
     }
 
+    public async Task<bool> DeleteTemplateAsync(Guid id)
+    {
+        var response = await api.DeleteAsync($"api/checklists/templates/{id}");
+        return response.IsSuccessStatusCode;
+    }
+
     public async Task<Guid?> ImportTemplateFromFileAsync(MultipartFormDataContent content)
     {
         var response = await api.PostAsync("api/checklists/templates/import", content);
