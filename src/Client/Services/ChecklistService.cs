@@ -90,7 +90,9 @@ public class ChecklistService(ApiHttpClient api)
 
     public async Task<Guid?> ImportTemplateFromFileAsync(MultipartFormDataContent content)
     {
-        var response = await api.PostAsync("api/checklists/templates/import", content);
+        // Use raw HTTP client with manual token attachment for multipart uploads
+        await api.AttachTokenAsync();
+        var response = await api.Http.PostAsync("api/checklists/templates/import", content);
         if (response.IsSuccessStatusCode)
         {
             var result = await response.Content.ReadFromJsonAsync<IdResponse>();
