@@ -49,36 +49,28 @@
         </div>
 
         @* ── Company Switcher Panel ── *@
-        @if (_companySwitcherOpen)
+        @if (_companySwitcherOpen && _tenants.Count > 0)
         {
-            <div style="margin:0 12px 8px;border-radius:10px;border:1px solid #e9ecef;overflow:hidden;">
-                @if (_tenants.Count == 0)
-                {
-                    <div style="padding:12px;text-align:center;">
-                        <MudProgressCircular Indeterminate="true" Size="Size.Small" Color="Color.Primary" />
+            @foreach (var t in _tenants)
+            {
+                var isActive = t.Id.ToString() == _selectedTenantId;
+                var tAccent = t.AccentColor ?? "#4361EE";
+                var capturedT = t;
+                <div @onclick="() => SwitchToTenant(capturedT)" @onclick:stopPropagation="true"
+                     style="@($"margin:0 12px;padding:8px 12px;cursor:pointer;display:flex;align-items:center;gap:10px;border-radius:8px;margin-bottom:4px;background:{(isActive ? "#EBF0FF" : "#F9FAFB")};border:1px solid {(isActive ? "#4361EE" : "#e9ecef")};")">
+                    <div style="@($"width:28px;height:28px;border-radius:7px;background:{tAccent};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.75rem;flex-shrink:0;")">
+                        @t.Name[0].ToString().ToUpper()
                     </div>
-                }
-                @foreach (var t in _tenants)
-                {
-                    var isActive = t.Id.ToString() == _selectedTenantId;
-                    var tAccent = t.AccentColor ?? "#4361EE";
-                    var capturedT = t;
-                    <div style="@($"padding:10px 12px;cursor:pointer;display:flex;align-items:center;gap:10px;background:{(isActive ? tAccent + "10" : "#fff")};border-left:3px solid {(isActive ? tAccent : "transparent")};transition:background 0.15s;")"
-                         @onclick="() => SwitchToTenant(capturedT)">
-                        <div style="@($"width:28px;height:28px;border-radius:7px;background:{tAccent};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.75rem;flex-shrink:0;")">
-                            @t.Name[0].ToString().ToUpper()
-                        </div>
-                        <div style="flex:1;min-width:0;">
-                            <div style="font-size:0.8rem;font-weight:@(isActive ? "600" : "400");white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">@t.Name</div>
-                            <div style="font-size:0.65rem;color:#9CA3AF;">@t.Role</div>
-                        </div>
-                        @if (isActive)
-                        {
-                            <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small" Style="@($"color:{tAccent};")" />
-                        }
+                    <div style="flex:1;min-width:0;">
+                        <div style="@($"font-size:0.8rem;font-weight:{(isActive ? "600" : "400")};")">@t.Name</div>
+                        <div style="font-size:0.65rem;color:#9CA3AF;">@t.Role</div>
                     </div>
-                }
-            </div>
+                    @if (isActive)
+                    {
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="@tAccent"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+                    }
+                </div>
+            }
         }
 
         @* ── Super Admin Panel ── *@
