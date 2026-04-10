@@ -95,14 +95,21 @@
         if (string.IsNullOrWhiteSpace(_name)) return;
         _submitting = true;
 
-        var request = new CreateChecklistTemplateRequest(_name, null, null, _documentType);
-        var id = await ChecklistService.CreateTemplateAsync(request);
-        _submitting = false;
+        try
+        {
+            var request = new CreateChecklistTemplateRequest(_name, null, null, _documentType);
+            var id = await ChecklistService.CreateTemplateAsync(request);
 
-        if (id.HasValue)
-            Navigation.NavigateTo($"/checklists/templates/{id.Value}");
-        else
-            Snackbar.Add("Kunne ikke opprette mal", Severity.Error);
+            if (id.HasValue)
+                Navigation.NavigateTo($"/checklists/templates/{id.Value}");
+            else
+                Snackbar.Add("Kunne ikke opprette mal", Severity.Error);
+        }
+        catch
+        {
+            Snackbar.Add("Feil ved opprettelse", Severity.Error);
+        }
+        _submitting = false;
     }
 
     private async Task HandleFileUpload(IBrowserFile? file)

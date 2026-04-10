@@ -67,7 +67,7 @@ else if (_showSummary)
 
     @foreach (var item in _items)
     {
-        var resp = _responses[item.Id];
+        var resp = _responses.GetValueOrDefault(item.Id) ?? new ItemResponse();
         var isCompleted = IsResponseCompleted(item, resp);
         var borderColor = item.IsRequired && !isCompleted ? "#FEE2E2" : "#E9ECEF";
         var capturedItem = item;
@@ -147,11 +147,11 @@ else
         Tilbake
     </MudButton>
 
-    @if (_isMobile)
+    @if (_isMobile && _items.Count > 0 && _currentIndex < _items.Count)
     {
         @* ── Mobile: one item per screen ── *@
         var currentItem = _items[_currentIndex];
-        var currentResp = _responses[currentItem.Id];
+        var currentResp = _responses.GetValueOrDefault(currentItem.Id) ?? new ItemResponse();
 
         @* Header with progress *@
         <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-4 mb-3">
@@ -624,7 +624,8 @@ else
 
     private void GoToItem(ChecklistInstanceItemDto item)
     {
-        _currentIndex = _items.IndexOf(item);
+        var idx = _items.IndexOf(item);
+        if (idx >= 0) _currentIndex = idx;
         _showSummary = false;
     }
 
@@ -700,30 +701,39 @@ else
         if (_instance is null) return;
         _submitting = true;
 
-        // Save all items first
-        foreach (var item in _items)
+        try
         {
-            var resp = _responses[item.Id];
-            await ChecklistService.SubmitItemAsync(_instance.Id, item.Id,
-                new SubmitChecklistItemRequest(
-                    resp.Value,
-                    resp.CheckValue,
-                    resp.IsIrrelevant,
-                    resp.IrrelevantComment,
-                    resp.Comment,
-                    resp.PhotoFileKey,
-                    resp.SignatureFileKey));
-        }
+            // Save all items first
+            foreach (var item in _items)
+            {
+                var resp = _responses.GetValueOrDefault(item.Id);
+                if (resp is null) continue;
+                await ChecklistService.SubmitItemAsync(_instance.Id, item.Id,
+                    new SubmitChecklistItemRequest(
+                        resp.Value,
+                        resp.CheckValue,
+                        resp.IsIrrelevant,
+                        resp.IrrelevantComment,
+                        resp.Comment,
+                        resp.PhotoFileKey,
+                        resp.SignatureFileKey));
+            }
 
-        var success = await ChecklistService.SubmitInstanceAsync(_instance.Id);
-        if (success)
-        {
-            _submitted = true;
-            Snackbar.Add("Sjekkliste sendt inn", Severity.Success);
+            var success = await ChecklistService.SubmitInstanceAsync(_instance.Id);
+            if (success)
+            {
+                _submitted = true;
+                _hasUnsavedChanges = false;
+                Snackbar.Add("Sjekkliste sendt inn", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add("Kunne ikke sende inn sjekklisten", Severity.Error);
+            }
         }
-        else
+        catch
         {
-            Snackbar.Add("Kunne ikke sende inn sjekklisten", Severity.Error);
+            Snackbar.Add("Feil ved innsending", Severity.Error);
         }
         _submitting = false;
     }

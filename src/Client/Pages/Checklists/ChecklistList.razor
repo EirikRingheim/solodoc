@@ -417,7 +417,11 @@
     private async Task OpenTemplatePreview(Guid templateId)
     {
         _previewLoading = true; _previewOpen = true; StateHasChanged();
-        _previewDetail = await ChecklistService.GetTemplateByIdAsync(templateId);
+        try
+        {
+            _previewDetail = await ChecklistService.GetTemplateByIdAsync(templateId);
+        }
+        catch { _previewDetail = null; }
         _previewLoading = false; StateHasChanged();
     }
 
