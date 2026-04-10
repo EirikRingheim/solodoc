@@ -212,5 +212,41 @@ h1:focus { outline: none; }
 .wizard-step--active { color: #4361EE; font-weight: 600; background: #EEF2FF; }
 .wizard-step--completed { color: #059669; }
 
+/* ─── Shepherd Tour ──────────────────── */
+.shepherd-element {
+    font-family: 'Inter', sans-serif !important;
+    border-radius: 12px !important;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.12) !important;
+}
+.shepherd-header {
+    padding: 16px 16px 0 !important;
+    background: transparent !important;
+}
+.shepherd-title {
+    font-weight: 700 !important;
+    font-size: 1rem !important;
+    color: #1B2A4A !important;
+}
+.shepherd-text {
+    padding: 8px 16px 16px !important;
+    font-size: 0.9rem !important;
+    color: #6B7280 !important;
+    line-height: 1.5 !important;
+}
+.shepherd-footer {
+    padding: 0 16px 16px !important;
+}
+.shepherd-button-primary {
+    background: #4361EE !important;
+    border-radius: 8px !important;
+    font-weight: 600 !important;
+    text-transform: none !important;
+}
+.shepherd-button-secondary {
+    background: transparent !important;
+    color: #6B7280 !important;
+    text-transform: none !important;
+}
+
 /* ─── Responsive helpers ──────────────── */
 .touch-target { min-width: 48px; min-height: 48px; }

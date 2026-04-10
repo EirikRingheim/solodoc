@@ -13,6 +13,8 @@
 @inject CheckInService CheckInService
 @inject JobService JobService
 @inject LocationService LocationService
+@inject IJSRuntime JS
+@inject Blazored.LocalStorage.ILocalStorageService LocalStorage
 @implements IDisposable
 @using Solodoc.Shared.Dashboard
 @using Solodoc.Shared.Forefallende
@@ -811,6 +813,38 @@ else if (_announcements.Count > 0)
             Snackbar.Add("Feil ved utsjekking.", Severity.Error);
         }
         StateHasChanged();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                var tourDone = await LocalStorage.GetItemAsStringAsync("tourCompleted");
+                if (string.IsNullOrWhiteSpace(tourDone) || tourDone.Trim('"') != "true")
+                {
+                    // Small delay to let page render
+                    await Task.Delay(1500);
+                    await StartDashboardTour();
+                    await LocalStorage.SetItemAsStringAsync("tourCompleted", "true");
+                }
+            }
+            catch { }
+        }
+    }
+
+    private async Task StartDashboardTour()
+    {
+        var steps = new[]
+        {
+            new { id = "welcome", title = "Velkommen til Solodoc!", text = "Dette er dashboardet ditt. Herfra har du oversikt over alt.", element = (string?)null, position = "bottom" },
+            new { id = "clock", title = "Stemple inn", text = "Trykk her for a starte arbeidsdagen. Timene registreres automatisk.", element = ".mud-button-filled", position = "bottom" },
+            new { id = "sidebar", title = "Navigasjon", text = "Bruk menyen til venstre for a finne prosjekter, avvik, sjekklister og mer.", element = ".sidebar-drawer", position = "right" },
+            new { id = "done", title = "Du er klar!", text = "Utforsk pa egenhånd. Trykk pa ? i toppmenyen for hjelp.", element = (string?)null, position = "bottom" }
+        };
+
+        await JS.InvokeVoidAsync("tourInterop.start", (object)steps);
     }
 
     public void Dispose()
