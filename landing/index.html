@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="nb">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solodoc — Kvalitetsstyring for folk i felten</title>
+    <meta name="description" content="Solodoc er et komplett kvalitets- og prosjektstyringssystem for bygg, anlegg, håndverkere og landbruk. Timeføring, avvik, sjekklister, HMS og mer — alt i én app.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" type="image/png" href="/favicon.png">
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════
+     NAVBAR
+     ═══════════════════════════════════════════════════════ -->
+<nav class="navbar" id="navbar">
+    <div class="container nav-inner">
+        <a href="#" class="logo">
+            <span class="logo-mark">S</span>
+            <span class="logo-text">Solodoc</span>
+        </a>
+        <div class="nav-links" id="navLinks">
+            <a href="#features">Funksjoner</a>
+            <a href="#how">Slik fungerer det</a>
+            <a href="#who">Hvem er vi for</a>
+            <a href="#pricing">Pris</a>
+            <a href="#contact">Kontakt</a>
+        </div>
+        <div class="nav-actions">
+            <a href="#contact" class="btn btn-outline btn-sm">Kontakt oss</a>
+            <a href="https://app.solodoc.no" class="btn btn-primary btn-sm">Kom i gang</a>
+        </div>
+        <button class="mobile-menu-btn" id="menuBtn" aria-label="Meny">
+            <span></span><span></span><span></span>
+        </button>
+    </div>
+</nav>
+
+<!-- ═══════════════════════════════════════════════════════
+     HERO
+     ═══════════════════════════════════════════════════════ -->
+<section class="hero">
+    <div class="container">
+        <div class="hero-grid">
+            <div class="hero-content">
+                <div class="hero-badge">Norskutviklet for norske forhold</div>
+                <h1>Alt du trenger for kvalitet, sikkerhet og dokumentasjon — <span class="highlight">i lomma.</span></h1>
+                <p class="hero-sub">
+                    Solodoc samler timeføring, avvik, sjekklister, HMS, mannskap og prosjektstyring
+                    i én enkel app. Bygget for folk som jobber ute — ikke bak en skjerm.
+                </p>
+                <div class="hero-ctas">
+                    <a href="#contact" class="btn btn-primary btn-lg">Kom i gang</a>
+                    <a href="#features" class="btn btn-ghost btn-lg">Se funksjoner</a>
+                </div>
+                <div class="hero-trust">
+                    <div class="trust-item">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                        Fungerer offline
+                    </div>
+                    <div class="trust-item">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                        Ingen installasjon
+                    </div>
+                    <div class="trust-item">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                        Rimeligere enn alternativene
+                    </div>
+                </div>
+            </div>
+            <div class="hero-visual">
+                <!-- Phone mockup with dashboard -->
+                <div class="phone-frame">
+                    <div class="phone-notch"></div>
+                    <div class="phone-screen">
+                        <div class="mock-topbar">
+                            <span class="mock-logo-sm">S</span>
+                            <span style="font-weight:600;font-size:0.85rem;">Dashboard</span>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+                        </div>
+                        <div class="mock-actions">
+                            <div class="mock-btn-green"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg> Stemple inn</div>
+                            <div class="mock-btn-outline-green"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2.5"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg> Sjekk inn</div>
+                            <div class="mock-btn-outline"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4361EE" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Nytt oppdrag</div>
+                        </div>
+                        <div class="mock-clock-card">
+                            <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#2D6A4F" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                                <span style="font-weight:600;color:#2D6A4F;font-size:0.75rem;">Innstemplet</span>
+                            </div>
+                            <span style="font-size:1.4rem;font-weight:700;color:#1B4332;">04:32:17</span>
+                            <span style="font-size:0.7rem;color:#2D6A4F;">Fjellbygg — Bryggen Terrasse</span>
+                        </div>
+                        <div class="mock-stats">
+                            <div class="mock-stat"><span class="mock-stat-num" style="color:#4361EE;">3</span><span class="mock-stat-label">Prosjekter</span></div>
+                            <div class="mock-stat"><span class="mock-stat-num" style="color:#4361EE;">127t</span><span class="mock-stat-label">Denne mnd</span></div>
+                            <div class="mock-stat"><span class="mock-stat-num" style="color:#E63946;">2</span><span class="mock-stat-label">Åpne avvik</span></div>
+                        </div>
+                        <div class="mock-section-title">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4361EE" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                            <span>Siste prosjekter</span>
+                        </div>
+                        <div class="mock-project-card">
+                            <span style="font-weight:500;font-size:0.75rem;">Bryggen Terrasse</span>
+                            <span class="mock-chip-green">Aktiv</span>
+                        </div>
+                        <div class="mock-project-card">
+                            <span style="font-weight:500;font-size:0.75rem;">Solheimsviken Garasje</span>
+                            <span class="mock-chip-blue">Planlagt</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════
+     PROBLEM / VALUE PROP
+     ═══════════════════════════════════════════════════════ -->
+<section class="value-section">
+    <div class="container">
+        <div class="value-grid">
+            <div class="value-card">
+                <div class="value-icon" style="background:#EEF2FF;color:#4361EE;">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                </div>
+                <h3>Slipp papir og Excel</h3>
+                <p>Sjekklister, avvik, timer og HMS — alt digitalt fra mobilen. Ingen skjema som forsvinner i hanskerommet.</p>
+            </div>
+            <div class="value-card">
+                <div class="value-icon" style="background:#ECFDF5;color:#059669;">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                </div>
+                <h3>Dokumentasjon i orden</h3>
+                <p>Alltid klar for tilsyn. All dokumentasjon samlet, sporbar og eksporterbar som PDF eller Excel.</p>
+            </div>
+            <div class="value-card">
+                <div class="value-icon" style="background:#FFF7ED;color:#EA580C;">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                </div>
+                <h3>Fungerer overalt</h3>
+                <p>Offline i fjellet, på byggeplassen eller i fjøset. Synkroniserer automatisk når du har nett igjen.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════
+     FEATURES
+     ═══════════════════════════════════════════════════════ -->
+<section class="features" id="features">
+    <div class="container">
+        <div class="section-header">
+            <div class="section-badge">Funksjoner</div>
+            <h2>Ett system — alt du trenger</h2>
+            <p>Solodoc erstatter en håndfull apper og permer med én løsning som faktisk henger sammen.</p>
+        </div>
+
+        <!-- Feature 1: Timeføring -->
+        <div class="feature-row">
+            <div class="feature-text">
+                <div class="feature-badge">Timeføring</div>
+                <h3>Stemple inn, registrer timer, ferdig.</h3>
+                <p>
+                    Ansatte stempler inn med ett trykk. Timer fordeles på prosjekt eller oppdrag.
+                    Admin ser heatmap over hele måneden — godkjenn med Enter, eksporter til lønn.
+                    Overtidsbank, fravær og turnus er innebygd.
+                </p>
+                <ul class="feature-list">
+                    <li>Klokke inn/ut med ett trykk</li>
+                    <li>Kalendervisning med dagblokker</li>
+                    <li>Overtidsbank og fraværsregistrering</li>
+                    <li>Heatmap for admin — se hele teamet</li>
+                </ul>
+            </div>
+            <div class="feature-visual">
+                <div class="laptop-frame">
+                    <div class="laptop-screen">
+                        <div class="mock-admin-header">
+                            <span style="font-weight:700;font-size:0.9rem;">Timeføring — April 2026</span>
+                            <div style="display:flex;gap:6px;">
+                                <div class="mock-btn-sm">CSV</div>
+                                <div class="mock-btn-sm" style="background:#4361EE;color:#fff;">Godkjenn</div>
+                            </div>
+                        </div>
+                        <div class="mock-heatmap">
+                            <div class="hm-row">
+                                <span class="hm-name">Ola Nordmann</span>
+                                <span class="hm-cell hm-green">7.5</span>
+                                <span class="hm-cell hm-green">8.0</span>
+                                <span class="hm-cell hm-yellow">10.5</span>
+                                <span class="hm-cell hm-green">7.5</span>
+                                <span class="hm-cell hm-green">7.5</span>
+                                <span class="hm-cell hm-gray"></span>
+                                <span class="hm-cell hm-gray"></span>
+                            </div>
+                            <div class="hm-row">
+                                <span class="hm-name">Kari Hansen</span>
+                                <span class="hm-cell hm-green">7.5</span>
+                                <span class="hm-cell hm-green">7.5</span>
+                                <span class="hm-cell hm-green">7.5</span>
+                                <span class="hm-cell hm-blue">Ferie</span>
+                                <span class="hm-cell hm-blue">Ferie</span>
+                                <span class="hm-cell hm-gray"></span>
+                                <span class="hm-cell hm-gray"></span>
+                            </div>
+                            <div class="hm-row">
+                                <span class="hm-name">Erik Berg</span>
+                                <span class="hm-cell hm-green">8.0</span>
+                                <span class="hm-cell hm-red">0</span>
+                                <span class="hm-cell hm-green">7.5</span>
+                                <span class="hm-cell hm-yellow">9.0</span>
+                                <span class="hm-cell hm-green">7.5</span>
+                                <span class="hm-cell hm-gray"></span>
+                                <span class="hm-cell hm-gray"></span>
+                            </div>
+                            <div class="hm-days">
+                                <span></span>
+                                <span>Ma</span><span>Ti</span><span>On</span><span>To</span><span>Fr</span><span>Lø</span><span>Sø</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Feature 2: Oppdrag (Jobs) -->
+        <div class="feature-row reverse">
+            <div class="feature-text">
+                <div class="feature-badge" style="background:#ECFDF5;color:#059669;">Oppdrag</div>
+                <h3>Opprett et oppdrag på under 2 minutter.</h3>
+                <p>
+                    Ikke alt er et stort prosjekt. Oppdrag er for raske jobber — servicebesøk,
+                    reparasjoner, kundebesøk. Opprett, dokumenter, fullfør. Koble til bedrift eller
+                    privatperson, legg til deler og materialer, og fakturer rett fra appen.
+                </p>
+                <ul class="feature-list">
+                    <li>Rask oppretting — beskrivelse, kunde, adresse</li>
+                    <li>Deleliste med antall og pris</li>
+                    <li>Bedrift eller privatperson som kunde</li>
+                    <li>Full historikk og dokumentasjon</li>
+                </ul>
+            </div>
+            <div class="feature-visual">
+                <div class="phone-frame phone-frame-feature">
+                    <div class="phone-notch"></div>
+                    <div class="phone-screen">
+                        <div class="mock-topbar">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+                            <span style="font-weight:600;font-size:0.85rem;">Nytt oppdrag</span>
+                            <span></span>
+                        </div>
+                        <div style="padding:12px;">
+                            <div class="mock-input"><span class="mock-input-label">Beskrivelse</span><span class="mock-input-value">Skifte vannrør kjøkken</span></div>
+                            <div class="mock-input"><span class="mock-input-label">Kunde</span><span class="mock-input-value">Familien Olsen</span></div>
+                            <div class="mock-input"><span class="mock-input-label">Adresse</span><span class="mock-input-value">Strandgaten 42, Bergen</span></div>
+                            <div class="mock-input"><span class="mock-input-label">Type</span><span class="mock-input-value">Reparasjon</span></div>
+                            <div style="margin-top:10px;font-weight:600;font-size:0.75rem;color:#374151;margin-bottom:6px;">Deler</div>
+                            <div class="mock-parts-row">
+                                <span>Kobberrør 22mm × 3m</span>
+                                <span style="color:#6B7280;">2 stk</span>
+                            </div>
+                            <div class="mock-parts-row">
+                                <span>Vinkelkobling 22mm</span>
+                                <span style="color:#6B7280;">4 stk</span>
+                            </div>
+                            <div class="mock-parts-row">
+                                <span>Loddetinn</span>
+                                <span style="color:#6B7280;">1 stk</span>
+                            </div>
+                            <div class="mock-btn-full" style="margin-top:14px;">Opprett oppdrag</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Feature 3: Avvik -->
+        <div class="feature-row">
+            <div class="feature-text">
+                <div class="feature-badge" style="background:#FEF2F2;color:#E63946;">Avvik</div>
+                <h3>Rapporter avvik med bilde — rett fra felten.</h3>
+                <p>
+                    Oppdager du noe galt? Ta et bilde, skriv en kort beskrivelse, og send det inn.
+                    Avviket følges opp med tre statuser: Åpen, Under behandling, Lukket.
+                    Koble til prosjekt, jobb eller lokasjon. Full sporbarhet.
+                </p>
+                <ul class="feature-list">
+                    <li>Tre-status livssyklus med farger</li>
+                    <li>Foto og beskrivelse</li>
+                    <li>Tildel ansvarlig og sett frist</li>
+                    <li>Koble til prosjekt, oppdrag eller lokasjon</li>
+                </ul>
+            </div>
+            <div class="feature-visual">
+                <div class="phone-frame phone-frame-feature">
+                    <div class="phone-notch"></div>
+                    <div class="phone-screen">
+                        <div class="mock-topbar">
+                            <span style="font-weight:600;font-size:0.85rem;">Avvik</span>
+                            <span></span>
+                            <span></span>
+                        </div>
+                        <div style="padding:10px;">
+                            <div class="mock-deviation-card" style="border-left:4px solid #E63946;">
+                                <div style="display:flex;justify-content:space-between;align-items:center;">
+                                    <span style="font-weight:600;font-size:0.75rem;">Manglende rekkverk 3. etg</span>
+                                    <span class="mock-chip-red">Åpen</span>
+                                </div>
+                                <span style="font-size:0.65rem;color:#6B7280;">Bryggen Terrasse — 07.04.2026</span>
+                            </div>
+                            <div class="mock-deviation-card" style="border-left:4px solid #F59E0B;">
+                                <div style="display:flex;justify-content:space-between;align-items:center;">
+                                    <span style="font-weight:600;font-size:0.75rem;">Feil på brannslukker</span>
+                                    <span class="mock-chip-yellow">Under behandling</span>
+                                </div>
+                                <span style="font-size:0.65rem;color:#6B7280;">Solheimsviken — 05.04.2026</span>
+                            </div>
+                            <div class="mock-deviation-card" style="border-left:4px solid #10B981;">
+                                <div style="display:flex;justify-content:space-between;align-items:center;">
+                                    <span style="font-weight:600;font-size:0.75rem;">Støvete ventilasjonsfilter</span>
+                                    <span class="mock-chip-green">Lukket</span>
+                                </div>
+                                <span style="font-size:0.65rem;color:#6B7280;">Bryggen Terrasse — 01.04.2026</span>
+                            </div>
+                            <div class="mock-deviation-card" style="border-left:4px solid #E63946;">
+                                <div style="display:flex;justify-content:space-between;align-items:center;">
+                                    <span style="font-weight:600;font-size:0.75rem;">Glatt underlag v/ inngang</span>
+                                    <span class="mock-chip-red">Åpen</span>
+                                </div>
+                                <span style="font-size:0.65rem;color:#6B7280;">Verksted — 06.04.2026</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Feature 4: Sjekklister -->
+        <div class="feature-row reverse">
+            <div class="feature-text">
+                <div class="feature-badge" style="background:#F5F3FF;color:#7C3AED;">Sjekklister & Skjema</div>
+                <h3>Bygg maler én gang — bruk dem overalt.</h3>
+                <p>
+                    Lag sjekklistemaler med OK/Ikke relevant-knapper, datafelter, foto og signatur.
+                    Tilordne til prosjekt, oppdrag eller lokasjon. Batch-opprett nummererte sjekklister
+                    for hele blokka.
+                </p>
+                <ul class="feature-list">
+                    <li>Malbibliotek med forhåndsvisning</li>
+                    <li>OK / Ikke relevant med ett trykk</li>
+                    <li>Foto, signatur og kommentarer</li>
+                    <li>Batch-oppretting: "Leilighet 101–120"</li>
+                </ul>
+            </div>
+            <div class="feature-visual">
+                <div class="phone-frame phone-frame-feature">
+                    <div class="phone-notch"></div>
+                    <div class="phone-screen">
+                        <div class="mock-topbar">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+                            <span style="font-weight:600;font-size:0.85rem;">Brannsjekk — Leil. 103</span>
+                            <span></span>
+                        </div>
+                        <div style="padding:10px;">
+                            <div class="mock-checklist-item done">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="#10B981" stroke="#fff" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="9 12 11 14 15 10"/></svg>
+                                <span>Røykvarsler fungerer</span>
+                            </div>
+                            <div class="mock-checklist-item done">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="#10B981" stroke="#fff" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="9 12 11 14 15 10"/></svg>
+                                <span>Brannslukker tilgjengelig</span>
+                            </div>
+                            <div class="mock-checklist-item done">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="#10B981" stroke="#fff" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="9 12 11 14 15 10"/></svg>
+                                <span>Rømningsvei fri</span>
+                            </div>
+                            <div class="mock-checklist-item na">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="#9CA3AF" stroke="#fff" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                                <span style="color:#9CA3AF;text-decoration:line-through;">Sprinkleranlegg</span>
+                                <span style="font-size:0.6rem;color:#9CA3AF;margin-left:auto;">Ikke relevant</span>
+                            </div>
+                            <div class="mock-checklist-item">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#D1D5DB" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>
+                                <span>Nødlys fungerer</span>
+                            </div>
+                            <div style="display:flex;gap:6px;margin-top:14px;">
+                                <div class="mock-btn-sm" style="flex:1;text-align:center;background:#10B981;color:#fff;border:none;">3/5 OK</div>
+                                <div class="mock-btn-sm" style="flex:1;text-align:center;">Legg til foto</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════
+     MORE FEATURES GRID
+     ═══════════════════════════════════════════════════════ -->
+<section class="more-features">
+    <div class="container">
+        <div class="section-header">
+            <h2>Og mye mer</h2>
+        </div>
+        <div class="features-grid">
+            <div class="fg-card">
+                <div class="fg-icon" style="background:#FEF2F2;color:#E63946;">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                </div>
+                <h4>HMS</h4>
+                <p>SJA, vernerunder, sikkerhetsmøter og hendelsesrapporter — alt i ett.</p>
+            </div>
+            <div class="fg-card">
+                <div class="fg-icon" style="background:#EEF2FF;color:#4361EE;">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                </div>
+                <h4>Mannskap & innsjekking</h4>
+                <p>QR-kode ved inngangen. Se hvem som er på byggeplassen i sanntid. Lovpålagt mannskapsliste.</p>
+            </div>
+            <div class="fg-card">
+                <div class="fg-icon" style="background:#ECFDF5;color:#059669;">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+                </div>
+                <h4>Sertifikathåndtering</h4>
+                <p>Last opp sertifikater, få varsel 90, 30 og 0 dager før utløp. Aldri miss en fornyelse.</p>
+            </div>
+            <div class="fg-card">
+                <div class="fg-icon" style="background:#FFF7ED;color:#EA580C;">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                </div>
+                <h4>Kjemikalieregister</h4>
+                <p>Søk i SDS-database, skann strekkoder, få AI-oppsummering på norsk. GHS-piktogrammer og verneutstyr.</p>
+            </div>
+            <div class="fg-card">
+                <div class="fg-icon" style="background:#F5F3FF;color:#7C3AED;">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>
+                </div>
+                <h4>Maskinpark</h4>
+                <p>Register over alt utstyr, vedlikeholdslogg og dokumentasjon. Koble maskiner til prosjekter.</p>
+            </div>
+            <div class="fg-card">
+                <div class="fg-icon" style="background:#F0FDF4;color:#16A34A;">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                </div>
+                <h4>Rapporter & eksport</h4>
+                <p>Eksporter alt som PDF eller Excel. Klar for Arbeidstilsynet, revisor eller kunde.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════
+     HOW IT WORKS
+     ═══════════════════════════════════════════════════════ -->
+<section class="how-section" id="how">
+    <div class="container">
+        <div class="section-header">
+            <div class="section-badge">Slik fungerer det</div>
+            <h2>I gang på minutter — ikke uker</h2>
+        </div>
+        <div class="steps-grid">
+            <div class="step-card">
+                <div class="step-number">1</div>
+                <h4>Opprett bedriftskonto</h4>
+                <p>Registrer med org-nummer. Solodoc henter bedriftsinfo fra Brønnøysund automatisk.</p>
+            </div>
+            <div class="step-card">
+                <div class="step-number">2</div>
+                <h4>Inviter teamet</h4>
+                <p>Send invitasjoner via e-post. Ansatte lager konto og er klare med én gang.</p>
+            </div>
+            <div class="step-card">
+                <div class="step-number">3</div>
+                <h4>Sett opp prosjekter</h4>
+                <p>Lag prosjekter og oppdrag, tilordne sjekklister, og la folkene gjøre jobben sin.</p>
+            </div>
+            <div class="step-card">
+                <div class="step-number">4</div>
+                <h4>Jobb fra mobilen</h4>
+                <p>Installer appen på hjemskjermen. Stemple inn, fyll ut sjekklister, rapporter avvik — alt fra lomma.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════
+     WHO IS THIS FOR
+     ═══════════════════════════════════════════════════════ -->
+<section class="who-section" id="who">
+    <div class="container">
+        <div class="section-header">
+            <div class="section-badge">Hvem er Solodoc for</div>
+            <h2>For alle som jobber med hendene</h2>
+            <p>Solodoc er laget for fysisk arbeid — ikke kontorfolk. Derfor fungerer det ute i felt.</p>
+        </div>
+        <div class="who-grid">
+            <div class="who-card">
+                <div class="who-icon">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#4361EE" stroke-width="1.5"><rect x="1" y="6" width="22" height="14" rx="2"/><path d="M5 6V4a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v2"/><line x1="12" y1="11" x2="12" y2="14"/></svg>
+                </div>
+                <h4>Byggfirma</h4>
+                <p>Prosjektstyring, SHA, sjekklister per leilighet, mannskap på byggeplass.</p>
+            </div>
+            <div class="who-card">
+                <div class="who-icon">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#EA580C" stroke-width="1.5"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                </div>
+                <h4>Rørlegger & elektriker</h4>
+                <p>Raske oppdrag, delelister, kundehistorikk. Dokumentasjon uten papirarbeid.</p>
+            </div>
+            <div class="who-card">
+                <div class="who-icon">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="1.5"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                </div>
+                <h4>Snekker & tømrer</h4>
+                <p>Prosjektdokumentasjon, sjekklister for kontroll, timer per oppdrag.</p>
+            </div>
+            <div class="who-card">
+                <div class="who-icon">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="1.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+                </div>
+                <h4>Landbruk</h4>
+                <p>Kjemikalieregister, maskinvedlikehold, HMS-dokumentasjon. Alt Mattilsynet spør etter.</p>
+            </div>
+            <div class="who-card">
+                <div class="who-icon">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#7C3AED" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                </div>
+                <h4>Skreddersydd for deg?</h4>
+                <p>Trenger du noe spesielt? Vi bygger tilpassede moduler for din bedrift. <strong>Ta kontakt.</strong></p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════
+     PRICING
+     ═══════════════════════════════════════════════════════ -->
+<section class="pricing-section" id="pricing">
+    <div class="container">
+        <div class="section-header">
+            <div class="section-badge">Pris</div>
+            <h2>Enklere og rimeligere enn alternativene</h2>
+            <p>Vi tror god kvalitetsstyring ikke skal koste skjorta. Solodoc er designet for å gi mer for mindre.</p>
+        </div>
+        <div class="pricing-card">
+            <div class="pricing-inner">
+                <div class="pricing-left">
+                    <h3>Alt inkludert</h3>
+                    <p>Timeføring, avvik, sjekklister, HMS, mannskap, kjemikalieregister, maskinpark, prosjekter, oppdrag, rapporter — alt i én pris.</p>
+                    <ul class="pricing-list">
+                        <li>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                            Ubegrenset prosjekter og oppdrag
+                        </li>
+                        <li>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                            Offline-støtte
+                        </li>
+                        <li>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                            Norsk support
+                        </li>
+                        <li>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                            Ingen bindingstid
+                        </li>
+                        <li>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10B981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                            GDPR-samsvar med norske data
+                        </li>
+                    </ul>
+                </div>
+                <div class="pricing-right">
+                    <div class="pricing-cta-box">
+                        <span style="font-size:0.85rem;color:#6B7280;">Pris tilpasset bedriftsstørrelse</span>
+                        <a href="#contact" class="btn btn-primary btn-lg" style="width:100%;">Kontakt oss for pris</a>
+                        <span style="font-size:0.75rem;color:#9CA3AF;">Uforpliktende — vi ringer deg gjerne</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════
+     CONTACT / CTA
+     ═══════════════════════════════════════════════════════ -->
+<section class="contact-section" id="contact">
+    <div class="container">
+        <div class="contact-card">
+            <div class="contact-left">
+                <h2>Klar til å prøve?</h2>
+                <p>
+                    Vi hjelper deg i gang — helt uforpliktende. Send oss en melding eller ring,
+                    så tar vi en prat om hvordan Solodoc kan passe for din bedrift.
+                </p>
+                <div class="contact-info">
+                    <div class="contact-row">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4361EE" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                        <a href="mailto:kontakt@solodoc.no">kontakt@solodoc.no</a>
+                    </div>
+                </div>
+            </div>
+            <div class="contact-right">
+                <form class="contact-form" onsubmit="handleSubmit(event)">
+                    <div class="form-group">
+                        <label>Bedriftsnavn</label>
+                        <input type="text" placeholder="Ditt firma AS" required>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Navn</label>
+                            <input type="text" placeholder="Ola Nordmann" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Telefon</label>
+                            <input type="tel" placeholder="999 99 999">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>E-post</label>
+                        <input type="email" placeholder="ola@firma.no" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Melding</label>
+                        <textarea rows="3" placeholder="Fortell oss litt om bedriften og hva dere trenger..."></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-lg" style="width:100%;">Send melding</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════
+     FOOTER
+     ═══════════════════════════════════════════════════════ -->
+<footer class="footer">
+    <div class="container">
+        <div class="footer-inner">
+            <div class="footer-brand">
+                <a href="#" class="logo">
+                    <span class="logo-mark">S</span>
+                    <span class="logo-text">Solodoc</span>
+                </a>
+                <p>Kvalitetsstyring for folk i felten.</p>
+            </div>
+            <div class="footer-links">
+                <div class="footer-col">
+                    <h5>Produkt</h5>
+                    <a href="#features">Funksjoner</a>
+                    <a href="#pricing">Pris</a>
+                    <a href="#how">Slik fungerer det</a>
+                </div>
+                <div class="footer-col">
+                    <h5>Selskap</h5>
+                    <a href="#contact">Kontakt</a>
+                    <a href="#">Personvern</a>
+                    <a href="#">Vilkår</a>
+                </div>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <span>&copy; 2026 Solodoc. Alle rettigheter reservert.</span>
+        </div>
+    </div>
+</footer>
+
+<script>
+// Mobile menu toggle
+document.getElementById('menuBtn').addEventListener('click', function() {
+    document.getElementById('navLinks').classList.toggle('open');
+    this.classList.toggle('open');
+});
+
+// Navbar scroll effect
+window.addEventListener('scroll', function() {
+    document.getElementById('navbar').classList.toggle('scrolled', window.scrollY > 20);
+});
+
+// Smooth scroll
+document.querySelectorAll('a[href^="#"]').forEach(a => {
+    a.addEventListener('click', function(e) {
+        e.preventDefault();
+        var target = document.querySelector(this.getAttribute('href'));
+        if (target) {
+            target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            document.getElementById('navLinks').classList.remove('open');
+            document.getElementById('menuBtn').classList.remove('open');
+        }
+    });
+});
+
+// Contact form
+function handleSubmit(e) {
+    e.preventDefault();
+    var btn = e.target.querySelector('button[type="submit"]');
+    btn.textContent = 'Sendt!';
+    btn.style.background = '#10B981';
+    setTimeout(function() {
+        btn.textContent = 'Send melding';
+        btn.style.background = '';
+        e.target.reset();
+    }, 3000);
+}
+</script>
+
+</body>
+</html>

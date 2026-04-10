@@ -1,0 +1,15 @@
+@page "/hours/new"
+@attribute [Authorize]
+@inject NavigationManager Navigation
+
+<PageTitle>Solodoc - Timer</PageTitle>
+
+@code {
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (firstRender)
+        {
+            Navigation.NavigateTo("/hours", replace: true);
+        }
+    }
+}

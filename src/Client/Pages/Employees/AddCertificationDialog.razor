@@ -1,0 +1,49 @@
+<MudDialog>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudTextField @bind-Value="_name" Label="Navn" Variant="Variant.Outlined"
+                          Required="true" RequiredError="Navn er pakrevd"
+                          Placeholder="F.eks. Varmearbeid, Maskinforerkort" />
+            <MudTextField @bind-Value="_type" Label="Type (valgfritt)" Variant="Variant.Outlined"
+                          Placeholder="F.eks. Klasse B, Modul 2" />
+            <MudTextField @bind-Value="_issuedBy" Label="Utstedt av (valgfritt)" Variant="Variant.Outlined"
+                          Placeholder="F.eks. Arbeidstilsynet" />
+            <MudDatePicker @bind-Date="_expiryDate" Label="Utlopsdato (valgfritt)"
+                           Variant="Variant.Outlined"
+                           DateFormat="dd.MM.yyyy"
+                           Placeholder="Velg dato" />
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Style="text-transform:none;">Avbryt</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled"
+                   Style="text-transform:none;border-radius:8px;"
+                   OnClick="Submit">
+            Legg til
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;
+
+    private string? _name;
+    private string? _type;
+    private string? _issuedBy;
+    private DateTime? _expiryDate;
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private void Submit()
+    {
+        if (string.IsNullOrWhiteSpace(_name))
+            return;
+
+        DateOnly? expiry = _expiryDate.HasValue
+            ? DateOnly.FromDateTime(_expiryDate.Value)
+            : null;
+
+        var request = new CreateCertificationRequest(_name.Trim(), _type?.Trim(), _issuedBy?.Trim(), expiry);
+        MudDialog.Close(DialogResult.Ok(request));
+    }
+}

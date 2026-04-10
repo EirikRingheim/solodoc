@@ -1,0 +1,62 @@
+@inject EmployeeService EmployeeService
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudTextField @bind-Value="_email" Label="E-postadresse" Variant="Variant.Outlined"
+                          Required="true" RequiredError="E-post er pakrevd"
+                          InputType="InputType.Email"
+                          Placeholder="navn@eksempel.no" />
+            <MudSelect T="string" @bind-Value="_role" Label="Rolle" Variant="Variant.Outlined"
+                       Required="true" RequiredError="Rolle er pakrevd">
+                <MudSelectItem T="string" Value="@("feltarbeider")">Feltarbeider</MudSelectItem>
+                <MudSelectItem T="string" Value="@("prosjektleder")">Prosjektleder</MudSelectItem>
+                <MudSelectItem T="string" Value="@("admin")">Administrator</MudSelectItem>
+            </MudSelect>
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Style="text-transform:none;">Avbryt</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled"
+                   Style="text-transform:none;border-radius:8px;"
+                   Disabled="_submitting"
+                   OnClick="Submit">
+            @if (_submitting)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+            }
+            Send invitasjon
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;
+
+    private string? _email;
+    private string? _role;
+    private bool _submitting;
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private async Task Submit()
+    {
+        if (string.IsNullOrWhiteSpace(_email) || string.IsNullOrWhiteSpace(_role))
+            return;
+
+        _submitting = true;
+        var success = await EmployeeService.InviteAsync(new InviteEmployeeRequest(_email.Trim(), _role));
+        _submitting = false;
+
+        if (success)
+        {
+            Snackbar.Add("Invitasjon sendt", Severity.Success);
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        else
+        {
+            Snackbar.Add("Kunne ikke sende invitasjon", Severity.Error);
+        }
+    }
+}

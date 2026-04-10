@@ -1,0 +1,130 @@
+@page "/chemicals"
+@attribute [Authorize]
+@inject ChemicalService ChemicalService
+@inject NavigationManager Navigation
+
+<PageTitle>Solodoc - Kjemikalier</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4">
+    <MudText Typo="Typo.h5">Kjemikalieregister</MudText>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.Add"
+               Href="/chemicals/new"
+               Style="text-transform:none;border-radius:8px;">
+        Nytt stoff
+    </MudButton>
+</MudStack>
+
+<MudTextField T="string" @bind-Value="_search" Placeholder="Sok kjemikalier..."
+              Variant="Variant.Outlined" Margin="Margin.Dense"
+              Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+              Immediate="true" DebounceInterval="300"
+              TextChanged="OnSearchChanged"
+              Class="mb-4" Style="max-width:400px;" />
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+}
+else if (_chemicals.Count == 0)
+{
+    <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;" Class="pa-8">
+        <MudStack AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Filled.Science" Size="Size.Large" Color="Color.Secondary" />
+            <MudText Typo="Typo.body1" Color="Color.Secondary">Ingen kjemikalier funnet</MudText>
+        </MudStack>
+    </MudPaper>
+}
+else
+{
+    <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;overflow:hidden;">
+        <MudDataGrid T="ChemicalListItemDto"
+                     Items="_chemicals"
+                     Sortable="true"
+                     Filterable="false"
+                     Hover="true"
+                     Dense="false"
+                     RowClick="OnRowClick"
+                     RowStyle="cursor:pointer;"
+                     Class="chemical-grid">
+            <Columns>
+                <PropertyColumn Property="x => x.Name" Title="Navn" />
+                <PropertyColumn Property="x => x.Manufacturer" Title="Produsent" />
+                <TemplateColumn Title="GHS">
+                    <CellTemplate>
+                        @foreach (var ghsCode in context.Item.GhsPictograms)
+                        {
+                            <MudChip T="string" Size="Size.Small"
+                                     Color="@GetGhsColor(ghsCode)"
+                                     Style="height:22px;font-size:0.75rem;"
+                                     Class="mr-1 mb-1">@ghsCode</MudChip>
+                        }
+                    </CellTemplate>
+                </TemplateColumn>
+                <TemplateColumn Title="Status">
+                    <CellTemplate>
+                        @if (context.Item.IsActive)
+                        {
+                            <MudChip T="string" Size="Size.Small" Color="Color.Success"
+                                     Style="height:22px;">Aktiv</MudChip>
+                        }
+                        else
+                        {
+                            <MudChip T="string" Size="Size.Small" Color="Color.Error"
+                                     Style="height:22px;">Inaktiv</MudChip>
+                        }
+                    </CellTemplate>
+                </TemplateColumn>
+            </Columns>
+            <NoRecordsContent>
+                <MudStack AlignItems="AlignItems.Center" Spacing="2" Class="pa-8">
+                    <MudIcon Icon="@Icons.Material.Filled.Science" Size="Size.Large" Color="Color.Secondary" />
+                    <MudText Typo="Typo.body1" Color="Color.Secondary">Ingen kjemikalier funnet</MudText>
+                </MudStack>
+            </NoRecordsContent>
+        </MudDataGrid>
+    </MudPaper>
+}
+
+@code {
+    private List<ChemicalListItemDto> _chemicals = [];
+    private string? _search;
+    private bool _loading;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadChemicals();
+    }
+
+    private async Task LoadChemicals()
+    {
+        _loading = true;
+        _chemicals = await ChemicalService.GetChemicalsAsync(_search);
+        _loading = false;
+    }
+
+    private async Task OnSearchChanged(string value)
+    {
+        _search = value;
+        await LoadChemicals();
+    }
+
+    private void OnRowClick(DataGridRowClickEventArgs<ChemicalListItemDto> args)
+    {
+        Navigation.NavigateTo($"/chemicals/{args.Item.Id}");
+    }
+
+    private static Color GetGhsColor(string code) => code switch
+    {
+        "GHS01" => Color.Error,      // Explosive
+        "GHS02" => Color.Error,      // Flammable
+        "GHS03" => Color.Warning,    // Oxidizer
+        "GHS04" => Color.Info,       // Compressed gas
+        "GHS05" => Color.Error,      // Corrosive
+        "GHS06" => Color.Error,      // Toxic
+        "GHS07" => Color.Warning,    // Irritant
+        "GHS08" => Color.Error,      // Health hazard
+        "GHS09" => Color.Info,       // Environmental
+        _ => Color.Default
+    };
+}

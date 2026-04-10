@@ -1,0 +1,397 @@
+@page "/hms"
+@attribute [Authorize]
+@inject HmsService HmsService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<PageTitle>Solodoc - HMS</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4">HMS</MudText>
+
+<MudTabs Elevation="0" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pt-4">
+    @* --- SJA Tab --- *@
+    <MudTabPanel Text="SJA" Icon="@Icons.Material.Filled.Warning">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
+            <MudText Typo="Typo.h6">Sikker jobb-analyse</MudText>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Add"
+                       Href="/hms/sja/new"
+                       Style="text-transform:none;border-radius:8px;">
+                Ny SJA
+            </MudButton>
+        </MudStack>
+
+        @if (_loadingSja)
+        {
+            <MudProgressLinear Color="Color.Primary" Indeterminate="true" />
+        }
+        else if (_sjaForms.Count == 0)
+        {
+            <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-8">
+                <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@Icons.Material.Filled.VerifiedUser" Size="Size.Large" Color="Color.Default" Style="opacity:0.3;" />
+                    <MudText Typo="Typo.body1" Color="Color.Secondary">Ingen SJA-skjemaer opprettet</MudText>
+                </MudStack>
+            </MudPaper>
+        }
+        else
+        {
+            <MudStack Spacing="2">
+                @foreach (var sja in _sjaForms)
+                {
+                    <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;cursor:pointer;"
+                              Class="pa-4" @onclick="() => NavigateToSja(sja.Id)">
+                        <MudStack Row="true" AlignItems="AlignItems.Start" Justify="Justify.SpaceBetween" Style="flex-wrap:wrap;gap:8px;">
+                            <MudStack Spacing="1">
+                                <MudText Typo="Typo.subtitle1" Style="font-weight:600;">@sja.Title</MudText>
+                                @if (!string.IsNullOrWhiteSpace(sja.ProjectName))
+                                {
+                                    <MudText Typo="Typo.body2" Color="Color.Secondary">@sja.ProjectName</MudText>
+                                }
+                                <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                        <MudIcon Icon="@Icons.Material.Filled.CalendarToday" Size="Size.Small" Style="vertical-align:middle;margin-right:2px;" />
+                                        @sja.Date.ToString("dd.MM.yyyy")
+                                    </MudText>
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                        <MudIcon Icon="@Icons.Material.Filled.People" Size="Size.Small" Style="vertical-align:middle;margin-right:2px;" />
+                                        @sja.ParticipantCount deltakere
+                                    </MudText>
+                                </MudStack>
+                            </MudStack>
+                            @{
+                                var statusCss = sja.Status switch
+                                {
+                                    "Utkast" => "status-badge status-badge--draft",
+                                    "Sendt inn" => "status-badge status-badge--submitted",
+                                    "Godkjent" => "status-badge status-badge--approved",
+                                    _ => "status-badge status-badge--draft"
+                                };
+                            }
+                            <span class="@statusCss">@sja.Status</span>
+                        </MudStack>
+                    </MudPaper>
+                }
+            </MudStack>
+        }
+    </MudTabPanel>
+
+    @* --- Vernerunder Tab --- *@
+    <MudTabPanel Text="Vernerunder" Icon="@Icons.Material.Filled.Shield">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
+            <MudText Typo="Typo.h6">Vernerunder</MudText>
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                       Href="/checklists"
+                       StartIcon="@Icons.Material.Filled.Add"
+                       Style="text-transform:none;border-radius:8px;">
+                Ny vernerunde-sjekkliste
+            </MudButton>
+        </MudStack>
+
+        <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true" Class="mb-3"
+                  Icon="@Icons.Material.Filled.Info">
+            Vernerunder bruker sjekkliste-arkitekturen. Opprett en sjekkliste-mal for vernerunder, og planlegg gjennomforing her.
+        </MudAlert>
+
+        @if (_loadingSchedules)
+        {
+            <MudProgressLinear Color="Color.Primary" Indeterminate="true" />
+        }
+        else if (_safetyRoundSchedules.Count == 0)
+        {
+            <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-8">
+                <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@Icons.Material.Filled.Shield" Size="Size.Large" Color="Color.Default" Style="opacity:0.3;" />
+                    <MudText Typo="Typo.body1" Color="Color.Secondary">Ingen vernerunder planlagt</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        Sett opp en gjentagende plan for vernerunder for a holde oversikten.
+                    </MudText>
+                </MudStack>
+            </MudPaper>
+        }
+        else
+        {
+            <MudText Typo="Typo.subtitle2" Class="mb-2">Planlagte vernerunder</MudText>
+            <MudStack Spacing="2">
+                @foreach (var schedule in _safetyRoundSchedules)
+                {
+                    var isOverdue = schedule.NextDue < DateOnly.FromDateTime(DateTime.Today);
+                    <MudPaper Elevation="0"
+                              Style="@($"border:1px solid {(isOverdue ? "#F44336" : "#E9ECEF")};border-radius:12px;")"
+                              Class="pa-4">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Style="flex-wrap:wrap;gap:8px;">
+                            <MudStack Spacing="1">
+                                <MudText Typo="Typo.subtitle1" Style="font-weight:600;">@schedule.Name</MudText>
+                                <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                                    <MudText Typo="Typo.caption" Color="@(isOverdue ? Color.Error : Color.Secondary)">
+                                        <MudIcon Icon="@Icons.Material.Filled.Event" Size="Size.Small" Style="vertical-align:middle;margin-right:2px;" />
+                                        Neste: @schedule.NextDue.ToString("dd.MM.yyyy")
+                                    </MudText>
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                        <MudIcon Icon="@Icons.Material.Filled.Repeat" Size="Size.Small" Style="vertical-align:middle;margin-right:2px;" />
+                                        Hver @(schedule.FrequencyWeeks == 1 ? "uke" : $"{schedule.FrequencyWeeks}. uke")
+                                    </MudText>
+                                </MudStack>
+                            </MudStack>
+                            @if (isOverdue)
+                            {
+                                <MudChip T="string" Color="Color.Error" Size="Size.Small" Variant="Variant.Filled"
+                                         Style="text-transform:none;">Forfalt</MudChip>
+                            }
+                            else
+                            {
+                                <MudChip T="string" Color="Color.Success" Size="Size.Small" Variant="Variant.Outlined"
+                                         Style="text-transform:none;">Aktiv</MudChip>
+                            }
+                        </MudStack>
+                    </MudPaper>
+                }
+            </MudStack>
+        }
+    </MudTabPanel>
+
+    @* --- HMS-moter Tab --- *@
+    <MudTabPanel Text="HMS-moter" Icon="@Icons.Material.Filled.Groups">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
+            <MudText Typo="Typo.h6">HMS-moter</MudText>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Add"
+                       OnClick="ToggleMeetingForm"
+                       Style="text-transform:none;border-radius:8px;">
+                Nytt mote
+            </MudButton>
+        </MudStack>
+
+        @if (_showMeetingForm)
+        {
+            <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-4 mb-3">
+                <MudText Typo="Typo.subtitle2" Class="mb-3">Nytt HMS-mote</MudText>
+                <MudStack Spacing="3">
+                    <MudTextField @bind-Value="_meetingTitle" Label="Tittel" Variant="Variant.Outlined"
+                                  Required="true" RequiredError="Tittel er pakrevd" />
+                    <MudDatePicker @bind-Date="_meetingDate" Label="Dato" Variant="Variant.Outlined"
+                                   DateFormat="dd.MM.yyyy" />
+                    <MudTextField @bind-Value="_meetingLocation" Label="Sted" Variant="Variant.Outlined" />
+                    <MudTextField @bind-Value="_meetingAgenda" Label="Agenda" Variant="Variant.Outlined"
+                                  Lines="3" Placeholder="Hva skal tas opp i motet?" />
+                    <MudStack Row="true" Spacing="2" Justify="Justify.FlexEnd">
+                        <MudButton Variant="Variant.Text" OnClick="ToggleMeetingForm"
+                                   Style="text-transform:none;">Avbryt</MudButton>
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                                   OnClick="CreateMeeting" Disabled="_creatingMeeting"
+                                   Style="text-transform:none;border-radius:8px;">
+                            @if (_creatingMeeting)
+                            {
+                                <MudProgressCircular Size="Size.Small" Indeterminate="true" Color="Color.Inherit" Class="mr-2" />
+                            }
+                            Opprett
+                        </MudButton>
+                    </MudStack>
+                </MudStack>
+            </MudPaper>
+        }
+
+        @if (_loadingMeetings)
+        {
+            <MudProgressLinear Color="Color.Primary" Indeterminate="true" />
+        }
+        else if (_meetings.Count == 0)
+        {
+            <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-8">
+                <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@Icons.Material.Filled.Groups" Size="Size.Large" Color="Color.Default" Style="opacity:0.3;" />
+                    <MudText Typo="Typo.body1" Color="Color.Secondary">Ingen HMS-moter opprettet</MudText>
+                </MudStack>
+            </MudPaper>
+        }
+        else
+        {
+            <MudStack Spacing="2">
+                @foreach (var meeting in _meetings)
+                {
+                    <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;cursor:pointer;"
+                              Class="pa-4" @onclick="() => NavigateToMeeting(meeting.Id)">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Style="flex-wrap:wrap;gap:8px;">
+                            <MudStack Spacing="1">
+                                <MudText Typo="Typo.subtitle1" Style="font-weight:600;">@meeting.Title</MudText>
+                                <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                        <MudIcon Icon="@Icons.Material.Filled.CalendarToday" Size="Size.Small" Style="vertical-align:middle;margin-right:2px;" />
+                                        @meeting.Date.ToString("dd.MM.yyyy")
+                                    </MudText>
+                                    @if (!string.IsNullOrWhiteSpace(meeting.Location))
+                                    {
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                            <MudIcon Icon="@Icons.Material.Filled.LocationOn" Size="Size.Small" Style="vertical-align:middle;margin-right:2px;" />
+                                            @meeting.Location
+                                        </MudText>
+                                    }
+                                </MudStack>
+                            </MudStack>
+                            <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Color="Color.Default" Style="opacity:0.5;" />
+                        </MudStack>
+                    </MudPaper>
+                }
+            </MudStack>
+        }
+    </MudTabPanel>
+
+    @* --- HMS-handbok Tab --- *@
+    <MudTabPanel Text="HMS-handbok" Icon="@Icons.Material.Filled.MenuBook">
+        <MudText Typo="Typo.h6" Class="mb-3">HMS-handbok</MudText>
+        <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;overflow:hidden;">
+            <MudExpansionPanels Elevation="0">
+                @foreach (var hbSection in _handbookSections)
+                {
+                    <MudExpansionPanel Text="@hbSection.Title">
+                        <MudStack Spacing="2">
+                            <MudText Typo="Typo.body2" Style="white-space:pre-wrap;">@hbSection.Content</MudText>
+                            <MudDivider Class="my-2" />
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                                @if (_confirmedSections.Contains(hbSection.Title))
+                                {
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                        <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small" Color="Color.Success" />
+                                        <MudText Typo="Typo.caption" Color="Color.Success">Bekreftet lest</MudText>
+                                    </MudStack>
+                                }
+                                else
+                                {
+                                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+                                               StartIcon="@Icons.Material.Filled.Done"
+                                               OnClick="() => ConfirmRead(hbSection.Title)"
+                                               Style="text-transform:none;border-radius:8px;">
+                                        Bekreft lest
+                                    </MudButton>
+                                }
+                            </MudStack>
+                        </MudStack>
+                    </MudExpansionPanel>
+                }
+            </MudExpansionPanels>
+        </MudPaper>
+    </MudTabPanel>
+</MudTabs>
+
+@code {
+    private void NavigateToSja(Guid id) => Navigation.NavigateTo($"/hms/sja/{id}");
+    private void NavigateToMeeting(Guid id) => Navigation.NavigateTo($"/hms/meetings/{id}");
+
+    private List<SjaFormListItemDto> _sjaForms = [];
+    private List<HmsMeetingListItemDto> _meetings = [];
+    private List<SafetyRoundScheduleDto> _safetyRoundSchedules = [];
+    private bool _loadingSja = true;
+    private bool _loadingMeetings = true;
+    private bool _loadingSchedules = true;
+
+    // Meeting form
+    private bool _showMeetingForm;
+    private string _meetingTitle = "";
+    private DateTime? _meetingDate = DateTime.Today;
+    private string _meetingLocation = "";
+    private string _meetingAgenda = "";
+    private bool _creatingMeeting;
+
+    // Handbook
+    private HashSet<string> _confirmedSections = [];
+
+    private readonly List<HandbookSection> _handbookSections =
+    [
+        new("Organisasjon og ansvar",
+            "Denne seksjonen beskriver virksomhetens organisering av HMS-arbeidet, inkludert roller og ansvarsfordeling.\n\nDaglig leder har overordnet ansvar for HMS. Verneombud velges blant ansatte og har rett til a stanse farlig arbeid. Alle ansatte har plikt til a folge gjeldende sikkerhetsregler og melde fra om farlige forhold."),
+        new("Risikovurdering",
+            "Risikovurderinger skal gjennomfores for alle arbeidsoppgaver som kan medfore fare for liv og helse.\n\nMetodikk: Identifiser farer, vurder sannsynlighet og konsekvens, bestem tiltak. Dokumenteres i Solodocs risikovurderingsmodul. Gjennomgas og oppdateres minimum arlig."),
+        new("Sikker jobbanalyse (SJA)",
+            "SJA skal utfores for arbeid med forhoydet risiko eller nar arbeidsforholdene endrer seg.\n\nAlle deltakere i arbeidet skal delta i SJA-gjennomgangen og signere. Bruk Solodocs SJA-modul for a opprette, gjennomfore og arkivere SJA-er."),
+        new("Vernerunder",
+            "Vernerunder gjennomfores regelmessig for a kontrollere at arbeidsmiljoet er forsvarlig.\n\nFrekvens bestemmes av virksomheten, men bor gjennomfores minimum manedlig. Funn dokumenteres og ikke-konforme forhold registreres som avvik."),
+        new("Avviksbehandling",
+            "Alle avvik, ulykker, nestenulykker og farlige tilstander skal rapporteres umiddelbart.\n\nAvvik folger livslopen: Apen (rapportert) -> Under behandling (tiltak iverksatt) -> Lukket (verifisert). Alvorlige hendelser skal meldes til Arbeidstilsynet."),
+        new("Beredskap og forstehjelp",
+            "Virksomheten skal ha en beredskapsplan som dekker brann, ulykker, forste hjelp og evakuering.\n\nAlle ansatte skal vite hvor forstehjelputstyr befinner seg. Nodutganger og monstringsplass skal vare tydelig merket. Beredskapsovelser gjennomfores minimum arlig."),
+        new("Arbeidsmiljo",
+            "Arbeidsmiljoet skal vare forsvarlig for alle ansatte, bade fysisk og psykososialt.\n\nDette omfatter ergonomi, stoy, belysning, temperatur, kjemisk eksponering og psykososiale forhold. Verneombud og tillitsvalgte skal involveres i arbeidsmiljoarbeidet."),
+        new("Opplaring og kompetanse",
+            "Alle ansatte skal ha nodvendig opplaring og kompetanse for sine arbeidsoppgaver.\n\nSertifikater og kompetansebevis registreres i Solodoc med automatiske painnelser ved utlop. Nyansatte skal gjennomfore HMS-opplaring for de starter i arbeid."),
+        new("Stoffkartotek",
+            "Alle kjemikalier som brukes i virksomheten skal vare registrert i stoffkartoteket.\n\nSikkerhetsdatablad (SDS) skal vare tilgjengelig for alle ansatte. Se Solodocs kjemikalieregister for oppdaterte datablad og risikovurderinger."),
+        new("Maskiner og utstyr",
+            "Alt utstyr og alle maskiner skal vare forsvarlig vedlikeholdt og kontrollert.\n\nVedlikeholdslogg fores i Solodocs maskinpark-modul. Sertifikater for bruk av spesialutstyr (kran, truck, lift) skal vare gyldige. Daglig kontroll gjennomfores for bruk.")
+    ];
+
+    protected override async Task OnInitializedAsync()
+    {
+        var sjaTask = LoadSjaForms();
+        var meetingsTask = LoadMeetings();
+        var schedulesTask = LoadSafetyRoundSchedules();
+        await Task.WhenAll(sjaTask, meetingsTask, schedulesTask);
+    }
+
+    private async Task LoadSjaForms()
+    {
+        _sjaForms = await HmsService.GetSjaFormsAsync();
+        _loadingSja = false;
+    }
+
+    private async Task LoadMeetings()
+    {
+        _meetings = await HmsService.GetMeetingsAsync();
+        _loadingMeetings = false;
+    }
+
+    private async Task LoadSafetyRoundSchedules()
+    {
+        _safetyRoundSchedules = await HmsService.GetSafetyRoundSchedulesAsync();
+        _loadingSchedules = false;
+    }
+
+    private void ToggleMeetingForm()
+    {
+        _showMeetingForm = !_showMeetingForm;
+        if (_showMeetingForm)
+        {
+            _meetingTitle = "";
+            _meetingDate = DateTime.Today;
+            _meetingLocation = "";
+            _meetingAgenda = "";
+        }
+    }
+
+    private async Task CreateMeeting()
+    {
+        if (string.IsNullOrWhiteSpace(_meetingTitle))
+        {
+            Snackbar.Add("Tittel er pakrevd", Severity.Warning);
+            return;
+        }
+
+        _creatingMeeting = true;
+        var date = _meetingDate.HasValue
+            ? DateOnly.FromDateTime(_meetingDate.Value)
+            : DateOnly.FromDateTime(DateTime.Today);
+
+        var id = await HmsService.CreateMeetingAsync(
+            new CreateHmsMeetingRequest(_meetingTitle, date,
+                string.IsNullOrWhiteSpace(_meetingLocation) ? null : _meetingLocation));
+
+        if (id.HasValue)
+        {
+            Snackbar.Add("HMS-mote opprettet", Severity.Success);
+            _showMeetingForm = false;
+            _meetings = await HmsService.GetMeetingsAsync();
+        }
+        else
+        {
+            Snackbar.Add("Kunne ikke opprette mote", Severity.Error);
+        }
+        _creatingMeeting = false;
+    }
+
+    private void ConfirmRead(string sectionTitle)
+    {
+        _confirmedSections.Add(sectionTitle);
+        Snackbar.Add($"Bekreftet: {sectionTitle}", Severity.Success);
+    }
+
+    private record HandbookSection(string Title, string Content);
+}

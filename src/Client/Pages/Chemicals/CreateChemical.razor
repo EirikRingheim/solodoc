@@ -1,0 +1,81 @@
+@page "/chemicals/new"
+@attribute [Authorize]
+@inject ChemicalService ChemicalService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<PageTitle>Solodoc - Nytt kjemikalie</PageTitle>
+
+<MudButton Variant="Variant.Text" Color="Color.Default" Href="/chemicals"
+           StartIcon="@Icons.Material.Filled.ArrowBack" Class="mb-2"
+           Style="text-transform:none;">
+    Tilbake
+</MudButton>
+
+<MudText Typo="Typo.h5" Class="mb-4">Nytt kjemikalie</MudText>
+
+<MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;" Class="pa-4">
+    <EditForm Model="_model" OnValidSubmit="HandleSubmit">
+        <MudGrid Spacing="3">
+            <MudItem xs="12" sm="6">
+                <MudTextField @bind-Value="_model.Name" Label="Navn" Required="true"
+                              Variant="Variant.Outlined" Margin="Margin.Dense" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudTextField @bind-Value="_model.Manufacturer" Label="Produsent"
+                              Variant="Variant.Outlined" Margin="Margin.Dense" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudTextField @bind-Value="_model.ProductNumber" Label="Produktnummer"
+                              Variant="Variant.Outlined" Margin="Margin.Dense" />
+            </MudItem>
+            <MudItem xs="12">
+                <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled"
+                           Color="Color.Primary" Disabled="_saving"
+                           Style="text-transform:none;border-radius:8px;">
+                    @if (_saving)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                    }
+                    Opprett
+                </MudButton>
+            </MudItem>
+        </MudGrid>
+    </EditForm>
+</MudPaper>
+
+@code {
+    private ChemicalFormModel _model = new();
+    private bool _saving;
+
+    private async Task HandleSubmit()
+    {
+        if (string.IsNullOrWhiteSpace(_model.Name)) return;
+
+        _saving = true;
+        var request = new CreateChemicalRequest(
+            _model.Name,
+            _model.Manufacturer,
+            _model.ProductNumber);
+
+        var id = await ChemicalService.CreateChemicalAsync(request);
+        _saving = false;
+
+        if (id.HasValue)
+        {
+            Snackbar.Add("Kjemikalie opprettet", Severity.Success);
+            Navigation.NavigateTo($"/chemicals/{id.Value}");
+        }
+        else
+        {
+            Snackbar.Add("Kunne ikke opprette kjemikaliet", Severity.Error);
+        }
+    }
+
+    private class ChemicalFormModel
+    {
+        public string Name { get; set; } = string.Empty;
+        public string? Manufacturer { get; set; }
+        public string? ProductNumber { get; set; }
+    }
+}

@@ -1,0 +1,14 @@
+@page "/not-found"
+@layout MainLayout
+
+<PageTitle>Ikke funnet</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Small" Class="mt-8">
+    <MudStack AlignItems="AlignItems.Center" Spacing="4">
+        <MudIcon Icon="@Icons.Material.Filled.SearchOff" Size="Size.Large" Color="Color.Default" />
+        <MudText Typo="Typo.h5">Siden ble ikke funnet</MudText>
+        <MudButton Href="/" Variant="Variant.Filled" Color="Color.Primary">
+            Tilbake til dashbord
+        </MudButton>
+    </MudStack>
+</MudContainer>

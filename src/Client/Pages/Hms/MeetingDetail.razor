@@ -1,0 +1,282 @@
+@page "/hms/meetings/{Id:guid}"
+@attribute [Authorize]
+@inject HmsService HmsService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<PageTitle>Solodoc - @(_meeting?.Title ?? "HMS-mote")</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-4">
+    <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Href="/hms" />
+    <MudText Typo="Typo.h5" Style="word-break:break-word;">@(_meeting?.Title ?? "Laster...")</MudText>
+</MudStack>
+
+@if (_loading)
+{
+    <MudProgressLinear Color="Color.Primary" Indeterminate="true" />
+}
+else if (_meeting is null)
+{
+    <MudAlert Severity="Severity.Warning">HMS-mote ble ikke funnet.</MudAlert>
+}
+else
+{
+    @* Header card *@
+    <MudPaper Class="pa-5 mb-3" Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;">
+        <MudGrid Spacing="3">
+            <MudItem xs="6" sm="4">
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Dato</MudText>
+                <MudText Typo="Typo.body2" Style="font-weight:500;">@_meeting.Date.ToString("dd.MM.yyyy")</MudText>
+            </MudItem>
+            @if (!string.IsNullOrWhiteSpace(_meeting.Location))
+            {
+                <MudItem xs="6" sm="4">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Sted</MudText>
+                    <MudText Typo="Typo.body2" Style="font-weight:500;">@_meeting.Location</MudText>
+                </MudItem>
+            }
+        </MudGrid>
+    </MudPaper>
+
+    @* Agenda section *@
+    @if (!string.IsNullOrWhiteSpace(_meeting.Agenda))
+    {
+        <MudPaper Class="pa-5 mb-3" Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-3">
+                <MudIcon Icon="@Icons.Material.Filled.ListAlt" Size="Size.Small" Color="Color.Secondary" />
+                <MudText Typo="Typo.subtitle2">Agenda</MudText>
+            </MudStack>
+            <MudText Typo="Typo.body2" Style="white-space:pre-wrap;">@_meeting.Agenda</MudText>
+        </MudPaper>
+    }
+
+    @* Referat (Minutes) section *@
+    <MudPaper Class="pa-5 mb-3" Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudIcon Icon="@Icons.Material.Filled.Description" Size="Size.Small" Color="Color.Secondary" />
+                <MudText Typo="Typo.subtitle2">Referat</MudText>
+            </MudStack>
+            @if (!_editingMinutes)
+            {
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+                           StartIcon="@Icons.Material.Filled.Edit"
+                           OnClick="StartEditMinutes"
+                           Style="text-transform:none;border-radius:8px;">
+                    @(string.IsNullOrWhiteSpace(_meeting.Minutes) ? "Skriv referat" : "Rediger")
+                </MudButton>
+            }
+        </MudStack>
+
+        @if (_editingMinutes)
+        {
+            <MudStack Spacing="2">
+                <MudTextField @bind-Value="_minutesText" Label="Motesreferat" Variant="Variant.Outlined"
+                              Lines="8" Placeholder="Skriv referatet her..." />
+                <MudStack Row="true" Spacing="2" Justify="Justify.FlexEnd">
+                    <MudButton Variant="Variant.Text" OnClick="CancelEditMinutes"
+                               Style="text-transform:none;">Avbryt</MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                               OnClick="SaveMinutes" Disabled="_savingMinutes"
+                               Style="text-transform:none;border-radius:8px;">
+                        @if (_savingMinutes)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Color="Color.Inherit" Class="mr-2" />
+                        }
+                        Lagre referat
+                    </MudButton>
+                </MudStack>
+            </MudStack>
+        }
+        else if (string.IsNullOrWhiteSpace(_meeting.Minutes))
+        {
+            <MudStack AlignItems="AlignItems.Center" Spacing="1" Class="pa-4">
+                <MudIcon Icon="@Icons.Material.Filled.NoteAdd" Size="Size.Large" Color="Color.Default" Style="opacity:0.3;" />
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Ingen referat skrevet enna</MudText>
+            </MudStack>
+        }
+        else
+        {
+            <MudText Typo="Typo.body2" Style="white-space:pre-wrap;">@_meeting.Minutes</MudText>
+        }
+    </MudPaper>
+
+    @* Aksjonspunkter (Action items) section *@
+    <MudPaper Class="pa-5 mb-3" Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudIcon Icon="@Icons.Material.Filled.Assignment" Size="Size.Small" Color="Color.Secondary" />
+                <MudText Typo="Typo.subtitle2">Aksjonspunkter (@_meeting.ActionItems.Count)</MudText>
+            </MudStack>
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+                       StartIcon="@Icons.Material.Filled.Add"
+                       OnClick="ToggleActionItemForm"
+                       Style="text-transform:none;border-radius:8px;">
+                Legg til
+            </MudButton>
+        </MudStack>
+
+        @if (_showActionItemForm)
+        {
+            <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-4 mb-3">
+                <MudText Typo="Typo.subtitle2" Class="mb-3">Nytt aksjonspunkt</MudText>
+                <MudStack Spacing="3">
+                    <MudTextField @bind-Value="_actionDescription" Label="Beskrivelse" Variant="Variant.Outlined"
+                                  Required="true" Lines="2" />
+                    <MudDatePicker @bind-Date="_actionDeadline" Label="Frist" Variant="Variant.Outlined"
+                                   DateFormat="dd.MM.yyyy" />
+                    <MudStack Row="true" Spacing="2" Justify="Justify.FlexEnd">
+                        <MudButton Variant="Variant.Text" OnClick="ToggleActionItemForm"
+                                   Style="text-transform:none;">Avbryt</MudButton>
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                                   OnClick="AddActionItem" Disabled="_addingActionItem"
+                                   Style="text-transform:none;border-radius:8px;">
+                            @if (_addingActionItem)
+                            {
+                                <MudProgressCircular Size="Size.Small" Indeterminate="true" Color="Color.Inherit" Class="mr-2" />
+                            }
+                            Legg til
+                        </MudButton>
+                    </MudStack>
+                </MudStack>
+            </MudPaper>
+        }
+
+        @if (_meeting.ActionItems.Count == 0)
+        {
+            <MudStack AlignItems="AlignItems.Center" Spacing="1" Class="pa-4">
+                <MudIcon Icon="@Icons.Material.Filled.TaskAlt" Size="Size.Large" Color="Color.Default" Style="opacity:0.3;" />
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Ingen aksjonspunkter</MudText>
+            </MudStack>
+        }
+        else
+        {
+            <MudSimpleTable Dense="true" Hover="true" Style="border:1px solid #E9ECEF;border-radius:8px;overflow:hidden;">
+                <thead>
+                    <tr>
+                        <th>Beskrivelse</th>
+                        <th style="width:140px;">Ansvarlig</th>
+                        <th style="width:110px;">Frist</th>
+                        <th style="width:90px;text-align:center;">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in _meeting.ActionItems)
+                    {
+                        var isOverdue = item.Deadline.HasValue
+                            && item.Deadline.Value < DateOnly.FromDateTime(DateTime.Today)
+                            && item.Status != "Fullfort";
+                        <tr>
+                            <td>@item.Description</td>
+                            <td>@(item.ResponsibleName ?? "Ikke tildelt")</td>
+                            <td style="@(isOverdue ? "color:#F44336;font-weight:500;" : "")">
+                                @(item.Deadline?.ToString("dd.MM.yyyy") ?? "Ingen frist")
+                            </td>
+                            <td style="text-align:center;">
+                                @if (item.Status == "Fullfort")
+                                {
+                                    <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small" Color="Color.Success" />
+                                }
+                                else
+                                {
+                                    <MudIcon Icon="@Icons.Material.Filled.RadioButtonUnchecked" Size="Size.Small" Color="Color.Default" />
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </MudSimpleTable>
+        }
+    </MudPaper>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private HmsMeetingDetailDto? _meeting;
+    private bool _loading = true;
+
+    // Minutes editing
+    private bool _editingMinutes;
+    private string _minutesText = "";
+    private bool _savingMinutes;
+
+    // Action item form
+    private bool _showActionItemForm;
+    private string _actionDescription = "";
+    private DateTime? _actionDeadline;
+    private bool _addingActionItem;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _meeting = await HmsService.GetMeetingDetailAsync(Id);
+        _loading = false;
+    }
+
+    private void StartEditMinutes()
+    {
+        _minutesText = _meeting?.Minutes ?? "";
+        _editingMinutes = true;
+    }
+
+    private void CancelEditMinutes()
+    {
+        _editingMinutes = false;
+    }
+
+    private async Task SaveMinutes()
+    {
+        _savingMinutes = true;
+        var success = await HmsService.UpdateMinutesAsync(Id, _minutesText);
+        if (success)
+        {
+            Snackbar.Add("Referat lagret", Severity.Success);
+            _editingMinutes = false;
+            _meeting = await HmsService.GetMeetingDetailAsync(Id);
+        }
+        else
+        {
+            Snackbar.Add("Kunne ikke lagre referat", Severity.Error);
+        }
+        _savingMinutes = false;
+    }
+
+    private void ToggleActionItemForm()
+    {
+        _showActionItemForm = !_showActionItemForm;
+        if (_showActionItemForm)
+        {
+            _actionDescription = "";
+            _actionDeadline = null;
+        }
+    }
+
+    private async Task AddActionItem()
+    {
+        if (string.IsNullOrWhiteSpace(_actionDescription))
+        {
+            Snackbar.Add("Beskrivelse er pakrevd", Severity.Warning);
+            return;
+        }
+
+        _addingActionItem = true;
+        var deadline = _actionDeadline.HasValue
+            ? DateOnly.FromDateTime(_actionDeadline.Value)
+            : (DateOnly?)null;
+
+        var success = await HmsService.AddActionItemAsync(Id,
+            new CreateActionItemRequest(_actionDescription, null, deadline));
+
+        if (success)
+        {
+            Snackbar.Add("Aksjonspunkt lagt til", Severity.Success);
+            _showActionItemForm = false;
+            _meeting = await HmsService.GetMeetingDetailAsync(Id);
+        }
+        else
+        {
+            Snackbar.Add("Kunne ikke legge til aksjonspunkt", Severity.Error);
+        }
+        _addingActionItem = false;
+    }
+}

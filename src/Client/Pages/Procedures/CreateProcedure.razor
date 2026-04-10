@@ -1,0 +1,65 @@
+@page "/procedures/new"
+@attribute [Authorize]
+@inject ProcedureService ProcedureService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<PageTitle>Solodoc - Ny prosedyre</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-4">
+    <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Href="/procedures" />
+    <MudText Typo="Typo.h5">Ny prosedyre</MudText>
+</MudStack>
+
+<MudPaper Class="pa-5" Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;">
+    <MudStack Spacing="3">
+        <MudTextField @bind-Value="_name" Label="Navn" Variant="Variant.Outlined"
+                      Required="true" RequiredError="Navn er pakrevd" />
+        <MudTextField @bind-Value="_description" Label="Beskrivelse" Variant="Variant.Outlined"
+                      Lines="4" Placeholder="Hva beskriver denne prosedyren?" />
+        <MudStack Row="true" Spacing="2" Justify="Justify.FlexEnd">
+            <MudButton Variant="Variant.Text" Href="/procedures"
+                       Style="text-transform:none;">Avbryt</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                       OnClick="Create" Disabled="_creating"
+                       Style="text-transform:none;border-radius:8px;">
+                @if (_creating)
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Color="Color.Inherit" Class="mr-2" />
+                }
+                Opprett prosedyre
+            </MudButton>
+        </MudStack>
+    </MudStack>
+</MudPaper>
+
+@code {
+    private string _name = "";
+    private string _description = "";
+    private bool _creating;
+
+    private async Task Create()
+    {
+        if (string.IsNullOrWhiteSpace(_name))
+        {
+            Snackbar.Add("Navn er pakrevd", Severity.Warning);
+            return;
+        }
+
+        _creating = true;
+        var id = await ProcedureService.CreateProcedureAsync(
+            new CreateProcedureRequest(_name,
+                string.IsNullOrWhiteSpace(_description) ? null : _description));
+
+        if (id.HasValue)
+        {
+            Snackbar.Add("Prosedyre opprettet", Severity.Success);
+            Navigation.NavigateTo($"/procedures/{id.Value}");
+        }
+        else
+        {
+            Snackbar.Add("Kunne ikke opprette prosedyre", Severity.Error);
+        }
+        _creating = false;
+    }
+}

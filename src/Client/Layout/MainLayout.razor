@@ -1,0 +1,274 @@
+@inherits LayoutComponentBase
+@inject AuthHttpService AuthService
+@inject DeviationService DeviationService
+@inject NotificationService NotificationService
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthStateProvider
+
+<MudLayout>
+    @* Desktop: sidebar *@
+    <MudDrawer @bind-Open="_drawerOpen" Elevation="0" Variant="DrawerVariant.Responsive"
+               Breakpoint="Breakpoint.Md" Class="sidebar-drawer">
+        <div class="sidebar-brand pa-4">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudAvatar Color="Color.Primary" Size="Size.Medium" Rounded="true"
+                           Style="font-weight:700;font-size:1rem;">S</MudAvatar>
+                <div>
+                    <MudText Typo="Typo.h6" Style="line-height:1.2;">SoloDoc</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">@_tenantName</MudText>
+                </div>
+            </MudStack>
+        </div>
+
+        <MudDivider Class="mb-2" />
+
+        <MudNavMenu Bordered="true" Color="Color.Primary" Class="px-2">
+            <div class="nav-group-label">OVERSIKT</div>
+            <MudNavLink Href="/" Match="NavLinkMatch.All"
+                        Icon="@Icons.Material.Filled.Dashboard">Dashboard</MudNavLink>
+            <MudNavLink Href="/projects" Match="NavLinkMatch.Prefix"
+                        Icon="@Icons.Material.Filled.Folder">Prosjekter</MudNavLink>
+            <MudNavLink Href="/jobs" Match="NavLinkMatch.Prefix"
+                        Icon="@Icons.Material.Filled.Handyman">Oppdrag</MudNavLink>
+
+            <div class="nav-group-label mt-4">ARBEIDSVERKTØY</div>
+            <MudNavLink Href="/hours" Match="NavLinkMatch.Prefix"
+                        Icon="@Icons.Material.Filled.Schedule">Timelister</MudNavLink>
+            <MudNavLink Href="/deviations" Match="NavLinkMatch.Prefix"
+                        Icon="@Icons.Material.Filled.ReportProblem">
+                <div class="d-flex align-center justify-space-between" style="width:100%">
+                    <span>Avvik</span>
+                    @if (_openDeviationCount > 0)
+                    {
+                        <MudChip T="string" Size="Size.Small" Color="Color.Error"
+                                 Style="min-width:24px;height:20px;">@_openDeviationCount</MudChip>
+                    }
+                </div>
+            </MudNavLink>
+            <MudNavLink Href="/forefallende" Match="NavLinkMatch.Prefix"
+                        Icon="@Icons.Material.Filled.AssignmentLate">
+                Forefallende
+            </MudNavLink>
+            <MudNavLink Href="/calendar" Match="NavLinkMatch.Prefix"
+                        Icon="@Icons.Material.Filled.CalendarMonth">Kalender</MudNavLink>
+            <MudNavLink Href="/checklists" Match="NavLinkMatch.All"
+                        Icon="@Icons.Material.Filled.Checklist">Sjekklister</MudNavLink>
+            <MudNavLink Href="/procedures" Match="NavLinkMatch.Prefix"
+                        Icon="@Icons.Material.Filled.MenuBook">Prosedyrer</MudNavLink>
+
+            <div class="nav-group-label mt-4">DOKUMENTASJON</div>
+            <MudNavLink Href="/locations" Match="NavLinkMatch.Prefix"
+                        Icon="@Icons.Material.Filled.LocationOn">Lokasjoner</MudNavLink>
+            <MudNavLink Href="/contacts" Match="NavLinkMatch.Prefix"
+                        Icon="@Icons.Material.Filled.Contacts">Kontakter</MudNavLink>
+            <MudNavLink Href="/machines" Match="NavLinkMatch.Prefix"
+                        Icon="@Icons.Material.Filled.PrecisionManufacturing">Maskinpark</MudNavLink>
+            <MudNavLink Href="/hms" Match="NavLinkMatch.Prefix"
+                        Icon="@Icons.Material.Filled.HealthAndSafety">HMS</MudNavLink>
+            <MudNavLink Href="/chemicals" Match="NavLinkMatch.Prefix"
+                        Icon="@Icons.Material.Filled.Science">Stoffkartotek</MudNavLink>
+            <MudNavLink Href="/reports" Match="NavLinkMatch.Prefix"
+                        Icon="@Icons.Material.Filled.Assessment">Rapporter</MudNavLink>
+
+            <div class="nav-group-label mt-4">MIN KONTO</div>
+            <MudNavLink Href="/profile" Match="NavLinkMatch.Prefix"
+                        Icon="@Icons.Material.Filled.Person">Min profil</MudNavLink>
+            <MudNavLink Href="/employees" Match="NavLinkMatch.Prefix"
+                        Icon="@Icons.Material.Filled.People">Ansatte</MudNavLink>
+            <MudNavLink Href="/admin/hours" Match="NavLinkMatch.Prefix"
+                        Icon="@Icons.Material.Filled.QueryStats">Timer-oversikt</MudNavLink>
+
+            <div class="nav-group-label mt-4">ADMIN</div>
+            <MudNavLink Href="/admin/shifts" Match="NavLinkMatch.Prefix"
+                        Icon="@Icons.Material.Filled.Schedule">Skift og overtid</MudNavLink>
+            <MudNavLink Href="/admin/planner" Match="NavLinkMatch.Prefix"
+                        Icon="@Icons.Material.Filled.CalendarViewMonth">Skiftplanlegger</MudNavLink>
+            <MudNavLink Href="/admin/settings" Match="NavLinkMatch.Prefix"
+                        Icon="@Icons.Material.Filled.Settings">Innstillinger</MudNavLink>
+        </MudNavMenu>
+
+        <MudSpacer />
+
+        <div class="sync-indicator">
+            <MudIcon Icon="@Icons.Material.Filled.CloudDone" Size="Size.Small" />
+            <span>Synkronisert</span>
+        </div>
+
+        <MudDivider Class="mt-2" />
+        <div class="pa-3">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudAvatar Color="Color.Primary" Size="Size.Small">@_userInitials</MudAvatar>
+                <div style="flex:1;min-width:0;">
+                    <MudText Typo="Typo.body2" Style="font-weight:500;">@_userName</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary"
+                             Style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">@_userEmail</MudText>
+                </div>
+                <MudIconButton Icon="@Icons.Material.Filled.Logout" Size="Size.Small"
+                               Color="Color.Secondary" OnClick="HandleLogout" />
+            </MudStack>
+        </div>
+    </MudDrawer>
+
+    @* Top bar *@
+    <MudAppBar Elevation="0" Dense="true"
+               Style="background:#fff;color:#212529;border-bottom:1px solid #E9ECEF;">
+        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit"
+                       OnClick="ToggleDrawer" Class="d-flex d-md-none" />
+        <MudText Typo="Typo.h6" Class="ml-1 d-flex d-md-none">SoloDoc</MudText>
+        <MudSpacer />
+        <MudIconButton Icon="@Icons.Material.Filled.Search" Color="Color.Inherit"
+                       Href="/search" />
+        <div class="notification-bell">
+            <MudIconButton Icon="@Icons.Material.Filled.Notifications" Color="Color.Inherit"
+                           OnClick="@(() => _notificationsOpen = !_notificationsOpen)" />
+            @if (_unreadNotifications > 0)
+            {
+                <div class="notification-badge"></div>
+            }
+        </div>
+    </MudAppBar>
+
+    @* Main content *@
+    <MudMainContent Class="main-content">
+        <div class="pa-4 pa-md-6">
+            @Body
+        </div>
+    </MudMainContent>
+
+    @* Mobile: bottom navigation bar *@
+    <MudPaper Class="d-flex d-md-none bottom-nav" Elevation="0">
+        <MudStack Row="true" Justify="Justify.SpaceAround" AlignItems="AlignItems.Center"
+                  Class="bottom-nav-inner">
+            @foreach (var item in _mobileNavItems)
+            {
+                <MudLink Href="@item.Href" Underline="Underline.None" Color="Color.Inherit"
+                         Class="bottom-nav-item">
+                    <MudStack AlignItems="AlignItems.Center" Spacing="0">
+                        <MudIcon Icon="@item.Icon" Size="Size.Small" />
+                        <MudText Typo="Typo.caption">@item.Label</MudText>
+                    </MudStack>
+                </MudLink>
+            }
+        </MudStack>
+    </MudPaper>
+
+    @* Notification popover *@
+    @if (_notificationsOpen)
+    {
+        <MudPopover Open="true" AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight"
+                    Class="pa-4" Style="width:360px;max-height:480px;overflow-y:auto;">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-2">
+                <MudText Typo="Typo.subtitle1" Style="font-weight:600;">Varsler</MudText>
+                <MudButton Size="Size.Small" Color="Color.Primary" Variant="Variant.Text"
+                           OnClick="MarkAllRead" Style="text-transform:none;">Merk alle som lest</MudButton>
+            </MudStack>
+            @if (_notifications.Count == 0)
+            {
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Ingen nye varsler</MudText>
+            }
+            else
+            {
+                @foreach (var n in _notifications.Take(10))
+                {
+                    <MudPaper Elevation="0" Class="pa-2 mb-1"
+                              Style="@($"border-radius:8px;background:{(n.IsRead ? "#fff" : "#F0F4FF")};cursor:pointer;")"
+                              @onclick="() => NavigateNotification(n)">
+                        <MudText Typo="Typo.body2" Style="font-weight:500;">@n.Title</MudText>
+                        @if (!string.IsNullOrEmpty(n.Message))
+                        {
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">@n.Message</MudText>
+                        }
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                            @n.CreatedAt.ToLocalTime().ToString("dd.MM HH:mm")
+                        </MudText>
+                    </MudPaper>
+                }
+            }
+        </MudPopover>
+    }
+</MudLayout>
+
+@code {
+    private bool _drawerOpen = true;
+    private bool _notificationsOpen;
+    private int _openDeviationCount;
+    private int _unreadNotifications;
+    private string _userName = "";
+    private string _userEmail = "";
+    private string _userInitials = "";
+    private string _tenantName = "Bedrift";
+    private List<Solodoc.Shared.Notifications.NotificationDto> _notifications = [];
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+                var user = authState.User;
+                if (user.Identity?.IsAuthenticated == true)
+                {
+                    _userName = user.FindFirst("fullName")?.Value ?? "";
+                    _userEmail = user.FindFirst("email")?.Value ?? "";
+                    _userInitials = GetInitials(_userName);
+                    _tenantName = user.FindFirst("tenantName")?.Value ?? "Bedrift";
+
+                    _openDeviationCount = await DeviationService.GetOpenCountAsync();
+                    _notifications = await NotificationService.GetNotificationsAsync();
+                    _unreadNotifications = _notifications.Count(n => !n.IsRead);
+                }
+                StateHasChanged();
+            }
+            catch
+            {
+                // Not authenticated yet or API unavailable
+            }
+        }
+    }
+
+    private static string GetInitials(string name)
+    {
+        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return parts.Length switch
+        {
+            0 => "?",
+            1 => parts[0][..1].ToUpperInvariant(),
+            _ => $"{parts[0][0]}{parts[^1][0]}".ToUpperInvariant()
+        };
+    }
+
+    private void ToggleDrawer() => _drawerOpen = !_drawerOpen;
+
+    private async Task HandleLogout()
+    {
+        await AuthService.LogoutAsync();
+        Navigation.NavigateTo("/login", forceLoad: false);
+    }
+
+    private async Task MarkAllRead()
+    {
+        await NotificationService.MarkAllReadAsync();
+        _notifications.ForEach(n => n = n with { IsRead = true });
+        _unreadNotifications = 0;
+        StateHasChanged();
+    }
+
+    private void NavigateNotification(Solodoc.Shared.Notifications.NotificationDto n)
+    {
+        _notificationsOpen = false;
+        if (!string.IsNullOrEmpty(n.LinkUrl))
+            Navigation.NavigateTo(n.LinkUrl);
+    }
+
+    private record NavItemModel(string Href, string Icon, string Label);
+
+    private static readonly NavItemModel[] _mobileNavItems =
+    [
+        new("/", Icons.Material.Filled.Dashboard, "Hjem"),
+        new("/hours", Icons.Material.Filled.Schedule, "Stemple"),
+        new("/jobs/new", Icons.Material.Filled.AddCircle, "Oppdrag"),
+        new("/deviations", Icons.Material.Filled.ReportProblem, "Avvik"),
+        new("/forefallende", Icons.Material.Filled.MoreHoriz, "Mer")
+    ];
+}

@@ -1,0 +1,29 @@
+# Stage 1: Build Blazor WASM client
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+WORKDIR /src
+
+COPY *.sln .
+COPY src/Api/*.csproj src/Api/
+COPY src/Application/*.csproj src/Application/
+COPY src/Domain/*.csproj src/Domain/
+COPY src/Infrastructure/*.csproj src/Infrastructure/
+COPY src/Shared/*.csproj src/Shared/
+COPY src/Worker/*.csproj src/Worker/
+COPY src/Client/*.csproj src/Client/
+
+RUN dotnet restore src/Client/Solodoc.Client.csproj
+
+COPY . .
+RUN dotnet publish src/Client/Solodoc.Client.csproj -c Release -o /app/publish --no-restore
+
+# Stage 2: Caddy serves static files + reverse proxies API
+FROM caddy:2-alpine AS runtime
+
+# Copy published Blazor WASM output
+COPY --from=build /app/publish/wwwroot /srv
+
+# Copy Caddyfile
+COPY deploy/Caddyfile /etc/caddy/Caddyfile
+
+EXPOSE 80 443
+

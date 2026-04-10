@@ -1,0 +1,364 @@
+@page "/hms/sja/{Id:guid}"
+@attribute [Authorize]
+@inject HmsService HmsService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<PageTitle>Solodoc - @(_sja?.Title ?? "SJA")</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-4">
+    <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Href="/hms" />
+    <MudText Typo="Typo.h5" Style="word-break:break-word;">@(_sja?.Title ?? "Laster...")</MudText>
+</MudStack>
+
+@if (_loading)
+{
+    <MudProgressLinear Color="Color.Primary" Indeterminate="true" />
+}
+else if (_sja is null)
+{
+    <MudAlert Severity="Severity.Warning">SJA ble ikke funnet.</MudAlert>
+}
+else
+{
+    @* Header card *@
+    <MudPaper Class="pa-5 mb-3" Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween"
+                   Style="flex-wrap:wrap;gap:8px;" Class="mb-4">
+            @{
+                var statusCss = _sja.Status switch
+                {
+                    "Utkast" => "status-badge status-badge--draft",
+                    "Sendt inn" => "status-badge status-badge--submitted",
+                    "Godkjent" => "status-badge status-badge--approved",
+                    _ => "status-badge status-badge--draft"
+                };
+            }
+            <span class="@statusCss">@_sja.Status</span>
+        </MudStack>
+
+        <MudGrid Spacing="3">
+            <MudItem xs="6" sm="4">
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Dato</MudText>
+                <MudText Typo="Typo.body2" Style="font-weight:500;">@_sja.Date.ToString("dd.MM.yyyy")</MudText>
+            </MudItem>
+            @if (!string.IsNullOrWhiteSpace(_sja.Location))
+            {
+                <MudItem xs="6" sm="4">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Sted</MudText>
+                    <MudText Typo="Typo.body2" Style="font-weight:500;">@_sja.Location</MudText>
+                </MudItem>
+            }
+            @if (!string.IsNullOrWhiteSpace(_sja.ProjectName))
+            {
+                <MudItem xs="6" sm="4">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Prosjekt</MudText>
+                    <MudText Typo="Typo.body2" Style="font-weight:500;">@_sja.ProjectName</MudText>
+                </MudItem>
+            }
+        </MudGrid>
+
+        @if (!string.IsNullOrWhiteSpace(_sja.Description))
+        {
+            <MudText Typo="Typo.subtitle2" Color="Color.Secondary" Class="mt-4 mb-1">Beskrivelse</MudText>
+            <MudText Typo="Typo.body1" Style="white-space:pre-wrap;">@_sja.Description</MudText>
+        }
+    </MudPaper>
+
+    @* Hazards section *@
+    <MudPaper Class="pa-5 mb-3" Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudIcon Icon="@Icons.Material.Filled.ReportProblem" Size="Size.Small" Color="Color.Warning" />
+                <MudText Typo="Typo.subtitle2">Farer (@_sja.Hazards.Count)</MudText>
+            </MudStack>
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+                       StartIcon="@Icons.Material.Filled.Add"
+                       OnClick="ToggleHazardForm"
+                       Style="text-transform:none;border-radius:8px;">
+                Legg til fare
+            </MudButton>
+        </MudStack>
+
+        @if (_showHazardForm)
+        {
+            <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-4 mb-3">
+                <MudText Typo="Typo.subtitle2" Class="mb-3">Ny fare</MudText>
+                <MudStack Spacing="3">
+                    <MudTextField @bind-Value="_hazardDescription" Label="Beskrivelse av fare" Variant="Variant.Outlined"
+                                  Required="true" />
+                    <MudStack Row="true" Spacing="2">
+                        <MudSelect @bind-Value="_hazardProbability" Label="Sannsynlighet" Variant="Variant.Outlined"
+                                   Style="flex:1;">
+                            <MudSelectItem Value="1">1 - Lite sannsynlig</MudSelectItem>
+                            <MudSelectItem Value="2">2 - Mindre sannsynlig</MudSelectItem>
+                            <MudSelectItem Value="3">3 - Sannsynlig</MudSelectItem>
+                            <MudSelectItem Value="4">4 - Meget sannsynlig</MudSelectItem>
+                            <MudSelectItem Value="5">5 - Svart sannsynlig</MudSelectItem>
+                        </MudSelect>
+                        <MudSelect @bind-Value="_hazardConsequence" Label="Konsekvens" Variant="Variant.Outlined"
+                                   Style="flex:1;">
+                            <MudSelectItem Value="1">1 - Ubetydelig</MudSelectItem>
+                            <MudSelectItem Value="2">2 - Liten</MudSelectItem>
+                            <MudSelectItem Value="3">3 - Moderat</MudSelectItem>
+                            <MudSelectItem Value="4">4 - Alvorlig</MudSelectItem>
+                            <MudSelectItem Value="5">5 - Svart alvorlig</MudSelectItem>
+                        </MudSelect>
+                    </MudStack>
+                    <MudTextField @bind-Value="_hazardMitigation" Label="Tiltak" Variant="Variant.Outlined"
+                                  Lines="3" Placeholder="Beskriv tiltak for a redusere risiko" />
+                    <MudStack Row="true" Spacing="2" Justify="Justify.FlexEnd">
+                        <MudButton Variant="Variant.Text" OnClick="ToggleHazardForm"
+                                   Style="text-transform:none;">Avbryt</MudButton>
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                                   OnClick="AddHazard" Disabled="_addingHazard"
+                                   Style="text-transform:none;border-radius:8px;">
+                            @if (_addingHazard)
+                            {
+                                <MudProgressCircular Size="Size.Small" Indeterminate="true" Color="Color.Inherit" Class="mr-2" />
+                            }
+                            Legg til
+                        </MudButton>
+                    </MudStack>
+                </MudStack>
+            </MudPaper>
+        }
+
+        @if (_sja.Hazards.Count == 0)
+        {
+            <MudStack AlignItems="AlignItems.Center" Spacing="1" Class="pa-4">
+                <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Large" Color="Color.Default" Style="opacity:0.3;" />
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Ingen farer registrert</MudText>
+            </MudStack>
+        }
+        else
+        {
+            <MudSimpleTable Dense="true" Hover="true" Style="border:1px solid #E9ECEF;border-radius:8px;overflow:hidden;">
+                <thead>
+                    <tr>
+                        <th>Beskrivelse</th>
+                        <th style="width:60px;text-align:center;">S</th>
+                        <th style="width:60px;text-align:center;">K</th>
+                        <th style="width:70px;text-align:center;">Risiko</th>
+                        <th>Tiltak</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var hazard in _sja.Hazards)
+                    {
+                        var riskClass = hazard.RiskScore switch
+                        {
+                            <= 4 => "risk-cell risk-low",
+                            <= 9 => "risk-cell risk-medium",
+                            <= 15 => "risk-cell risk-high",
+                            _ => "risk-cell risk-critical"
+                        };
+                        <tr>
+                            <td>@hazard.Description</td>
+                            <td style="text-align:center;">@hazard.Probability</td>
+                            <td style="text-align:center;">@hazard.Consequence</td>
+                            <td style="text-align:center;">
+                                <div class="@riskClass" style="margin:auto;">@hazard.RiskScore</div>
+                            </td>
+                            <td>@(hazard.Mitigation ?? "—")</td>
+                        </tr>
+                    }
+                </tbody>
+            </MudSimpleTable>
+
+            @* Risk Matrix (5x5 grid) *@
+            <MudText Typo="Typo.subtitle2" Class="mt-4 mb-2">Risikomatrise</MudText>
+            <div style="overflow-x:auto;">
+                <table style="border-collapse:collapse;width:100%;max-width:500px;font-size:0.8rem;">
+                    <thead>
+                        <tr>
+                            <th style="padding:6px;border:1px solid #E9ECEF;background:#F8F9FA;text-align:center;width:90px;">S / K</th>
+                            @for (var c = 1; c <= 5; c++)
+                            {
+                                <th style="padding:6px;border:1px solid #E9ECEF;background:#F8F9FA;text-align:center;">@c</th>
+                            }
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @for (var p = 5; p >= 1; p--)
+                        {
+                            <tr>
+                                <td style="padding:6px;border:1px solid #E9ECEF;background:#F8F9FA;text-align:center;font-weight:600;">@p</td>
+                                @for (var c = 1; c <= 5; c++)
+                                {
+                                    var score = p * c;
+                                    var bgColor = score switch
+                                    {
+                                        <= 4 => "#C8E6C9",
+                                        <= 9 => "#FFF9C4",
+                                        <= 15 => "#FFE0B2",
+                                        _ => "#FFCDD2"
+                                    };
+                                    var hazardsInCell = _sja.Hazards
+                                        .Where(h => h.Probability == p && h.Consequence == c)
+                                        .ToList();
+                                    var hasDot = hazardsInCell.Count > 0;
+                                    <td style="@($"padding:6px;border:1px solid #E9ECEF;background:{bgColor};text-align:center;position:relative;min-width:48px;min-height:48px;")">
+                                        <span style="font-weight:500;opacity:0.6;">@score</span>
+                                        @if (hasDot)
+                                        {
+                                            <div style="position:absolute;top:4px;right:4px;width:12px;height:12px;border-radius:50%;background:#4361EE;border:2px solid white;"
+                                                 title="@string.Join(", ", hazardsInCell.Select(h => h.Description))"></div>
+                                        }
+                                    </td>
+                                }
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <MudStack Row="true" Spacing="3" AlignItems="AlignItems.Center" Class="mt-2">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                    <div style="width:14px;height:14px;border-radius:3px;background:#C8E6C9;border:1px solid #A5D6A7;"></div>
+                    <MudText Typo="Typo.caption">Lav (1-4)</MudText>
+                </MudStack>
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                    <div style="width:14px;height:14px;border-radius:3px;background:#FFF9C4;border:1px solid #FFF176;"></div>
+                    <MudText Typo="Typo.caption">Moderat (5-9)</MudText>
+                </MudStack>
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                    <div style="width:14px;height:14px;border-radius:3px;background:#FFE0B2;border:1px solid #FFB74D;"></div>
+                    <MudText Typo="Typo.caption">Hoy (10-15)</MudText>
+                </MudStack>
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                    <div style="width:14px;height:14px;border-radius:3px;background:#FFCDD2;border:1px solid #EF9A9A;"></div>
+                    <MudText Typo="Typo.caption">Kritisk (16-25)</MudText>
+                </MudStack>
+            </MudStack>
+        }
+    </MudPaper>
+
+    @* Participants section *@
+    <MudPaper Class="pa-5" Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-3">
+            <MudIcon Icon="@Icons.Material.Filled.People" Size="Size.Small" Color="Color.Secondary" />
+            <MudText Typo="Typo.subtitle2">Deltakere (@_sja.Participants.Count)</MudText>
+        </MudStack>
+
+        @if (_sja.Participants.Count == 0)
+        {
+            <MudStack AlignItems="AlignItems.Center" Spacing="1" Class="pa-4">
+                <MudIcon Icon="@Icons.Material.Filled.PersonOff" Size="Size.Large" Color="Color.Default" Style="opacity:0.3;" />
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Ingen deltakere registrert</MudText>
+            </MudStack>
+        }
+        else
+        {
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2">
+                @(_sja.Participants.Count(p => p.HasSigned)) av @_sja.Participants.Count har signert
+            </MudText>
+            <MudProgressLinear Value="@GetSignedPercentage()"
+                               Color="@(GetSignedPercentage() >= 100 ? Color.Success : Color.Primary)"
+                               Rounded="true" Size="Size.Small" Class="mb-3" />
+            <MudStack Spacing="1">
+                @foreach (var participant in _sja.Participants)
+                {
+                    <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:8px;" Class="pa-3">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                @if (participant.HasSigned)
+                                {
+                                    <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small" Color="Color.Success" />
+                                }
+                                else
+                                {
+                                    <MudIcon Icon="@Icons.Material.Filled.RadioButtonUnchecked" Size="Size.Small" Color="Color.Default" />
+                                }
+                                <MudStack Spacing="0">
+                                    <MudText Typo="Typo.body2" Style="font-weight:500;">@participant.PersonName</MudText>
+                                    <MudText Typo="Typo.caption" Color="@(participant.HasSigned ? Color.Success : Color.Secondary)">
+                                        @(participant.HasSigned ? "Signert" : "Ikke signert")
+                                    </MudText>
+                                </MudStack>
+                            </MudStack>
+                            @if (!participant.HasSigned)
+                            {
+                                <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+                                           StartIcon="@Icons.Material.Filled.Draw"
+                                           Style="text-transform:none;border-radius:8px;"
+                                           OnClick="@(() => OnSignClick(participant.PersonName))">
+                                    Signer
+                                </MudButton>
+                            }
+                        </MudStack>
+                    </MudPaper>
+                }
+            </MudStack>
+        }
+    </MudPaper>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private SjaFormDetailDto? _sja;
+    private bool _loading = true;
+
+    // Hazard form
+    private bool _showHazardForm;
+    private string _hazardDescription = "";
+    private int _hazardProbability = 3;
+    private int _hazardConsequence = 3;
+    private string _hazardMitigation = "";
+    private bool _addingHazard;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _sja = await HmsService.GetSjaFormByIdAsync(Id);
+        _loading = false;
+    }
+
+    private void ToggleHazardForm()
+    {
+        _showHazardForm = !_showHazardForm;
+        if (_showHazardForm)
+        {
+            _hazardDescription = "";
+            _hazardProbability = 3;
+            _hazardConsequence = 3;
+            _hazardMitigation = "";
+        }
+    }
+
+    private async Task AddHazard()
+    {
+        if (string.IsNullOrWhiteSpace(_hazardDescription))
+        {
+            Snackbar.Add("Beskrivelse av fare er pakrevd", Severity.Warning);
+            return;
+        }
+
+        _addingHazard = true;
+        var success = await HmsService.AddHazardAsync(Id,
+            new AddSjaHazardRequest(_hazardDescription, _hazardProbability, _hazardConsequence,
+                string.IsNullOrWhiteSpace(_hazardMitigation) ? null : _hazardMitigation));
+
+        if (success)
+        {
+            Snackbar.Add("Fare lagt til", Severity.Success);
+            _showHazardForm = false;
+            _sja = await HmsService.GetSjaFormByIdAsync(Id);
+        }
+        else
+        {
+            Snackbar.Add("Kunne ikke legge til fare", Severity.Error);
+        }
+        _addingHazard = false;
+    }
+
+    private void OnSignClick(string personName)
+    {
+        Snackbar.Add($"Signering for {personName} kommer snart", Severity.Info);
+    }
+
+    private double GetSignedPercentage()
+    {
+        if (_sja is null || _sja.Participants.Count == 0) return 0;
+        return (double)_sja.Participants.Count(p => p.HasSigned) / _sja.Participants.Count * 100;
+    }
+}

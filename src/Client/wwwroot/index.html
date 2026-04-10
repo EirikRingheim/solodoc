@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="nb">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Solodoc</title>
+    <base href="/" />
+    <link rel="preload" id="webassembly" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+    <link href="_content/MudBlazor/MudBlazor.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="css/app.css" />
+    <link rel="icon" type="image/png" href="favicon.png" />
+    <link href="Solodoc.Client.styles.css" rel="stylesheet" />
+    <link href="manifest.webmanifest" rel="manifest" />
+    <link rel="apple-touch-icon" sizes="512x512" href="icon-512.png" />
+    <link rel="apple-touch-icon" sizes="192x192" href="icon-192.png" />
+    <script type="importmap"></script>
+</head>
+
+<body>
+    <div id="app">
+        <div style="display:flex;align-items:center;justify-content:center;height:100vh;">
+            <span style="font-family:Inter,sans-serif;color:#666;">Laster Solodoc...</span>
+        </div>
+    </div>
+
+    <div id="blazor-error-ui">
+        En uventet feil oppsto.
+        <a href="." class="reload">Last inn p&aring; nytt</a>
+        <span class="dismiss">X</span>
+    </div>
+    <script src="_content/MudBlazor/MudBlazor.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qr-code-styling@1.8.4/lib/qr-code-styling.js"></script>
+    <script src="js/qr-interop.js"></script>
+    <script src="_framework/blazor.webassembly#[.{fingerprint}].js"></script>
+</body>
+
+</html>

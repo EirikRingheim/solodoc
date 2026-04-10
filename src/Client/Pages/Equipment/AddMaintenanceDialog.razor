@@ -1,0 +1,82 @@
+@inject EquipmentService EquipmentService
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.Build" Class="mr-2" />
+            Legg til vedlikehold
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudGrid Spacing="3">
+            <MudItem xs="12">
+                <MudTextField @bind-Value="_description" Label="Beskrivelse" Required="true"
+                              Variant="Variant.Outlined" Margin="Margin.Dense" Lines="2" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudDatePicker @bind-Date="_date" Label="Dato"
+                               Variant="Variant.Outlined" Margin="Margin.Dense"
+                               DateFormat="dd.MM.yyyy" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudNumericField @bind-Value="_cost" Label="Kostnad (kr)"
+                                 Variant="Variant.Outlined" Margin="Margin.Dense"
+                                 Format="N0" />
+            </MudItem>
+            <MudItem xs="12">
+                <MudTextField @bind-Value="_notes" Label="Notater"
+                              Variant="Variant.Outlined" Margin="Margin.Dense" Lines="2" />
+            </MudItem>
+        </MudGrid>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Style="text-transform:none;">Avbryt</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                   OnClick="Submit" Disabled="_saving"
+                   Style="text-transform:none;border-radius:8px;">
+            @if (_saving)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+            }
+            Lagre
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;
+    [Parameter] public Guid EquipmentId { get; set; }
+
+    private string _description = string.Empty;
+    private DateTime? _date = DateTime.Today;
+    private decimal? _cost;
+    private string? _notes;
+    private bool _saving;
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private async Task Submit()
+    {
+        if (string.IsNullOrWhiteSpace(_description)) return;
+
+        _saving = true;
+        var dateOnly = _date.HasValue
+            ? DateOnly.FromDateTime(_date.Value)
+            : DateOnly.FromDateTime(DateTime.Today);
+
+        var request = new AddMaintenanceRequest(_description, dateOnly, _cost, _notes);
+        var success = await EquipmentService.AddMaintenanceAsync(EquipmentId, request);
+        _saving = false;
+
+        if (success)
+        {
+            Snackbar.Add("Vedlikehold lagt til", Severity.Success);
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        else
+        {
+            Snackbar.Add("Kunne ikke legge til vedlikehold", Severity.Error);
+        }
+    }
+}

@@ -1,0 +1,216 @@
+html, body {
+    font-family: 'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+}
+
+h1:focus { outline: none; }
+
+/* ─── Sidebar ─────────────────────────── */
+.sidebar-drawer {
+    border-right: 1px solid #E9ECEF !important;
+}
+
+.sidebar-brand { border-bottom: none; }
+
+.nav-group-label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: #ADB5BD;
+    padding: 0 16px;
+    margin-top: 8px;
+    margin-bottom: 4px;
+}
+
+/* ─── Mobile bottom nav ───────────────── */
+.bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 1100;
+    border-top: 1px solid #E9ECEF !important;
+    background: #fff;
+    border-radius: 0 !important;
+}
+.bottom-nav-inner { width: 100%; padding: 6px 0; }
+.bottom-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-size: 0.65rem;
+    color: #6C757D;
+    text-decoration: none;
+    padding: 4px 12px;
+    min-width: 48px;
+    min-height: 48px;
+    justify-content: center;
+}
+.bottom-nav-item:hover { color: #4361EE; }
+
+/* ─── Main content ────────────────────── */
+.main-content {
+    padding-bottom: 72px;
+}
+@media (min-width: 960px) {
+    .main-content { padding-bottom: 0; }
+}
+
+/* ─── Cards ───────────────────────────── */
+.stat-card {
+    border: 1px solid #E9ECEF;
+    border-radius: 12px;
+    padding: 20px;
+    background: #fff;
+}
+
+.section-card {
+    border: 1px solid #E9ECEF;
+    border-radius: 12px;
+    padding: 20px;
+    background: #fff;
+}
+
+/* ─── Notification bell ───────────────── */
+.notification-bell { position: relative; }
+.notification-badge {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #E63946;
+}
+
+/* ─── Sync status ─────────────────────── */
+.sync-indicator {
+    font-size: 0.7rem;
+    color: #ADB5BD;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 16px;
+    margin-bottom: 8px;
+}
+
+/* ─── Context switcher ────────────────── */
+.context-switcher {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.context-switcher:hover { background: #F8F9FA; }
+
+/* ─── Forefallende kanban ─────────────── */
+.kanban-card {
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    background: #fff;
+}
+.kanban-card--overdue { border-left: 3px solid #E63946; background: #FFF5F5; }
+.kanban-card--thisweek { border-left: 3px solid #F4A261; background: #FFFAF5; }
+.kanban-card--thismonth { border: 1px solid #E9ECEF; }
+.kanban-card--later { border: 1px solid #E9ECEF; }
+
+/* ─── Week view ───────────────────────── */
+.week-day-header {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #6C757D;
+    text-transform: uppercase;
+    padding: 8px 0;
+    border-bottom: 1px solid #E9ECEF;
+}
+.week-day-header--today {
+    color: #4361EE;
+    border-bottom: 2px solid #4361EE;
+}
+
+/* ─── Status badges ───────────────────── */
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    padding: 2px 10px;
+    border-radius: 12px;
+}
+.status-badge--open { background: #FEE2E2; color: #DC2626; }
+.status-badge--inprogress { background: #FEF3C7; color: #D97706; }
+.status-badge--closed { background: #D1FAE5; color: #059669; }
+.status-badge--draft { background: #F3F4F6; color: #6B7280; }
+.status-badge--submitted { background: #DBEAFE; color: #2563EB; }
+.status-badge--approved { background: #D1FAE5; color: #059669; }
+.status-badge--rejected { background: #FEE2E2; color: #DC2626; }
+
+/* ─── Risk matrix ─────────────────────── */
+.risk-cell {
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 0.85rem;
+    border-radius: 6px;
+}
+.risk-low { background: #D1FAE5; color: #059669; }
+.risk-medium { background: #FEF3C7; color: #D97706; }
+.risk-high { background: #FED7AA; color: #C2410C; }
+.risk-critical { background: #FEE2E2; color: #DC2626; }
+
+/* ─── Cert badges ─────────────────────── */
+.cert-ok { color: #059669; }
+.cert-expiring { color: #D97706; }
+.cert-expired { color: #DC2626; }
+
+/* ─── Blazor error ────────────────────── */
+#blazor-error-ui {
+    color-scheme: light only;
+    background: lightyellow;
+    bottom: 0;
+    box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.2);
+    box-sizing: border-box;
+    display: none;
+    left: 0;
+    padding: 0.6rem 1.25rem 0.7rem 1.25rem;
+    position: fixed;
+    width: 100%;
+    z-index: 1000;
+}
+#blazor-error-ui .dismiss {
+    cursor: pointer;
+    position: absolute;
+    right: 0.75rem;
+    top: 0.5rem;
+}
+.blazor-error-boundary {
+    background: #b32121;
+    padding: 1rem;
+    color: white;
+}
+.blazor-error-boundary::after { content: "En feil har oppstatt." }
+
+/* ─── Wizard steps ────────────────────── */
+.wizard-step {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    color: #6C757D;
+}
+.wizard-step--active { color: #4361EE; font-weight: 600; background: #EEF2FF; }
+.wizard-step--completed { color: #059669; }
+
+/* ─── Responsive helpers ──────────────── */
+.touch-target { min-width: 48px; min-height: 48px; }

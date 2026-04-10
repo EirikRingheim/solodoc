@@ -1,0 +1,148 @@
+@page "/search"
+@attribute [Authorize]
+@inject SearchService SearchService
+@inject NavigationManager Navigation
+
+<PageTitle>Solodoc - Sok</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4">Sok</MudText>
+
+<MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;" Class="pa-4 mb-4">
+    <MudTextField T="string" Value="_query" Placeholder="Sok etter prosjekter, avvik, kontakter og mer..."
+                  Variant="Variant.Outlined"
+                  Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                  Immediate="true" DebounceInterval="300"
+                  ValueChanged="OnSearchChanged"
+                  AutoFocus="true"
+                  Style="font-size:1.1rem;" />
+</MudPaper>
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4" />
+}
+else if (string.IsNullOrWhiteSpace(_query))
+{
+    <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;" Class="pa-8">
+        <MudStack AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Filled.ManageSearch" Size="Size.Large" Color="Color.Secondary" />
+            <MudText Typo="Typo.body1" Color="Color.Secondary">
+                Sok etter prosjekter, avvik, kontakter og mer...
+            </MudText>
+        </MudStack>
+    </MudPaper>
+}
+else if (_response is not null && _response.Results.Count == 0)
+{
+    <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;" Class="pa-8">
+        <MudStack AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Filled.SearchOff" Size="Size.Large" Color="Color.Secondary" />
+            <MudText Typo="Typo.body1" Color="Color.Secondary">Ingen resultater funnet</MudText>
+        </MudStack>
+    </MudPaper>
+}
+else if (_response is not null)
+{
+    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+        @_response.TotalCount resultat(er)
+    </MudText>
+
+    var grouped = _response.Results.GroupBy(r => r.Type).ToList();
+
+    @foreach (var group in grouped)
+    {
+        <MudText Typo="Typo.subtitle1" Style="font-weight:600;" Class="mb-2 mt-3">
+            @GetGroupLabel(group.Key)
+        </MudText>
+        <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;overflow:hidden;" Class="mb-3">
+            <MudList T="string" Dense="false">
+                @foreach (var result in group)
+                {
+                    <MudListItem T="string" Icon="@GetTypeIcon(result.Type)"
+                                 OnClick="() => NavigateToResult(result)">
+                        <MudStack Spacing="0">
+                            <MudText Typo="Typo.body1" Style="font-weight:600;">@result.Title</MudText>
+                            @if (!string.IsNullOrWhiteSpace(result.Subtitle))
+                            {
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">@result.Subtitle</MudText>
+                            }
+                            @if (!string.IsNullOrWhiteSpace(result.Highlight))
+                            {
+                                <MudText Typo="Typo.caption" Color="Color.Secondary" Style="font-style:italic;">
+                                    @result.Highlight
+                                </MudText>
+                            }
+                        </MudStack>
+                    </MudListItem>
+                }
+            </MudList>
+        </MudPaper>
+    }
+}
+
+@code {
+    private string? _query;
+    private bool _loading;
+    private SearchResponse? _response;
+
+    private async Task OnSearchChanged(string value)
+    {
+        _query = value;
+
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            _response = null;
+            return;
+        }
+
+        _loading = true;
+        StateHasChanged();
+
+        _response = await SearchService.SearchAsync(value);
+
+        _loading = false;
+    }
+
+    private string GetGroupLabel(string type) => type switch
+    {
+        "Project" => "Prosjekter",
+        "Deviation" => "Avvik",
+        "Contact" => "Kontakter",
+        "Equipment" => "Maskiner",
+        "Chemical" => "Kjemikalier",
+        "Employee" => "Ansatte",
+        "Checklist" => "Sjekklister",
+        "Job" => "Oppdrag",
+        _ => type
+    };
+
+    private string GetTypeIcon(string type) => type switch
+    {
+        "Project" => Icons.Material.Filled.AccountTree,
+        "Deviation" => Icons.Material.Filled.Warning,
+        "Contact" => Icons.Material.Filled.Contacts,
+        "Equipment" => Icons.Material.Filled.Construction,
+        "Chemical" => Icons.Material.Filled.Science,
+        "Employee" => Icons.Material.Filled.Person,
+        "Checklist" => Icons.Material.Filled.FactCheck,
+        "Job" => Icons.Material.Filled.Work,
+        _ => Icons.Material.Filled.Article
+    };
+
+    private void NavigateToResult(SearchResultDto result)
+    {
+        var url = result.Type switch
+        {
+            "Project" => $"/projects/{result.Id}",
+            "Deviation" => $"/deviations/{result.Id}",
+            "Contact" => $"/contacts/{result.Id}",
+            "Equipment" => $"/machines/{result.Id}",
+            "Chemical" => $"/chemicals/{result.Id}",
+            "Employee" => $"/employees/{result.Id}",
+            _ => "#"
+        };
+
+        if (url != "#")
+            Navigation.NavigateTo(url);
+    }
+}

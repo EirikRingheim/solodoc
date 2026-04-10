@@ -1,0 +1,363 @@
+@page "/locations/{Id:guid}"
+@attribute [Authorize]
+@inject LocationService LocationService
+@inject ChecklistService ChecklistService
+@inject DeviationService DeviationService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<PageTitle>Solodoc - @(_location?.Name ?? "Lokasjon")</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-4">
+    <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Href="/locations" />
+    <MudText Typo="Typo.h5">@(_location?.Name ?? "Laster...")</MudText>
+    @if (_location is not null)
+    {
+        <MudChip T="string" Size="Size.Small">@_location.LocationType</MudChip>
+        <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" Color="Color.Default"
+                       OnClick="OpenEditDialog" Title="Rediger" />
+        <MudButton Variant="Variant.Outlined" Size="Size.Small"
+                   StartIcon="@Icons.Material.Filled.QrCode2"
+                   Href="@($"/admin/qr-card/location/{Id}")"
+                   Style="text-transform:none;border-radius:8px;">
+            QR-kode
+        </MudButton>
+    }
+</MudStack>
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+}
+else if (_location is null)
+{
+    <MudAlert Severity="Severity.Warning">Lokasjon ikke funnet.</MudAlert>
+}
+else
+{
+    @* Info card *@
+    <MudPaper Class="pa-4 mb-4" Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;">
+        <MudGrid Spacing="3">
+            <MudItem xs="6" sm="3">
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Type</MudText>
+                <MudText Typo="Typo.body2" Style="font-weight:500;">@_location.LocationType</MudText>
+            </MudItem>
+            @if (!string.IsNullOrEmpty(_location.Address))
+            {
+                <MudItem xs="6" sm="3">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Adresse</MudText>
+                    <MudText Typo="Typo.body2" Style="font-weight:500;">@_location.Address</MudText>
+                </MudItem>
+            }
+            @if (!string.IsNullOrEmpty(_location.Description))
+            {
+                <MudItem xs="12" sm="6">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Beskrivelse</MudText>
+                    <MudText Typo="Typo.body2">@_location.Description</MudText>
+                </MudItem>
+            }
+        </MudGrid>
+    </MudPaper>
+
+    <MudTabs Elevation="0" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-0 pt-4"
+             ActivePanelIndex="_tabIndex" ActivePanelIndexChanged="OnTabChanged">
+
+        @* Tab 0: Avvik (primary for locations) *@
+        <MudTabPanel Text="Avvik" Icon="@Icons.Material.Filled.Warning">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
+                <MudText Typo="Typo.subtitle1" Style="font-weight:600;">Avvik</MudText>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+                           Href="/deviations/new" Size="Size.Small"
+                           Style="text-transform:none;border-radius:8px;">
+                    Registrer avvik
+                </MudButton>
+            </MudStack>
+
+            @if (_loadingDeviations)
+            {
+                <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+            }
+            else if (_deviations.Count == 0)
+            {
+                <MudPaper Class="pa-6" Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;">
+                    <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                        <MudIcon Icon="@Icons.Material.Filled.VerifiedUser" Size="Size.Large" Color="Color.Secondary" />
+                        <MudText Typo="Typo.body1" Color="Color.Secondary">Ingen avvik pa denne lokasjonen</MudText>
+                    </MudStack>
+                </MudPaper>
+            }
+            else
+            {
+                <MudStack Spacing="2">
+                    @foreach (var dev in _deviations)
+                    {
+                        var devId = dev.Id;
+                        var statusColor = dev.Status switch
+                        {
+                            "Åpen" or "Apen" => Color.Error,
+                            "Under behandling" => Color.Warning,
+                            "Lukket" => Color.Success,
+                            _ => Color.Default
+                        };
+                        <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:8px;cursor:pointer;"
+                                  Class="pa-3" @onclick="() => GoToDeviation(devId)">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                                <MudStack Spacing="0">
+                                    <MudText Typo="Typo.body1" Style="font-weight:500;">@dev.Title</MudText>
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">@dev.ReportedBy · @dev.CreatedAt.ToString("dd.MM.yyyy")</MudText>
+                                </MudStack>
+                                <MudChip T="string" Size="Size.Small" Color="@statusColor" Style="height:22px;">@dev.Status</MudChip>
+                            </MudStack>
+                        </MudPaper>
+                    }
+                </MudStack>
+            }
+        </MudTabPanel>
+
+        @* Tab 1: Sjekklister *@
+        <MudTabPanel Text="Sjekklister" Icon="@Icons.Material.Filled.Checklist">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
+                <MudText Typo="Typo.subtitle1" Style="font-weight:600;">Maler</MudText>
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+                           OnClick="OpenAssignDialog" Size="Size.Small" Style="text-transform:none;border-radius:8px;">
+                    Legg til mal
+                </MudButton>
+            </MudStack>
+
+            @if (_assignedTemplates.Count == 0)
+            {
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">Ingen maler tilordnet</MudText>
+            }
+            else
+            {
+                <MudGrid Spacing="2" Class="mb-4">
+                    @foreach (var t in _assignedTemplates)
+                    {
+                        var ct = t;
+                        <MudItem xs="12" sm="6" md="4">
+                            <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;" Class="pa-4">
+                                <MudStack Spacing="1">
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                                        <MudText Typo="Typo.subtitle2" Style="font-weight:600;">@t.Name</MudText>
+                                        <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" Color="Color.Error"
+                                                       OnClick="async () => await RemoveTemplate(ct.Id)" />
+                                    </MudStack>
+                                    <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" Size="Size.Small"
+                                               OnClick="async () => await StartChecklist(ct.Id)"
+                                               Style="text-transform:none;border-radius:8px;">
+                                        Fyll ut
+                                    </MudButton>
+                                </MudStack>
+                            </MudPaper>
+                        </MudItem>
+                    }
+                </MudGrid>
+            }
+
+            @* Completed instances *@
+            @if (_instances.Count > 0)
+            {
+                <MudText Typo="Typo.subtitle1" Style="font-weight:600;" Class="mb-2">Utfylte (@_instances.Count)</MudText>
+                @foreach (var inst in _instances)
+                {
+                    var ci = inst;
+                    <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:8px;cursor:pointer;"
+                              Class="pa-3 mb-2" @onclick="() => GoToInstance(ci)">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                            <MudStack Spacing="0">
+                                @if (!string.IsNullOrWhiteSpace(inst.LocationIdentifier))
+                                {
+                                    <MudText Typo="Typo.subtitle2" Style="font-weight:700;">@inst.LocationIdentifier</MudText>
+                                }
+                                <MudText Typo="Typo.body2">@inst.TemplateName</MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">@inst.StartedBy · @inst.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy")</MudText>
+                            </MudStack>
+                            <MudChip T="string" Size="Size.Small" Style="height:22px;">@inst.Status</MudChip>
+                        </MudStack>
+                    </MudPaper>
+                }
+            }
+        </MudTabPanel>
+
+        @* Old avvik tab removed — now at top *@
+    </MudTabs>
+}
+
+@* Assign template dialog *@
+<MudDialog @bind-Visible="_assignOpen" Options="_dlgOpts">
+    <TitleContent><MudText Typo="Typo.h6">Legg til mal</MudText></TitleContent>
+    <DialogContent>
+        <MudSelect T="Guid?" @bind-Value="_selectedTemplateId" Label="Velg mal" Variant="Variant.Outlined">
+            @foreach (var t in _allTemplates)
+            {
+                <MudSelectItem T="Guid?" Value="@((Guid?)t.Id)">@t.Name (@t.DocumentType)</MudSelectItem>
+            }
+        </MudSelect>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => _assignOpen = false" Style="text-transform:none;">Avbryt</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="AssignTemplate"
+                   Disabled="@(!_selectedTemplateId.HasValue)"
+                   Style="text-transform:none;border-radius:8px;">Legg til</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@* Edit location dialog *@
+<MudDialog @bind-Visible="_editOpen" Options="_dlgOpts">
+    <TitleContent><MudText Typo="Typo.h6">Rediger lokasjon</MudText></TitleContent>
+    <DialogContent>
+        <MudStack Spacing="2">
+            <MudTextField T="string" @bind-Value="_editName" Label="Navn" Variant="Variant.Outlined" />
+            <MudSelect T="string" @bind-Value="_editType" Label="Type" Variant="Variant.Outlined">
+                <MudSelectItem T="string" Value="@("Kontor")">Kontor</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Lager")">Lager</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Verksted")">Verksted</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Gard")">Gard</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Annet")">Annet</MudSelectItem>
+            </MudSelect>
+            <MudTextField T="string" @bind-Value="_editAddress" Label="Adresse" Variant="Variant.Outlined" />
+            <MudTextField T="string" @bind-Value="_editDescription" Label="Beskrivelse" Variant="Variant.Outlined" Lines="2" />
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => _editOpen = false" Style="text-transform:none;">Avbryt</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveEdit"
+                   Style="text-transform:none;border-radius:8px;">Lagre</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private LocationDetailDto? _location;
+    private List<LocationTemplateDto> _assignedTemplates = [];
+    private List<ChecklistTemplateListItemDto> _allTemplates = [];
+    private List<DeviationListItemDto> _deviations = [];
+    private List<ChecklistInstanceListItemDto> _instances = [];
+    private bool _loading = true;
+    private bool _loadingDeviations;
+    private int _tabIndex;
+    private readonly DialogOptions _dlgOpts = new() { MaxWidth = MaxWidth.Small, FullWidth = true };
+
+    // Assign dialog
+    private bool _assignOpen;
+    private Guid? _selectedTemplateId;
+
+    // Edit dialog
+    private bool _editOpen;
+    private string _editName = "", _editType = "", _editAddress = "", _editDescription = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var locTask = LocationService.GetLocationAsync(Id);
+        var templatesTask = LocationService.GetLocationTemplatesAsync(Id);
+        _location = await locTask;
+        _assignedTemplates = await templatesTask;
+
+        _loading = false;
+
+        // Load deviations immediately (first tab)
+        await LoadDeviations();
+    }
+
+    private async Task OnTabChanged(int tab)
+    {
+        _tabIndex = tab;
+        if (tab == 1 && _instances.Count == 0)
+            await LoadInstances();
+    }
+
+    private async Task LoadInstances()
+    {
+        _instances = await ChecklistService.GetInstancesAsync(locationId: Id);
+    }
+
+    private async Task LoadDeviations()
+    {
+        _loadingDeviations = true;
+        StateHasChanged();
+        try
+        {
+            var result = await DeviationService.GetDeviationsForLocationAsync(Id);
+            _deviations = result.Items.ToList();
+        }
+        catch { _deviations = []; }
+        _loadingDeviations = false;
+        StateHasChanged();
+    }
+
+    // ── Templates ──
+
+    private async Task OpenAssignDialog()
+    {
+        if (_allTemplates.Count == 0)
+            _allTemplates = await ChecklistService.GetTemplatesAsync();
+        _selectedTemplateId = null;
+        _assignOpen = true;
+    }
+
+    private async Task AssignTemplate()
+    {
+        if (!_selectedTemplateId.HasValue) return;
+        if (await LocationService.AssignTemplateAsync(Id, _selectedTemplateId.Value))
+        {
+            Snackbar.Add("Mal tilordnet", Severity.Success);
+            _assignOpen = false;
+            _assignedTemplates = await LocationService.GetLocationTemplatesAsync(Id);
+        }
+        else Snackbar.Add("Feil", Severity.Error);
+    }
+
+    private async Task RemoveTemplate(Guid templateId)
+    {
+        if (await LocationService.RemoveTemplateAsync(Id, templateId))
+        {
+            Snackbar.Add("Mal fjernet", Severity.Success);
+            _assignedTemplates = await LocationService.GetLocationTemplatesAsync(Id);
+        }
+    }
+
+    private async Task StartChecklist(Guid templateId)
+    {
+        var request = new CreateChecklistInstanceRequest(templateId, null, null, _location?.Name, Id);
+        var instanceId = await ChecklistService.CreateInstanceAsync(request);
+        if (instanceId.HasValue)
+            Navigation.NavigateTo($"/checklists/{instanceId.Value}/fill");
+        else
+            Snackbar.Add("Kunne ikke starte sjekkliste", Severity.Error);
+    }
+
+    private void GoToInstance(ChecklistInstanceListItemDto inst)
+    {
+        if (inst.Status is "Utkast" or "Gjenåpnet" or "Gjenapnet")
+            Navigation.NavigateTo($"/checklists/{inst.Id}/fill");
+        else
+            Navigation.NavigateTo($"/checklists/{inst.Id}");
+    }
+
+    private void GoToDeviation(Guid id) => Navigation.NavigateTo($"/deviations/{id}");
+
+    // ── Edit ──
+
+    private void OpenEditDialog()
+    {
+        if (_location is null) return;
+        _editName = _location.Name;
+        _editType = _location.LocationType;
+        _editAddress = _location.Address ?? "";
+        _editDescription = _location.Description ?? "";
+        _editOpen = true;
+    }
+
+    private async Task SaveEdit()
+    {
+        if (await LocationService.UpdateLocationAsync(Id, new CreateLocationRequest(_editName, _editAddress, _editDescription, _editType)))
+        {
+            Snackbar.Add("Lokasjon oppdatert", Severity.Success);
+            _editOpen = false;
+            _location = await LocationService.GetLocationAsync(Id);
+            StateHasChanged();
+        }
+        else Snackbar.Add("Feil", Severity.Error);
+    }
+}

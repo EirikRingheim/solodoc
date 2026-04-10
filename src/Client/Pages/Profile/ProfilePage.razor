@@ -1,0 +1,191 @@
+@page "/profile"
+@attribute [Authorize]
+@inject EmployeeService EmployeeService
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<PageTitle>Solodoc - Min profil</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4">Min profil</MudText>
+
+@if (_loading)
+{
+    <MudProgressLinear Color="Color.Primary" Indeterminate="true" />
+}
+else if (_profile is null)
+{
+    <MudAlert Severity="Severity.Warning">Kunne ikke laste profil.</MudAlert>
+}
+else
+{
+    <MudPaper Class="pa-5 mb-4" Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;max-width:600px;">
+        <MudText Typo="Typo.subtitle1" Style="font-weight:600;" Class="mb-3">Profilinformasjon</MudText>
+        <MudStack Spacing="3">
+            <MudTextField @bind-Value="_fullName" Label="Fullt navn" Variant="Variant.Outlined"
+                          Required="true" RequiredError="Navn er pakrevd" />
+            <MudTextField Value="@_profile.Email" Label="E-post" Variant="Variant.Outlined"
+                          ReadOnly="true" Disabled="true" />
+            <MudTextField @bind-Value="_phone" Label="Telefon" Variant="Variant.Outlined"
+                          Placeholder="+47 000 00 000" />
+            <MudSelect T="string" @bind-Value="_timeZoneId" Label="Tidssone" Variant="Variant.Outlined">
+                <MudSelectItem T="string" Value="@("Europe/Oslo")">Europe/Oslo</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Europe/Stockholm")">Europe/Stockholm</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Europe/Helsinki")">Europe/Helsinki</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Europe/London")">Europe/London</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Europe/Berlin")">Europe/Berlin</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Europe/Warsaw")">Europe/Warsaw</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Europe/Vilnius")">Europe/Vilnius</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Europe/Bucharest")">Europe/Bucharest</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Europe/Madrid")">Europe/Madrid</MudSelectItem>
+            </MudSelect>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                       Style="text-transform:none;border-radius:8px;align-self:flex-start;"
+                       Disabled="_saving"
+                       OnClick="SaveProfile">
+                @if (_saving)
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                }
+                Lagre endringer
+            </MudButton>
+        </MudStack>
+    </MudPaper>
+
+    @* Certifications section *@
+    <MudPaper Class="pa-5 mb-4" Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;max-width:600px;">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
+            <MudText Typo="Typo.subtitle1" Style="font-weight:600;">Mine sertifikater</MudText>
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Upload"
+                       Style="text-transform:none;border-radius:8px;"
+                       OnClick="OpenAddCertDialog">
+                Last opp sertifikat
+            </MudButton>
+        </MudStack>
+
+        @if (_certifications.Count == 0)
+        {
+            <MudStack AlignItems="AlignItems.Center" Spacing="2" Class="pa-4">
+                <MudIcon Icon="@Icons.Material.Filled.CardMembership" Size="Size.Large" Color="Color.Secondary" />
+                <MudText Typo="Typo.body1" Color="Color.Secondary">Ingen sertifikater lastet opp</MudText>
+            </MudStack>
+        }
+        else
+        {
+            <MudStack Spacing="2">
+                @foreach (var cert in _certifications)
+                {
+                    var statusIcon = cert.IsExpired
+                        ? Icons.Material.Filled.Cancel
+                        : cert.IsExpiringSoon
+                            ? Icons.Material.Filled.Warning
+                            : Icons.Material.Filled.CheckCircle;
+                    var statusColor = cert.IsExpired
+                        ? Color.Error
+                        : cert.IsExpiringSoon
+                            ? Color.Warning
+                            : Color.Success;
+
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween"
+                              Style="padding:8px 0;border-bottom:1px solid #e9ecef;">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                            <MudIcon Icon="@statusIcon" Color="@statusColor" Size="Size.Small" />
+                            <MudText Typo="Typo.body2" Style="font-weight:500;">@cert.Name</MudText>
+                        </MudStack>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                            @(cert.ExpiryDate?.ToString("dd.MM.yyyy") ?? "Ingen utlopsdato")
+                        </MudText>
+                    </MudStack>
+                }
+            </MudStack>
+        }
+    </MudPaper>
+
+    @* Signature section *@
+    <MudPaper Class="pa-5" Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;max-width:600px;">
+        <MudText Typo="Typo.subtitle1" Style="font-weight:600;" Class="mb-3">Signatur</MudText>
+        <MudStack AlignItems="AlignItems.Center" Spacing="2" Class="pa-4">
+            <MudIcon Icon="@Icons.Material.Filled.Draw" Size="Size.Large" Color="Color.Secondary" />
+            <MudText Typo="Typo.body1" Color="Color.Secondary">Signatur ikke lastet opp enda</MudText>
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Draw"
+                       Style="text-transform:none;border-radius:8px;"
+                       Disabled="true">
+                Last opp signatur
+            </MudButton>
+        </MudStack>
+    </MudPaper>
+}
+
+@code {
+    private ProfileDto? _profile;
+    private List<CertificationDto> _certifications = [];
+    private string _fullName = string.Empty;
+    private string? _phone;
+    private string _timeZoneId = "Europe/Oslo";
+    private bool _loading = true;
+    private bool _saving;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var profileTask = EmployeeService.GetProfileAsync();
+        _profile = await profileTask;
+
+        if (_profile is not null)
+        {
+            _fullName = _profile.FullName;
+            _phone = _profile.Phone;
+            _timeZoneId = _profile.TimeZoneId ?? "Europe/Oslo";
+            _certifications = await EmployeeService.GetCertificationsAsync(_profile.Id);
+        }
+
+        _loading = false;
+    }
+
+    private async Task SaveProfile()
+    {
+        if (string.IsNullOrWhiteSpace(_fullName))
+            return;
+
+        _saving = true;
+        var request = new UpdateProfileRequest(_fullName.Trim(), _phone?.Trim(), _timeZoneId);
+        var success = await EmployeeService.UpdateProfileAsync(request);
+        _saving = false;
+
+        if (success)
+        {
+            Snackbar.Add("Profil oppdatert", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add("Kunne ikke oppdatere profil", Severity.Error);
+        }
+    }
+
+    private async Task OpenAddCertDialog()
+    {
+        if (_profile is null) return;
+
+        var options = new DialogOptions
+        {
+            CloseButton = true,
+            MaxWidth = MaxWidth.Small,
+            FullWidth = true
+        };
+        var dialog = await DialogService.ShowAsync<Employees.AddCertificationDialog>("Last opp sertifikat", options);
+        var result = await dialog.Result;
+        if (result is not null && !result.Canceled && result.Data is CreateCertificationRequest request)
+        {
+            var success = await EmployeeService.AddCertificationAsync(_profile.Id, request);
+            if (success)
+            {
+                Snackbar.Add("Sertifikat lagt til", Severity.Success);
+                _certifications = await EmployeeService.GetCertificationsAsync(_profile.Id);
+            }
+            else
+            {
+                Snackbar.Add("Kunne ikke legge til sertifikat", Severity.Error);
+            }
+        }
+    }
+}

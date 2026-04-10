@@ -1,0 +1,474 @@
+@page "/calendar"
+@attribute [Authorize]
+@inject CalendarService CalendarService
+@inject ProjectService ProjectService
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<PageTitle>Solodoc - Kalender</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4" Style="flex-wrap:wrap;gap:8px;">
+    <MudText Typo="Typo.h5">Kalender</MudText>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.Add"
+               OnClick="OpenCreateDialog"
+               Style="text-transform:none;border-radius:8px;">
+        Ny hendelse
+    </MudButton>
+</MudStack>
+
+@* View toggle and navigation *@
+<MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-3 mb-3">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Style="flex-wrap:wrap;gap:8px;">
+        <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+            <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft" OnClick="PreviousPeriod" Size="Size.Small" />
+            <MudText Typo="Typo.subtitle1" Style="font-weight:600;min-width:160px;text-align:center;">
+                @GetPeriodLabel()
+            </MudText>
+            <MudIconButton Icon="@Icons.Material.Filled.ChevronRight" OnClick="NextPeriod" Size="Size.Small" />
+        </MudStack>
+        <MudStack Row="true" Spacing="1">
+            <MudButton Variant="Variant.Text" Size="Size.Small"
+                       OnClick="GoToToday"
+                       Style="text-transform:none;">I dag</MudButton>
+            <MudButtonGroup OverrideStyles="false">
+                <MudButton Variant="@(_viewMode == ViewMode.Month ? Variant.Filled : Variant.Outlined)"
+                           Color="Color.Primary" Size="Size.Small"
+                           OnClick="() => SetViewMode(ViewMode.Month)"
+                           Style="text-transform:none;border-radius:8px 0 0 8px;">Maned</MudButton>
+                <MudButton Variant="@(_viewMode == ViewMode.Week ? Variant.Filled : Variant.Outlined)"
+                           Color="Color.Primary" Size="Size.Small"
+                           OnClick="() => SetViewMode(ViewMode.Week)"
+                           Style="text-transform:none;border-radius:0 8px 8px 0;">Uke</MudButton>
+            </MudButtonGroup>
+        </MudStack>
+    </MudStack>
+</MudPaper>
+
+@if (_loading)
+{
+    <MudProgressLinear Color="Color.Primary" Indeterminate="true" />
+}
+else
+{
+    @* Calendar grid *@
+    @if (_viewMode == ViewMode.Month)
+    {
+        @* Month view — day grid *@
+        <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;overflow:hidden;" Class="mb-3">
+            @* Day headers *@
+            <div style="display:grid;grid-template-columns:repeat(7,1fr);border-bottom:1px solid #E9ECEF;">
+                @foreach (var dayName in _dayNames)
+                {
+                    <div style="padding:8px;text-align:center;font-size:0.75rem;font-weight:600;color:#6C757D;">
+                        @dayName
+                    </div>
+                }
+            </div>
+            @* Day cells *@
+            <div style="display:grid;grid-template-columns:repeat(7,1fr);">
+                @foreach (var day in GetMonthDays())
+                {
+                    var isToday = day.Date == DateOnly.FromDateTime(DateTime.Today);
+                    var isCurrentMonth = day.Date.Month == _currentDate.Month && day.Date.Year == _currentDate.Year;
+                    var dayEvents = GetEventsForDate(day.Date);
+                    <div style="min-height:60px;padding:4px;border:1px solid #F3F4F6;@(isCurrentMonth ? "" : "opacity:0.4;")">
+                        <div style="font-size:0.75rem;font-weight:@(isToday ? "700" : "400");color:@(isToday ? "#4361EE" : "#374151");text-align:right;padding:2px 4px;@(isToday ? "background:#EEF2FF;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;margin-left:auto;" : "")">
+                            @day.Date.Day
+                        </div>
+                        <div style="display:flex;flex-direction:column;gap:1px;margin-top:2px;">
+                            @foreach (var evt in dayEvents.Take(3))
+                            {
+                                var evtBg = evt.IsAllDay ? "#DDD6FE" : "#EEF2FF";
+                                var evtColor = evt.IsAllDay ? "#5B21B6" : "#4361EE";
+                                <div style="background:@evtBg;border-radius:3px;padding:1px 3px;font-size:0.55rem;color:@evtColor;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500;">
+                                    @evt.Title
+                                </div>
+                            }
+                            @if (dayEvents.Count > 3)
+                            {
+                                <span style="font-size:0.55rem;color:#6C757D;">+@(dayEvents.Count - 3) mer</span>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        </MudPaper>
+    }
+    else
+    {
+        @* Week view — 7 columns *@
+        <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;overflow:hidden;" Class="mb-3">
+            <div style="display:grid;grid-template-columns:repeat(7,1fr);">
+                @foreach (var day in GetWeekDays())
+                {
+                    var isToday = day == DateOnly.FromDateTime(DateTime.Today);
+                    var dayEvents = GetEventsForDate(day);
+                    <div style="min-height:120px;border-right:1px solid #F3F4F6;">
+                        <div class="@(isToday ? "week-day-header week-day-header--today" : "week-day-header")" style="text-align:center;">
+                            @day.ToString("ddd dd")
+                        </div>
+                        <div style="padding:4px;">
+                            @foreach (var evt in dayEvents)
+                            {
+                                <div style="background:#EEF2FF;border-left:3px solid #4361EE;border-radius:4px;padding:4px 6px;margin-bottom:4px;font-size:0.7rem;">
+                                    <div style="font-weight:600;color:#1E293B;">@evt.Title</div>
+                                    @if (!evt.IsAllDay && evt.StartAt != default)
+                                    {
+                                        <div style="color:#6C757D;">@evt.StartAt.ToLocalTime().ToString("HH:mm")</div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        </MudPaper>
+    }
+
+    @* Events list *@
+    <MudText Typo="Typo.h6" Class="mb-2">Hendelser</MudText>
+    @if (_groupedEvents.Count == 0)
+    {
+        <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-8">
+            <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                <MudIcon Icon="@Icons.Material.Filled.EventBusy" Size="Size.Large" Color="Color.Default" Style="opacity:0.3;" />
+                <MudText Typo="Typo.body1" Color="Color.Secondary">Ingen hendelser i denne perioden</MudText>
+            </MudStack>
+        </MudPaper>
+    }
+    else
+    {
+        <MudStack Spacing="2">
+            @foreach (var group in _groupedEvents)
+            {
+                var isToday = group.Key == DateOnly.FromDateTime(DateTime.Today);
+                <div>
+                    <MudText Typo="Typo.subtitle2" Style="@(isToday ? "color:#4361EE;font-weight:700;" : "color:#6C757D;")" Class="mb-1">
+                        @(isToday ? "I dag" : group.Key.ToString("dddd dd. MMMM", System.Globalization.CultureInfo.GetCultureInfo("nb-NO")))
+                    </MudText>
+                    @foreach (var evt in group.Value)
+                    {
+                        <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-3 mb-1">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                <MudIcon Icon="@Icons.Material.Filled.Event" Size="Size.Small" Color="Color.Primary" />
+                                <MudStack Spacing="0" Style="flex:1;">
+                                    <MudText Typo="Typo.body2" Style="font-weight:600;">@evt.Title</MudText>
+                                    <MudStack Row="true" Spacing="2" Style="flex-wrap:wrap;">
+                                        @if (evt.IsAllDay)
+                                        {
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary">Hele dagen</MudText>
+                                        }
+                                        else
+                                        {
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                                @evt.StartAt.ToLocalTime().ToString("HH:mm")
+                                                @if (evt.EndAt.HasValue)
+                                                {
+                                                    <text> - @evt.EndAt.Value.ToLocalTime().ToString("HH:mm")</text>
+                                                }
+                                            </MudText>
+                                        }
+                                        @if (!string.IsNullOrWhiteSpace(evt.Location))
+                                        {
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                                <MudIcon Icon="@Icons.Material.Filled.LocationOn" Size="Size.Small" Style="vertical-align:middle;font-size:0.85rem;" />
+                                                @evt.Location
+                                            </MudText>
+                                        }
+                                    </MudStack>
+                                </MudStack>
+                            </MudStack>
+                        </MudPaper>
+                    }
+                </div>
+            }
+        </MudStack>
+    }
+}
+
+@* Create event dialog *@
+<MudDialog @bind-Visible="_showCreateDialog" Options="_dialogOptions">
+    <TitleContent>
+        <MudText Typo="Typo.h6">Ny hendelse</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudStack Spacing="3" Class="pt-2">
+            <MudTextField @bind-Value="_newTitle" Label="Tittel" Variant="Variant.Outlined"
+                          Required="true" />
+            <MudTextField @bind-Value="_newDescription" Label="Beskrivelse" Variant="Variant.Outlined"
+                          Lines="3" />
+            <MudCheckBox @bind-Value="_newIsAllDay" Label="Hele dagen" Color="Color.Primary" />
+            <MudDatePicker @bind-Date="_newStartDate" Label="Startdato" Variant="Variant.Outlined"
+                           DateFormat="dd.MM.yyyy" />
+            @if (!_newIsAllDay)
+            {
+                <MudTimePicker @bind-Time="_newStartTime" Label="Starttid" Variant="Variant.Outlined" />
+                <MudDatePicker @bind-Date="_newEndDate" Label="Sluttdato" Variant="Variant.Outlined"
+                               DateFormat="dd.MM.yyyy" />
+                <MudTimePicker @bind-Time="_newEndTime" Label="Sluttid" Variant="Variant.Outlined" />
+            }
+            <MudTextField @bind-Value="_newLocation" Label="Sted" Variant="Variant.Outlined" />
+            <MudSelect T="Guid?" @bind-Value="_newProjectId" Label="Prosjekt (valgfritt)"
+                       Variant="Variant.Outlined" Clearable="true">
+                @foreach (var p in _calProjects)
+                {
+                    <MudSelectItem T="Guid?" Value="@((Guid?)p.Id)">@p.Name</MudSelectItem>
+                }
+            </MudSelect>
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton Variant="Variant.Text" OnClick="CloseCreateDialog"
+                   Style="text-transform:none;">Avbryt</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                   OnClick="CreateEvent" Disabled="_creatingEvent"
+                   Style="text-transform:none;border-radius:8px;">
+            @if (_creatingEvent)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Color="Color.Inherit" Class="mr-2" />
+            }
+            Opprett
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private enum ViewMode { Month, Week }
+
+    private ViewMode _viewMode = ViewMode.Month;
+    private DateTime _currentDate = DateTime.Today;
+    private List<CalendarEventDto> _events = [];
+    private SortedDictionary<DateOnly, List<CalendarEventDto>> _groupedEvents = [];
+    private bool _loading = true;
+
+    private readonly string[] _dayNames = ["Man", "Tir", "Ons", "Tor", "Fre", "Lor", "Son"];
+
+    // Create dialog
+    private bool _showCreateDialog;
+    private Guid? _newProjectId;
+    private List<ProjectListItemDto> _calProjects = [];
+    private readonly DialogOptions _dialogOptions = new() { MaxWidth = MaxWidth.Small, FullWidth = true };
+    private string _newTitle = "";
+    private string _newDescription = "";
+    private bool _newIsAllDay;
+    private DateTime? _newStartDate = DateTime.Today;
+    private TimeSpan? _newStartTime = new(9, 0, 0);
+    private DateTime? _newEndDate = DateTime.Today;
+    private TimeSpan? _newEndTime = new(10, 0, 0);
+    private string _newLocation = "";
+    private bool _creatingEvent;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadEvents();
+    }
+
+    private async Task LoadEvents()
+    {
+        _loading = true;
+        var (from, to) = GetCurrentRange();
+        _events = await CalendarService.GetEventsAsync(
+            new DateTimeOffset(from, TimeSpan.Zero),
+            new DateTimeOffset(to, TimeSpan.Zero));
+        GroupEvents();
+        _loading = false;
+    }
+
+    private void GroupEvents()
+    {
+        _groupedEvents = new SortedDictionary<DateOnly, List<CalendarEventDto>>();
+        foreach (var evt in _events.OrderBy(e => e.StartAt))
+        {
+            var startDate = DateOnly.FromDateTime(evt.StartAt.LocalDateTime);
+            var endDate = evt.EndAt.HasValue
+                ? DateOnly.FromDateTime(evt.EndAt.Value.LocalDateTime)
+                : startDate;
+
+            // Expand multi-day events across all dates they cover
+            for (var d = startDate; d <= endDate; d = d.AddDays(1))
+            {
+                if (!_groupedEvents.ContainsKey(d))
+                    _groupedEvents[d] = [];
+                _groupedEvents[d].Add(evt);
+            }
+        }
+    }
+
+    private (DateTime from, DateTime to) GetCurrentRange()
+    {
+        if (_viewMode == ViewMode.Month)
+        {
+            var first = new DateTime(_currentDate.Year, _currentDate.Month, 1);
+            var last = first.AddMonths(1).AddDays(-1);
+            return (first, last.AddDays(1));
+        }
+        else
+        {
+            var diff = (7 + (_currentDate.DayOfWeek - DayOfWeek.Monday)) % 7;
+            var monday = _currentDate.AddDays(-diff);
+            return (monday, monday.AddDays(7));
+        }
+    }
+
+    private string GetPeriodLabel()
+    {
+        var culture = System.Globalization.CultureInfo.GetCultureInfo("nb-NO");
+        if (_viewMode == ViewMode.Month)
+            return _currentDate.ToString("MMMM yyyy", culture);
+
+        var diff = (7 + (_currentDate.DayOfWeek - DayOfWeek.Monday)) % 7;
+        var monday = _currentDate.AddDays(-diff);
+        var sunday = monday.AddDays(6);
+        var weekNum = System.Globalization.ISOWeek.GetWeekOfYear(monday);
+        return $"Uke {weekNum} ({monday:dd.MM} - {sunday:dd.MM})";
+    }
+
+    private async Task PreviousPeriod()
+    {
+        _currentDate = _viewMode == ViewMode.Month
+            ? _currentDate.AddMonths(-1)
+            : _currentDate.AddDays(-7);
+        await LoadEvents();
+    }
+
+    private async Task NextPeriod()
+    {
+        _currentDate = _viewMode == ViewMode.Month
+            ? _currentDate.AddMonths(1)
+            : _currentDate.AddDays(7);
+        await LoadEvents();
+    }
+
+    private async Task GoToToday()
+    {
+        _currentDate = DateTime.Today;
+        await LoadEvents();
+    }
+
+    private async Task SetViewMode(ViewMode mode)
+    {
+        _viewMode = mode;
+        await LoadEvents();
+    }
+
+    private List<(DateOnly Date, bool IsCurrentMonth)> GetMonthDays()
+    {
+        var firstOfMonth = new DateTime(_currentDate.Year, _currentDate.Month, 1);
+        var daysInMonth = DateTime.DaysInMonth(_currentDate.Year, _currentDate.Month);
+
+        // Monday = 0
+        var startDayOfWeek = ((int)firstOfMonth.DayOfWeek + 6) % 7;
+
+        var days = new List<(DateOnly, bool)>();
+
+        // Previous month padding
+        for (var i = startDayOfWeek - 1; i >= 0; i--)
+        {
+            var d = firstOfMonth.AddDays(-i - 1);
+            days.Add((DateOnly.FromDateTime(d), false));
+        }
+
+        // Current month
+        for (var i = 1; i <= daysInMonth; i++)
+        {
+            days.Add((new DateOnly(_currentDate.Year, _currentDate.Month, i), true));
+        }
+
+        // Next month padding to fill last row
+        while (days.Count % 7 != 0)
+        {
+            var d = firstOfMonth.AddMonths(1).AddDays(days.Count - startDayOfWeek - daysInMonth);
+            days.Add((DateOnly.FromDateTime(d), false));
+        }
+
+        return days;
+    }
+
+    private List<DateOnly> GetWeekDays()
+    {
+        var diff = (7 + (_currentDate.DayOfWeek - DayOfWeek.Monday)) % 7;
+        var monday = _currentDate.AddDays(-diff);
+        return Enumerable.Range(0, 7).Select(i => DateOnly.FromDateTime(monday.AddDays(i))).ToList();
+    }
+
+    private List<CalendarEventDto> GetEventsForDate(DateOnly date)
+    {
+        if (_groupedEvents.TryGetValue(date, out var events))
+            return events;
+        return [];
+    }
+
+    private async Task OpenCreateDialog()
+    {
+        _newTitle = "";
+        _newDescription = "";
+        _newIsAllDay = false;
+        _newStartDate = DateTime.Today;
+        _newStartTime = new TimeSpan(9, 0, 0);
+        _newEndDate = DateTime.Today;
+        _newEndTime = new TimeSpan(10, 0, 0);
+        _newLocation = "";
+        _newProjectId = null;
+        if (_calProjects.Count == 0)
+            _calProjects = await ProjectService.GetActiveProjectsAsync();
+        _showCreateDialog = true;
+    }
+
+    private void CloseCreateDialog()
+    {
+        _showCreateDialog = false;
+    }
+
+    private async Task CreateEvent()
+    {
+        if (string.IsNullOrWhiteSpace(_newTitle))
+        {
+            Snackbar.Add("Tittel er pakrevd", Severity.Warning);
+            return;
+        }
+
+        _creatingEvent = true;
+
+        var startDate = _newStartDate ?? DateTime.Today;
+        DateTimeOffset startAt;
+        DateTimeOffset? endAt = null;
+
+        if (_newIsAllDay)
+        {
+            startAt = new DateTimeOffset(startDate.Date, TimeSpan.Zero);
+        }
+        else
+        {
+            var startTime = _newStartTime ?? new TimeSpan(9, 0, 0);
+            startAt = new DateTimeOffset(startDate.Date.Add(startTime), DateTimeOffset.Now.Offset);
+
+            if (_newEndDate.HasValue)
+            {
+                var endTime = _newEndTime ?? new TimeSpan(10, 0, 0);
+                endAt = new DateTimeOffset(_newEndDate.Value.Date.Add(endTime), DateTimeOffset.Now.Offset);
+            }
+        }
+
+        var id = await CalendarService.CreateEventAsync(
+            new CreateCalendarEventRequest(
+                _newTitle,
+                string.IsNullOrWhiteSpace(_newDescription) ? null : _newDescription,
+                startAt,
+                endAt,
+                _newIsAllDay,
+                string.IsNullOrWhiteSpace(_newLocation) ? null : _newLocation));
+
+        if (id.HasValue)
+        {
+            Snackbar.Add("Hendelse opprettet", Severity.Success);
+            _showCreateDialog = false;
+            await LoadEvents();
+        }
+        else
+        {
+            Snackbar.Add("Kunne ikke opprette hendelse", Severity.Error);
+        }
+        _creatingEvent = false;
+    }
+}

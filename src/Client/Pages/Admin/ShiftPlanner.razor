@@ -1,0 +1,604 @@
+@page "/admin/planner"
+@attribute [Authorize]
+@inject ShiftService ShiftService
+@inject ProjectService ProjectService
+@inject JobService JobService
+@inject HoursService HoursService
+@inject ISnackbar Snackbar
+@inject IJSRuntime JS
+
+<PageTitle>Solodoc - Skiftplanlegger</PageTitle>
+
+@* ═══ Fixed top bar ═══ *@
+<MudPaper Elevation="1" Style="border-radius:12px;position:sticky;top:0;z-index:10;background:#FFF;" Class="pa-3 mb-4">
+    <MudStack Spacing="2">
+        @* Month nav *@
+        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft" OnClick="PrevMonth" Size="Size.Small" />
+                <MudText Typo="Typo.subtitle1" Style="font-weight:600;min-width:140px;text-align:center;text-transform:capitalize;">
+                    @_month.ToString("MMMM yyyy", System.Globalization.CultureInfo.GetCultureInfo("nb-NO"))
+                </MudText>
+                <MudIconButton Icon="@Icons.Material.Filled.ChevronRight" OnClick="NextMonth" Size="Size.Small" />
+            </MudStack>
+
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                @if (HasSelection)
+                {
+                    <MudText Typo="Typo.body2" Style="font-weight:600;">
+                        @_selEmployeeName: @_selStart!.Value.ToString("dd.MM") – @_selEnd!.Value.ToString("dd.MM")
+                    </MudText>
+                }
+                @if (_undoAvailable)
+                {
+                    <MudButton Variant="Variant.Text" Size="Size.Small" StartIcon="@Icons.Material.Filled.Undo"
+                               OnClick="Undo" Style="text-transform:none;">Angre</MudButton>
+                }
+            </MudStack>
+        </MudStack>
+
+        @* Row 1: Shifts *@
+        <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Style="flex-wrap:wrap;">
+            <MudText Typo="Typo.caption" Style="font-weight:600;min-width:50px;color:#6B7280;">Skift:</MudText>
+            @foreach (var shift in _shifts)
+            {
+                var cs = shift;
+                <MudButton Variant="Variant.Filled" Size="Size.Small"
+                           Disabled="@(!HasSelection)"
+                           Style="@($"text-transform:none;border-radius:6px;background:{shift.Color};color:#FFF;opacity:{(HasSelection ? "1" : "0.4")};min-width:80px;")"
+                           OnClick="async () => await AssignShift(cs.Id)">
+                    @shift.Name
+                </MudButton>
+            }
+            <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Secondary"
+                       Disabled="@(!HasSelection)" OnClick="AssignFerie"
+                       Style="text-transform:none;border-radius:6px;">Ferie</MudButton>
+            <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Secondary"
+                       Disabled="@(!HasSelection)" OnClick="AssignAvspass"
+                       Style="text-transform:none;border-radius:6px;">Avspass.</MudButton>
+            @if (HasSelection)
+            {
+                <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Error"
+                           OnClick="ClearSelectedCells"
+                           Style="text-transform:none;border-radius:6px;">Slett</MudButton>
+                <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="ClearSelection"
+                           Style="text-transform:none;color:#9CA3AF;">Avbryt</MudButton>
+            }
+        </MudStack>
+
+        @* Row 2: Prosjekt *@
+        <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Style="flex-wrap:wrap;">
+            <MudText Typo="Typo.caption" Style="font-weight:600;min-width:70px;color:#6B7280;">Prosjekt:</MudText>
+            @foreach (var p in _recentProjects)
+            {
+                var captured = p;
+                var isActive = _pendingTargetKey == "p:" + captured.Id;
+                <MudButton Variant="@(isActive ? Variant.Filled : Variant.Outlined)" Size="Size.Small"
+                           Color="@(isActive ? Color.Primary : Color.Default)"
+                           OnClick="() => SelectProjectTarget(captured.Id)"
+                           Style="@($"text-transform:none;border-radius:6px;height:32px;min-width:80px;max-width:160px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;{(isActive ? "box-shadow:0 0 0 3px rgba(67,97,238,0.3);" : "")}")">
+                    @(isActive ? "✓ " : "")@captured.Name
+                </MudButton>
+            }
+            <MudAutocomplete T="string" Value="_searchProjectKey"
+                             SearchFunc="SearchProjects" ToStringFunc="FormatTargetKey"
+                             Label="Sok prosjekt..." Variant="Variant.Outlined"
+                             Margin="Margin.Dense" Dense="true"
+                             Style="min-width:160px;max-width:200px;"
+                             ValueChanged="OnProjectSearchSelected"
+                             MaxItems="10" Clearable="true" />
+            @if (_pendingTargetKey is not null)
+            {
+                <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" Color="Color.Default"
+                               OnClick="() => _pendingTargetKey = null" Title="Fjern valg" />
+            }
+        </MudStack>
+
+        @* Row 3: Oppdrag *@
+        @if (_jobs.Count > 0)
+        {
+            <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Style="flex-wrap:wrap;">
+                <MudText Typo="Typo.caption" Style="font-weight:600;min-width:70px;color:#6B7280;">Oppdrag:</MudText>
+                @foreach (var j in _recentJobs)
+                {
+                    var captured = j;
+                    var isActive = _pendingTargetKey == "j:" + captured.Id;
+                    <MudButton Variant="@(isActive ? Variant.Filled : Variant.Outlined)" Size="Size.Small"
+                               Color="@(isActive ? Color.Primary : Color.Default)"
+                               OnClick="() => SelectJobTarget(captured.Id)"
+                               Style="@($"text-transform:none;border-radius:6px;height:32px;min-width:80px;max-width:160px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;{(isActive ? "box-shadow:0 0 0 3px rgba(67,97,238,0.3);" : "")}")">
+                        @(isActive ? "✓ " : "")@(captured.Description?.Length > 20 ? captured.Description[..20] + "..." : captured.Description)
+                    </MudButton>
+                }
+            </MudStack>
+        }
+    </MudStack>
+</MudPaper>
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+}
+else
+{
+    @* ═══ Planner grid ═══ *@
+    <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-2">
+        <table style="border-collapse:separate;border-spacing:2px;width:100%;">
+            <thead>
+                <tr>
+                    <th style="padding:6px 8px;text-align:left;font-weight:600;font-size:0.8rem;min-width:130px;position:sticky;left:0;background:#FFF;z-index:1;">Ansatt</th>
+                    @foreach (var date in _dates)
+                    {
+                        var isWe = date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday;
+                        var isTd = date == DateOnly.FromDateTime(DateTime.Today);
+                        <th style="padding:3px;text-align:center;font-size:0.65rem;font-weight:@(isWe ? "400" : "500");color:@(isWe ? "#9CA3AF" : "#374151");@(isTd ? "background:#EBF0FF;border-radius:4px;" : "")">
+                            @date.Day<br/>@date.ToString("ddd", System.Globalization.CultureInfo.GetCultureInfo("nb-NO")).Substring(0, 2)
+                        </th>
+                    }
+                </tr>
+            </thead>
+            <tbody>
+                @{ var rowIdx = 0; }
+                @foreach (var row in _rows)
+                {
+                    var capturedRow = row;
+                    var rowBg = rowIdx % 2 == 1 ? "#FAFBFC" : "#FFF";
+                    rowIdx++;
+                    <tr style="background:@rowBg;">
+                        <td style="padding:6px 8px;font-size:0.8rem;font-weight:500;white-space:nowrap;position:sticky;left:0;background:@rowBg;z-index:1;cursor:pointer;color:#4361EE;"
+                            @onclick="async () => await OpenEmployeeCalendar(capturedRow.PersonId, capturedRow.EmployeeName)">
+                            @row.EmployeeName
+                        </td>
+                        @for (var ci = 0; ci < row.Days.Count; ci++)
+                        {
+                            var cell = row.Days[ci];
+                            var capturedCi = ci;
+                            var isSel = _selPersonId == row.PersonId && _selStartIdx.HasValue && _selEndIdx.HasValue
+                                && capturedCi >= Math.Min(_selStartIdx.Value, _selEndIdx.Value)
+                                && capturedCi <= Math.Max(_selStartIdx.Value, _selEndIdx.Value);
+
+                            string bg, fg;
+                            var lines = new List<string>();
+
+                            if (cell.AbsenceType is not null)
+                            {
+                                bg = "#DDD6FE"; fg = "#5B21B6";
+                                lines.Add(cell.AbsenceType.Length > 4 ? cell.AbsenceType[..4] : cell.AbsenceType);
+                            }
+                            else if (cell.ShiftColor is not null)
+                            {
+                                bg = cell.ShiftColor; fg = "#FFF";
+                                lines.Add(cell.ShiftName ?? "");
+                                var work = cell.ProjectName ?? cell.JobDescription;
+                                if (work is not null)
+                                    lines.Add(work.Length > 6 ? work[..6] : work);
+                            }
+                            else if (cell.Hours > 0)
+                            {
+                                bg = cell.HoursStatus switch { "Godkjent" => "#BBF7D0", "Registrert" => "#FDE68A", _ => "#F3F4F6" };
+                                fg = cell.HoursStatus switch { "Godkjent" => "#166534", "Registrert" => "#92400E", _ => "#6B7280" };
+                                lines.Add(cell.Hours.ToString("0.#") + "t");
+                            }
+                            else
+                            {
+                                bg = cell.IsWorkDay ? "#FFF" : "#F9FAFB"; fg = "#D1D5DB";
+                            }
+
+                            <td style="padding:4px 2px;text-align:center;font-size:0.65rem;font-weight:600;background:@bg;color:@fg;border-radius:4px;cursor:pointer;border:@(isSel ? "3px solid #F97316" : "1px solid #E5E7EB");user-select:none;vertical-align:middle;line-height:1.3;min-width:42px;min-height:44px;"
+                                title="@($"{cell.Date:dd.MM}: {cell.ShiftName ?? ""} {cell.ProjectName ?? cell.JobDescription ?? ""} {cell.AbsenceType ?? ""} {(cell.Hours > 0 ? $"{cell.Hours:0.#}t" : "")}")"
+                                @onmousedown="() => StartSelection(capturedRow.PersonId, capturedRow.EmployeeName, capturedCi)"
+                                @onmouseenter="() => ExtendSelection(capturedRow.PersonId, capturedCi)"
+                                @onmouseup="EndSelection">
+                                <div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 0 2px rgba(0,0,0,0.3);">@(lines.Count > 0 ? lines[0] : "")</div>
+                                <div style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:0.55rem;opacity:0.9;text-shadow:0 0 2px rgba(0,0,0,0.3);">@(lines.Count > 1 ? lines[1] : "")</div>
+                            </td>
+                        }
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </MudPaper>
+
+    <MudStack Row="true" Spacing="3" AlignItems="AlignItems.Center" Class="mt-2">
+        @foreach (var shift in _shifts)
+        {
+            <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+                <span style="width:12px;height:12px;background:@shift.Color;border-radius:2px;display:inline-block;"></span>
+                <MudText Typo="Typo.caption">@shift.Name</MudText>
+            </MudStack>
+        }
+        <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+            <span style="width:12px;height:12px;background:#DDD6FE;border-radius:2px;display:inline-block;"></span>
+            <MudText Typo="Typo.caption">Fravaer</MudText>
+        </MudStack>
+    </MudStack>
+}
+
+@* ═══ Overwrite Confirmation ═══ *@
+<MudDialog @bind-Visible="_confirmOverwriteOpen" Options="_dlgOpts">
+    <TitleContent><MudText Typo="Typo.h6">Endre skift</MudText></TitleContent>
+    <DialogContent>
+        <MudText>Noen av de valgte dagene har allerede et skift. Vil du overskrive?</MudText>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => _confirmOverwriteOpen = false" Style="text-transform:none;">Avbryt</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="ConfirmOverwrite"
+                   Style="text-transform:none;border-radius:8px;">Overskriv</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@* ═══ Employee Calendar Dialog ═══ *@
+<MudDialog @bind-Visible="_calendarOpen" Options="_calDlgOpts">
+    <TitleContent>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Style="width:100%;">
+            <MudText Typo="Typo.h6">@(_empCalendar?.EmployeeName ?? "")</MudText>
+            <MudButton Variant="Variant.Outlined" Size="Size.Small" StartIcon="@Icons.Material.Filled.FileDownload"
+                       OnClick="ExportCalendar" Style="text-transform:none;border-radius:6px;">Eksporter</MudButton>
+        </MudStack>
+    </TitleContent>
+    <DialogContent>
+        @if (_empCalendar is not null)
+        {
+            <MudSimpleTable Dense="true" Hover="true" Style="border:1px solid #e9ecef;border-radius:8px;">
+                <thead><tr><th>Dato</th><th>Dag</th><th>Skift</th><th>Prosjekt</th><th>Timer</th><th>Status</th></tr></thead>
+                <tbody>
+                    @{ var calRowIdx = 0; }
+                    @foreach (var day in _empCalendar.Days)
+                    {
+                        var isWe = day.Date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday;
+                        var calRowBg = isWe ? "#F3F4F6" : calRowIdx % 2 == 1 ? "#FAFBFC" : "#FFF";
+                        calRowIdx++;
+                        <tr style="background:@calRowBg;">
+                            <td style="font-size:0.8rem;">@day.Date.ToString("dd.MM")</td>
+                            <td style="font-size:0.8rem;text-transform:capitalize;">@day.Date.ToString("ddd", System.Globalization.CultureInfo.GetCultureInfo("nb-NO"))</td>
+                            <td>
+                                @if (day.ShiftName is not null) { <span style="padding:2px 6px;border-radius:4px;background:@(day.ShiftColor ?? "#E9ECEF");color:#FFF;font-size:0.7rem;font-weight:500;">@day.ShiftName</span> }
+                                @if (day.AbsenceType is not null) { <span style="padding:2px 6px;border-radius:4px;background:#DDD6FE;color:#5B21B6;font-size:0.7rem;">@day.AbsenceType</span> }
+                            </td>
+                            <td style="font-size:0.8rem;">@(day.ProjectName ?? "")</td>
+                            <td style="font-size:0.8rem;font-weight:500;">@(day.Hours > 0 ? day.Hours.ToString("0.#") : "")</td>
+                            <td style="font-size:0.75rem;">@day.Status</td>
+                        </tr>
+                    }
+                </tbody>
+            </MudSimpleTable>
+        }
+    </DialogContent>
+    <DialogActions><MudButton OnClick="() => _calendarOpen = false" Style="text-transform:none;">Lukk</MudButton></DialogActions>
+</MudDialog>
+
+@code {
+    private DateOnly _month = new(DateTime.Today.Year, DateTime.Today.Month, 1);
+    private List<DateOnly> _dates = [];
+    private List<PlannerRowDto> _rows = [];
+    private List<ShiftDefinitionDto> _shifts = [];
+    private List<ProjectListItemDto> _projects = [];
+    private List<JobListItemDto> _jobs = [];
+    private bool _loading = true;
+
+    private readonly DialogOptions _dlgOpts = new() { MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true };
+    private readonly DialogOptions _calDlgOpts = new() { MaxWidth = MaxWidth.Large, FullWidth = true, CloseOnEscapeKey = true };
+
+    // Selection
+    private Guid? _selPersonId;
+    private string _selEmployeeName = "";
+    private int? _selStartIdx, _selEndIdx;
+    private bool _isDragging;
+    private DateOnly? _selStart, _selEnd;
+    private bool HasSelection => _selStart.HasValue && _selEnd.HasValue && _selPersonId.HasValue;
+
+    // Target (project/job) selection
+    private string? _pendingTargetKey; // "p:{guid}" or "j:{guid}"
+    private string? _searchProjectKey;
+
+    // Recent projects/jobs as buttons
+    private List<ProjectListItemDto> _recentProjects = [];
+    private List<JobListItemDto> _recentJobs = [];
+
+    // Undo
+    private bool _undoAvailable;
+    private PlannerAssignRequest? _lastAction;
+    private List<PlannerCellDto>? _lastCellsBeforeAction;
+
+    // Overwrite confirmation
+    private bool _confirmOverwriteOpen;
+    private Guid _pendingShiftId;
+    private Guid? _pendingSelPersonId;
+    private DateOnly? _pendingSelStart, _pendingSelEnd;
+
+    // Calendar
+    private bool _calendarOpen;
+    private EmployeeCalendarDto? _empCalendar;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var pResult = await ProjectService.GetProjectsAsync(1, 100, null, "name", false);
+            _projects = pResult.Items;
+        }
+        catch { _projects = []; }
+
+        try
+        {
+            var jResult = await JobService.GetJobsAsync(1, 50, null, null, false);
+            _jobs = jResult.Items.ToList();
+        }
+        catch { _jobs = []; }
+
+        _recentProjects = _projects.Take(5).ToList();
+        _recentJobs = _jobs.Take(3).ToList();
+
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        _loading = true; StateHasChanged();
+        var lastDay = _month.AddMonths(1).AddDays(-1);
+        _dates = [];
+        for (var d = _month; d <= lastDay; d = d.AddDays(1)) _dates.Add(d);
+        var rowsTask = ShiftService.GetPlannerDataAsync(_month, lastDay);
+        var shiftsTask = ShiftService.GetShiftsAsync();
+        _rows = await rowsTask; _shifts = await shiftsTask;
+        _loading = false; StateHasChanged();
+    }
+
+    private async Task PrevMonth() { _month = _month.AddMonths(-1); ClearSelection(); await LoadData(); }
+    private async Task NextMonth() { _month = _month.AddMonths(1); ClearSelection(); await LoadData(); }
+
+    // ── Selection ──
+
+    private void StartSelection(Guid personId, string name, int colIdx)
+    {
+        _selPersonId = personId; _selEmployeeName = name;
+        _selStartIdx = colIdx; _selEndIdx = colIdx; _isDragging = true;
+        UpdateSelectionDates();
+    }
+
+    private void ExtendSelection(Guid personId, int colIdx)
+    {
+        if (!_isDragging || _selPersonId != personId) return;
+        _selEndIdx = colIdx; UpdateSelectionDates();
+    }
+
+    private void EndSelection() => _isDragging = false;
+
+    private void ClearSelection()
+    {
+        _selPersonId = null; _selStartIdx = null; _selEndIdx = null;
+        _selStart = null; _selEnd = null; _isDragging = false; _pendingTargetKey = null;
+    }
+
+    private void UpdateSelectionDates()
+    {
+        if (_selStartIdx.HasValue && _selEndIdx.HasValue && _dates.Count > 0)
+        {
+            var min = Math.Min(_selStartIdx.Value, _selEndIdx.Value);
+            var max = Math.Max(_selStartIdx.Value, _selEndIdx.Value);
+            _selStart = min < _dates.Count ? _dates[min] : null;
+            _selEnd = max < _dates.Count ? _dates[max] : null;
+        }
+    }
+
+    // ── Target selection ──
+
+    private async Task SelectProjectTarget(Guid projectId)
+    {
+        var key = "p:" + projectId;
+        _pendingTargetKey = _pendingTargetKey == key ? null : key;
+        // If selection exists, assign immediately
+        if (HasSelection && _pendingTargetKey is not null)
+            await AssignProjectToSelection();
+    }
+
+    private async Task SelectJobTarget(Guid jobId)
+    {
+        var key = "j:" + jobId;
+        _pendingTargetKey = _pendingTargetKey == key ? null : key;
+        if (HasSelection && _pendingTargetKey is not null)
+            await AssignProjectToSelection();
+    }
+
+    private void SelectTarget(string key)
+    {
+        _pendingTargetKey = _pendingTargetKey == key ? null : key;
+    }
+
+    private async Task OnProjectSearchSelected(string? key)
+    {
+        if (string.IsNullOrEmpty(key)) return;
+        _pendingTargetKey = key;
+        _searchProjectKey = null;
+
+        // Add to recent projects if not already there
+        if (key.StartsWith("p:") && Guid.TryParse(key[2..], out var pid))
+        {
+            if (!_recentProjects.Any(p => p.Id == pid))
+            {
+                var proj = _projects.FirstOrDefault(p => p.Id == pid);
+                if (proj is not null) { _recentProjects.Add(proj); if (_recentProjects.Count > 8) _recentProjects.RemoveAt(0); }
+            }
+        }
+    }
+
+    private Task<IEnumerable<string>> SearchProjects(string? search, CancellationToken ct)
+    {
+        var q = search?.ToLowerInvariant() ?? "";
+        var results = _projects
+            .Where(p => string.IsNullOrEmpty(q) || p.Name.Contains(q, StringComparison.OrdinalIgnoreCase))
+            .Select(p => "p:" + p.Id)
+            .Cast<string>();
+        return Task.FromResult(results);
+    }
+
+    private string FormatTargetKey(string? key)
+    {
+        if (string.IsNullOrEmpty(key)) return "";
+        if (key.StartsWith("p:") && Guid.TryParse(key[2..], out var pid))
+            return _projects.FirstOrDefault(p => p.Id == pid)?.Name ?? "Prosjekt";
+        if (key.StartsWith("j:") && Guid.TryParse(key[2..], out var jid))
+            return _jobs.FirstOrDefault(j => j.Id == jid)?.Description ?? "Oppdrag";
+        return key;
+    }
+
+    private (Guid? projectId, Guid? jobId) ParseTargetKey()
+    {
+        if (string.IsNullOrEmpty(_pendingTargetKey)) return (null, null);
+        if (_pendingTargetKey.StartsWith("p:") && Guid.TryParse(_pendingTargetKey[2..], out var pid)) return (pid, null);
+        if (_pendingTargetKey.StartsWith("j:") && Guid.TryParse(_pendingTargetKey[2..], out var jid)) return (null, jid);
+        return (null, null);
+    }
+
+    // ── Assign shift (with overwrite check) ──
+
+    private async Task AssignShift(Guid shiftId)
+    {
+        if (!HasSelection) return;
+
+        // Check if any selected cells already have a different shift
+        var row = _rows.FirstOrDefault(r => r.PersonId == _selPersonId);
+        if (row is not null)
+        {
+            var min = Math.Min(_selStartIdx!.Value, _selEndIdx!.Value);
+            var max = Math.Max(_selStartIdx!.Value, _selEndIdx!.Value);
+            var hasExisting = false;
+            for (var i = min; i <= max && i < row.Days.Count; i++)
+                if (row.Days[i].ShiftName is not null) { hasExisting = true; break; }
+
+            if (hasExisting)
+            {
+                _pendingShiftId = shiftId;
+                _pendingSelPersonId = _selPersonId;
+                _pendingSelStart = _selStart;
+                _pendingSelEnd = _selEnd;
+                _confirmOverwriteOpen = true;
+                return;
+            }
+        }
+
+        await ExecuteShiftAssign(shiftId);
+    }
+
+    private async Task ConfirmOverwrite()
+    {
+        _confirmOverwriteOpen = false;
+        // Restore selection from saved state
+        if (_pendingSelPersonId.HasValue)
+        {
+            _selPersonId = _pendingSelPersonId;
+            _selStart = _pendingSelStart;
+            _selEnd = _pendingSelEnd;
+        }
+        await ExecuteShiftAssign(_pendingShiftId);
+    }
+
+    private async Task ExecuteShiftAssign(Guid shiftId)
+    {
+        if (!_selPersonId.HasValue || !_selStart.HasValue || !_selEnd.HasValue) return;
+        var (projectId, jobId) = ParseTargetKey();
+        var req = new PlannerAssignRequest(_selPersonId.Value, _selStart.Value, _selEnd.Value,
+            "shift", shiftId, projectId, jobId, null);
+
+        if (await ShiftService.PlannerAssignAsync(req))
+        {
+            var shift = _shifts.FirstOrDefault(s => s.Id == shiftId);
+            var days = _selEnd!.Value.DayNumber - _selStart!.Value.DayNumber + 1;
+            Snackbar.Add($"{shift?.Name} tildelt for {days} dager", Severity.Success);
+            _undoAvailable = true; _lastAction = req;
+            // Keep selection active so user can add project next
+            await LoadData();
+        }
+        else Snackbar.Add("Feil", Severity.Error);
+    }
+
+    // ── Assign project/job only ──
+
+    private async Task AssignProjectToSelection()
+    {
+        if (!HasSelection || string.IsNullOrEmpty(_pendingTargetKey)) return;
+        var (projectId, jobId) = ParseTargetKey();
+
+        var req = new PlannerAssignRequest(_selPersonId!.Value, _selStart!.Value, _selEnd!.Value,
+            "project", null, projectId, jobId, null);
+
+        if (await ShiftService.PlannerAssignAsync(req))
+        {
+            var label = FormatTargetKey(_pendingTargetKey);
+            Snackbar.Add($"{label} tildelt", Severity.Success);
+            _undoAvailable = true; _lastAction = req;
+            // Keep selection active so user can add shift next
+            await LoadData();
+        }
+        else Snackbar.Add("Feil", Severity.Error);
+    }
+
+    // ── Assign absence ──
+
+    private Task AssignFerie() => DoAssignAbsence("Ferie");
+    private Task AssignAvspass() => DoAssignAbsence("Avspasering");
+
+    private async Task DoAssignAbsence(string type)
+    {
+        if (!HasSelection) return;
+        var req = new PlannerAssignRequest(_selPersonId!.Value, _selStart!.Value, _selEnd!.Value,
+            "absence", null, null, null, type);
+        if (await ShiftService.PlannerAssignAsync(req))
+        {
+            Snackbar.Add($"{type} registrert", Severity.Success);
+            _undoAvailable = true; _lastAction = req;
+            ClearSelection(); await LoadData();
+        }
+        else Snackbar.Add("Feil", Severity.Error);
+    }
+
+    // ── Clear cells ──
+
+    private async Task ClearSelectedCells()
+    {
+        if (!HasSelection) return;
+        if (await ShiftService.PlannerClearAsync(_selPersonId!.Value, _selStart!.Value, _selEnd!.Value))
+        {
+            Snackbar.Add("Slettet", Severity.Success);
+            ClearSelection(); await LoadData();
+        }
+        else Snackbar.Add("Feil", Severity.Error);
+    }
+
+    // ── Undo ──
+
+    private async Task Undo()
+    {
+        if (_lastAction is null) return;
+
+        // Remove the planner entries or absences that were just created
+        // For simplicity: re-assign as "shift" with no shift = clear the entries
+        // Actually we need a clear/delete endpoint. For now, just reload and notify.
+        Snackbar.Add("Angre er ikke fullt implementert enna — bruk planleggeren til a overskrive", Severity.Info);
+        _undoAvailable = false;
+    }
+
+    // ── Employee calendar ──
+
+    private async Task OpenEmployeeCalendar(Guid personId, string name)
+    {
+        var lastDay = _month.AddMonths(1).AddDays(-1);
+        _empCalendar = await ShiftService.GetEmployeeCalendarAsync(personId, _month, lastDay);
+        _calendarOpen = true;
+    }
+
+    private async Task ExportCalendar()
+    {
+        if (_empCalendar is null) return;
+        var csv = new System.Text.StringBuilder();
+        csv.AppendLine("Dato;Dag;Skift;Prosjekt;Timer;Status");
+        foreach (var day in _empCalendar.Days)
+            csv.AppendLine($"{day.Date:dd.MM.yyyy};{day.Date.ToString("ddd", System.Globalization.CultureInfo.GetCultureInfo("nb-NO"))};{day.ShiftName ?? day.AbsenceType ?? ""};{day.ProjectName ?? ""};{(day.Hours > 0 ? day.Hours.ToString("0.##") : "")};{day.Status}");
+
+        var bytes = System.Text.Encoding.UTF8.GetBytes(csv.ToString());
+        var base64 = Convert.ToBase64String(bytes);
+        var fileName = $"kalender-{_empCalendar.EmployeeName.Replace(" ", "-")}-{_month:yyyy-MM}.csv";
+        await JS.InvokeVoidAsync("eval", $"{{var a=document.createElement('a');a.href='data:text/csv;base64,{base64}';a.download='{fileName}';a.click();}}");
+        Snackbar.Add("Eksportert", Severity.Success);
+    }
+}

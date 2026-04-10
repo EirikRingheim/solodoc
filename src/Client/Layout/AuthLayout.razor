@@ -1,0 +1,24 @@
+@inherits LayoutComponentBase
+
+<div class="auth-layout">
+    <MudPaper Class="auth-card pa-8" Elevation="1">
+        @Body
+    </MudPaper>
+</div>
+
+<style>
+    .auth-layout {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        background: #F8F9FA;
+        padding: 16px;
+    }
+
+    .auth-card {
+        width: 100%;
+        max-width: 420px;
+        border-radius: 16px !important;
+    }
+</style>

@@ -1,0 +1,86 @@
+@page "/procedures"
+@attribute [Authorize]
+@inject ProcedureService ProcedureService
+@inject NavigationManager Navigation
+
+<PageTitle>Solodoc - Prosedyrer</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4">
+    <MudText Typo="Typo.h5">Prosedyrer</MudText>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.Add"
+               Href="/procedures/new"
+               Style="text-transform:none;border-radius:8px;">
+        Ny prosedyre
+    </MudButton>
+</MudStack>
+
+<MudTextField @bind-Value="_searchText" Label="Sok i prosedyrer" Variant="Variant.Outlined"
+              Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+              Immediate="true" Class="mb-4"
+              Style="border-radius:12px;" />
+
+@if (_loading)
+{
+    <MudProgressLinear Color="Color.Primary" Indeterminate="true" />
+}
+else if (FilteredProcedures.Count == 0)
+{
+    <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-8">
+        <MudStack AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Filled.Article" Size="Size.Large" Color="Color.Default" Style="opacity:0.3;" />
+            <MudText Typo="Typo.body1" Color="Color.Secondary">
+                @(string.IsNullOrWhiteSpace(_searchText) ? "Ingen prosedyrer opprettet" : "Ingen treff")
+            </MudText>
+        </MudStack>
+    </MudPaper>
+}
+else
+{
+    <MudStack Spacing="2">
+        @foreach (var procedure in FilteredProcedures)
+        {
+            <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;cursor:pointer;"
+                      Class="pa-4" @onclick="@(() => NavigateToProcedure(procedure.Id))">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Style="flex-wrap:wrap;gap:8px;">
+                    <MudStack Spacing="1" Style="flex:1;min-width:0;">
+                        <MudText Typo="Typo.subtitle1" Style="font-weight:600;">@procedure.Name</MudText>
+                        @if (!string.IsNullOrWhiteSpace(procedure.Description))
+                        {
+                            <MudText Typo="Typo.body2" Color="Color.Secondary" Style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                                @procedure.Description
+                            </MudText>
+                        }
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                            <MudIcon Icon="@Icons.Material.Filled.ViewModule" Size="Size.Small" Style="vertical-align:middle;margin-right:2px;" />
+                            @procedure.BlockCount blokker
+                        </MudText>
+                    </MudStack>
+                    <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Color="Color.Default" Style="opacity:0.5;" />
+                </MudStack>
+            </MudPaper>
+        }
+    </MudStack>
+}
+
+@code {
+    private List<ProcedureListItemDto> _procedures = [];
+    private bool _loading = true;
+    private string _searchText = "";
+
+    private void NavigateToProcedure(Guid id) => Navigation.NavigateTo($"/procedures/{id}");
+
+    private List<ProcedureListItemDto> FilteredProcedures =>
+        string.IsNullOrWhiteSpace(_searchText)
+            ? _procedures
+            : _procedures.Where(p =>
+                p.Name.Contains(_searchText, StringComparison.OrdinalIgnoreCase) ||
+                (p.Description?.Contains(_searchText, StringComparison.OrdinalIgnoreCase) ?? false))
+                .ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _procedures = await ProcedureService.GetProceduresAsync();
+        _loading = false;
+    }
+}

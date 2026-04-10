@@ -1,0 +1,101 @@
+@page "/hms/sja/new"
+@attribute [Authorize]
+@inject HmsService HmsService
+@inject ProjectService ProjectService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<PageTitle>Solodoc - Ny SJA</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-4">
+    <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Href="/hms" />
+    <MudText Typo="Typo.h5">Ny sikker jobb-analyse</MudText>
+</MudStack>
+
+<MudPaper Class="pa-5" Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;max-width:700px;">
+    <MudStack Spacing="3">
+        <MudTextField @bind-Value="_title" Label="Tittel" Variant="Variant.Outlined"
+                      Required="true" RequiredError="Tittel er pakrevd"
+                      Placeholder="Beskriv arbeidet som skal utfores" />
+
+        <MudTextField @bind-Value="_description" Label="Beskrivelse" Variant="Variant.Outlined"
+                      Lines="4" Placeholder="Detaljert beskrivelse av arbeidsoppgaven (valgfritt)" />
+
+        <MudSelect @bind-Value="_projectId" Label="Prosjekt (valgfritt)" Variant="Variant.Outlined"
+                   Clearable="true" AnchorOrigin="Origin.BottomCenter">
+            @foreach (var p in _projects)
+            {
+                <MudSelectItem Value="@((Guid?)p.Id)">@p.Name</MudSelectItem>
+            }
+        </MudSelect>
+
+        <MudDatePicker @bind-Date="_date" Label="Dato" Variant="Variant.Outlined"
+                       DateFormat="dd.MM.yyyy" />
+
+        <MudTextField @bind-Value="_location" Label="Sted" Variant="Variant.Outlined"
+                      Placeholder="Arbeidssted (valgfritt)" />
+
+        <MudStack Row="true" Justify="Justify.SpaceBetween" Class="mt-2">
+            <MudButton Variant="Variant.Text" Href="/hms"
+                       Style="text-transform:none;">Avbryt</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                       OnClick="HandleSubmit" Disabled="_submitting"
+                       StartIcon="@Icons.Material.Filled.Save"
+                       Style="text-transform:none;border-radius:8px;">
+                @if (_submitting)
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Color="Color.Inherit" Class="mr-2" />
+                }
+                Opprett SJA
+            </MudButton>
+        </MudStack>
+    </MudStack>
+</MudPaper>
+
+@code {
+    private string _title = "";
+    private string _description = "";
+    private Guid? _projectId;
+    private DateTime? _date = DateTime.Today;
+    private string _location = "";
+    private bool _submitting;
+    private List<ProjectListItemDto> _projects = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _projects = await ProjectService.GetActiveProjectsAsync();
+    }
+
+    private async Task HandleSubmit()
+    {
+        if (string.IsNullOrWhiteSpace(_title))
+        {
+            Snackbar.Add("Tittel er pakrevd", Severity.Warning);
+            return;
+        }
+
+        _submitting = true;
+        var date = _date.HasValue
+            ? DateOnly.FromDateTime(_date.Value)
+            : DateOnly.FromDateTime(DateTime.Today);
+
+        var id = await HmsService.CreateSjaFormAsync(
+            new CreateSjaFormRequest(
+                _title,
+                string.IsNullOrWhiteSpace(_description) ? null : _description,
+                _projectId,
+                date,
+                string.IsNullOrWhiteSpace(_location) ? null : _location));
+
+        if (id.HasValue)
+        {
+            Snackbar.Add("SJA opprettet", Severity.Success);
+            Navigation.NavigateTo($"/hms/sja/{id.Value}");
+        }
+        else
+        {
+            Snackbar.Add("Kunne ikke opprette SJA", Severity.Error);
+        }
+        _submitting = false;
+    }
+}

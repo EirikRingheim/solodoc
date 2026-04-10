@@ -1,0 +1,17 @@
+**/.git
+**/.vs
+**/.vscode
+**/bin
+**/obj
+**/node_modules
+**/.env
+**/.env.*
+!**/.env.example
+**/docker-compose*.yml
+deploy/.env.*
+.claude/
+docs/
+tests/
+*.md
+.gitignore
+.dockerignore

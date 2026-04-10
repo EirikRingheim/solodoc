@@ -1,0 +1,128 @@
+@page "/locations"
+@attribute [Authorize]
+@inject LocationService LocationService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<PageTitle>Solodoc - Lokasjoner</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4">
+    <MudText Typo="Typo.h5">Lokasjoner</MudText>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+               OnClick="OpenCreate" Style="text-transform:none;border-radius:8px;">
+        Ny lokasjon
+    </MudButton>
+</MudStack>
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+}
+else if (_locations.Count == 0)
+{
+    <MudPaper Class="pa-8" Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;">
+        <MudStack AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Filled.LocationOn" Size="Size.Large" Color="Color.Secondary" />
+            <MudText Typo="Typo.body1" Color="Color.Secondary">Ingen lokasjoner opprettet</MudText>
+            <MudText Typo="Typo.caption" Color="Color.Secondary">Opprett lokasjoner for kontor, lager, verksted osv.</MudText>
+        </MudStack>
+    </MudPaper>
+}
+else
+{
+    <MudGrid Spacing="3">
+        @foreach (var loc in _locations)
+        {
+            var capturedId = loc.Id;
+            var typeIcon = loc.LocationType switch
+            {
+                "Kontor" => Icons.Material.Filled.Business,
+                "Lager" => Icons.Material.Filled.Warehouse,
+                "Verksted" => Icons.Material.Filled.Build,
+                "Gard" => Icons.Material.Filled.Agriculture,
+                _ => Icons.Material.Filled.LocationOn
+            };
+
+            <MudItem xs="12" sm="6" md="4">
+                <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;cursor:pointer;height:100%;"
+                          Class="pa-5" @onclick="() => GoToLocation(capturedId)">
+                    <MudStack Spacing="2">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudIcon Icon="@typeIcon" Color="Color.Primary" />
+                            <MudText Typo="Typo.h6" Style="font-weight:600;">@loc.Name</MudText>
+                        </MudStack>
+                        @if (!string.IsNullOrEmpty(loc.Description))
+                        {
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">@loc.Description</MudText>
+                        }
+                        @if (!string.IsNullOrEmpty(loc.Address))
+                        {
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">@loc.Address</MudText>
+                        }
+                        <MudStack Row="true" Spacing="2">
+                            <MudChip T="string" Size="Size.Small" Style="height:22px;">@loc.LocationType</MudChip>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                @loc.AssignedTemplates maler · @loc.CompletedInstances utfylte
+                            </MudText>
+                        </MudStack>
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
+        }
+    </MudGrid>
+}
+
+@* Create dialog *@
+<MudDialog @bind-Visible="_createOpen" Options="_dlgOpts">
+    <TitleContent><MudText Typo="Typo.h6">Ny lokasjon</MudText></TitleContent>
+    <DialogContent>
+        <MudStack Spacing="2">
+            <MudTextField T="string" @bind-Value="_name" Label="Navn" Variant="Variant.Outlined" Required="true" />
+            <MudSelect T="string" @bind-Value="_type" Label="Type" Variant="Variant.Outlined">
+                <MudSelectItem T="string" Value="@("Kontor")">Kontor</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Lager")">Lager</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Verksted")">Verksted</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Gard")">Gard</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Annet")">Annet</MudSelectItem>
+            </MudSelect>
+            <MudTextField T="string" @bind-Value="_address" Label="Adresse" Variant="Variant.Outlined" />
+            <MudTextField T="string" @bind-Value="_description" Label="Beskrivelse" Variant="Variant.Outlined" Lines="2" />
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => _createOpen = false" Style="text-transform:none;">Avbryt</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Create"
+                   Style="text-transform:none;border-radius:8px;">Opprett</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private List<LocationListItemDto> _locations = [];
+    private bool _loading = true;
+    private readonly DialogOptions _dlgOpts = new() { MaxWidth = MaxWidth.Small, FullWidth = true };
+
+    private bool _createOpen;
+    private string _name = "", _type = "Kontor", _address = "", _description = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        _locations = await LocationService.GetLocationsAsync();
+        _loading = false;
+    }
+
+    private void GoToLocation(Guid id) => Navigation.NavigateTo($"/locations/{id}");
+    private void OpenCreate() { _name = ""; _type = "Kontor"; _address = ""; _description = ""; _createOpen = true; }
+
+    private async Task Create()
+    {
+        var id = await LocationService.CreateLocationAsync(new CreateLocationRequest(_name, _address, _description, _type));
+        if (id.HasValue)
+        {
+            Snackbar.Add("Lokasjon opprettet", Severity.Success);
+            _createOpen = false;
+            Navigation.NavigateTo($"/locations/{id.Value}");
+        }
+        else Snackbar.Add("Feil", Severity.Error);
+    }
+}

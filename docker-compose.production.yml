@@ -1,0 +1,171 @@
+services:
+  # ── PostgreSQL ─────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: solodoc-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./docker/init-extensions.sql:/docker-entrypoint-initdb.d/init-extensions.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - solodoc
+
+  # ── MinIO (S3-compatible file storage) ─────────────────
+  minio:
+    image: minio/minio:latest
+    container_name: solodoc-minio
+    restart: always
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - solodoc
+
+  # ── MinIO bucket init ──────────────────────────────────
+  minio-init:
+    image: minio/mc:latest
+    container_name: solodoc-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 $${MINIO_ACCESS_KEY} $${MINIO_SECRET_KEY};
+      mc mb local/$${MINIO_BUCKET} --ignore-existing;
+      exit 0;
+      "
+    environment:
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      MINIO_BUCKET: ${MINIO_BUCKET}
+    networks:
+      - solodoc
+
+  # ── API (.NET 10) ──────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.api
+    container_name: solodoc-api
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}"
+      Jwt__Secret: ${JWT_SECRET}
+      Jwt__Issuer: ${JWT_ISSUER}
+      Jwt__Audience: ${JWT_AUDIENCE}
+      Jwt__AccessTokenMinutes: ${JWT_ACCESS_TOKEN_MINUTES:-15}
+      Jwt__RefreshTokenDays: ${JWT_REFRESH_TOKEN_DAYS:-7}
+      Storage__Endpoint: http://minio:9000
+      Storage__AccessKey: ${MINIO_ACCESS_KEY}
+      Storage__SecretKey: ${MINIO_SECRET_KEY}
+      Storage__BucketName: ${MINIO_BUCKET}
+      Email__SmtpHost: ${SMTP_HOST:-}
+      Email__SmtpPort: ${SMTP_PORT:-587}
+      Email__SmtpUser: ${SMTP_USER:-}
+      Email__SmtpPassword: ${SMTP_PASSWORD:-}
+      Email__FromAddress: ${EMAIL_FROM:-noreply@solodoc.no}
+      Email__ClientBaseUrl: https://${DOMAIN}
+      DeepL__ApiKey: ${DEEPL_API_KEY:-}
+      Anthropic__ApiKey: ${ANTHROPIC_API_KEY:-}
+      Cors__Origins: https://${DOMAIN}
+      Serilog__WriteTo__1__Name: Seq
+      Serilog__WriteTo__1__Args__serverUrl: http://seq:5341
+    networks:
+      - solodoc
+
+  # ── Worker (Background Jobs) ───────────────────────────
+  worker:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.worker
+    container_name: solodoc-worker
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}"
+      Storage__Endpoint: http://minio:9000
+      Storage__AccessKey: ${MINIO_ACCESS_KEY}
+      Storage__SecretKey: ${MINIO_SECRET_KEY}
+      Storage__BucketName: ${MINIO_BUCKET}
+      Email__SmtpHost: ${SMTP_HOST:-}
+      Email__SmtpPort: ${SMTP_PORT:-587}
+      Email__SmtpUser: ${SMTP_USER:-}
+      Email__SmtpPassword: ${SMTP_PASSWORD:-}
+      Email__FromAddress: ${EMAIL_FROM:-noreply@solodoc.no}
+      Email__ClientBaseUrl: https://${DOMAIN}
+    networks:
+      - solodoc
+
+  # ── SEQ (Structured Logging) ───────────────────────────
+  seq:
+    image: datalust/seq:2024.3
+    container_name: solodoc-seq
+    restart: always
+    platform: linux/amd64
+    environment:
+      ACCEPT_EULA: "Y"
+    volumes:
+      - seq-data:/data
+    networks:
+      - solodoc
+
+  # ── Caddy (HTTPS + Static Files + Reverse Proxy) ──────
+  web:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.web
+    container_name: solodoc-web
+    restart: always
+    depends_on:
+      - api
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
+      - caddy-logs:/var/log/caddy
+    networks:
+      - solodoc
+
+volumes:
+  postgres-data:
+  minio-data:
+  seq-data:
+  caddy-data:
+  caddy-config:
+  caddy-logs:
+
+networks:
+  solodoc:
+    driver: bridge

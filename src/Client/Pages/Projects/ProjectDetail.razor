@@ -1,0 +1,751 @@
+@page "/projects/{Id:guid}"
+@attribute [Authorize]
+@inject ProjectService ProjectService
+@inject DeviationService DeviationService
+@inject ChecklistService ChecklistService
+@inject HoursService HoursService
+@inject EmployeeService EmployeeService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+@inject CheckInService CheckInService
+
+<PageTitle>Solodoc - @(_project?.Name ?? "Prosjekt")</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4"
+          Style="flex-wrap:wrap;gap:8px;">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+        <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Href="/projects" />
+        <MudText Typo="Typo.h5">@(_project?.Name ?? "Laster...")</MudText>
+        @if (_project is not null)
+        {
+            var color = _project.Status switch
+            {
+                "Aktiv" => Color.Success,
+                "Fullfort" or "Fullført" => Color.Info,
+                "Planlagt" => Color.Primary,
+                "Kansellert" => Color.Error,
+                _ => Color.Default
+            };
+            <MudChip T="string" Size="Size.Small" Color="@color">@_project.Status</MudChip>
+        }
+    </MudStack>
+    @if (_project is not null)
+    {
+        <MudStack Row="true" Spacing="1">
+            @if (_project.Status is "Planlagt")
+            {
+                <MudButton Variant="Variant.Filled" Color="Color.Success" Size="Size.Small"
+                           OnClick="ActivateProject"
+                           Style="text-transform:none;border-radius:8px;">
+                    Aktiver
+                </MudButton>
+            }
+            @if (_project.Status is "Aktiv")
+            {
+                <MudButton Variant="Variant.Outlined" Color="Color.Info" Size="Size.Small"
+                           OnClick="CompleteProject"
+                           Style="text-transform:none;border-radius:8px;">
+                    Fullfør
+                </MudButton>
+            }
+            @if (_project.Status is "Aktiv" or "Planlagt")
+            {
+                <MudButton Variant="Variant.Outlined" Color="Color.Error" Size="Size.Small"
+                           OnClick="CancelProject"
+                           Style="text-transform:none;border-radius:8px;">
+                    Kanseller
+                </MudButton>
+            }
+            <MudButton Variant="Variant.Outlined" Size="Size.Small"
+                       StartIcon="@Icons.Material.Filled.QrCode2"
+                       Href="@($"/admin/qr-card/project/{Id}")"
+                       Style="text-transform:none;border-radius:8px;">
+                QR-kode
+            </MudButton>
+        </MudStack>
+    }
+</MudStack>
+
+@if (_loading)
+{
+    <MudProgressLinear Color="Color.Primary" Indeterminate="true" />
+}
+else if (_project is null)
+{
+    <MudAlert Severity="Severity.Warning">Prosjektet ble ikke funnet.</MudAlert>
+}
+else
+{
+    <MudTabs Elevation="0" Rounded="true" ApplyEffectsToContainer="true"
+             ActivePanelIndexChanged="OnTabChanged"
+             Style="border:1px solid #e9ecef;border-radius:12px;">
+        @* Tab 0: Oversikt *@
+        <MudTabPanel Text="Oversikt" Icon="@Icons.Material.Filled.Dashboard">
+            <div class="pa-4">
+                @* Who's on site *@
+                @if (_onSitePersons.Count > 0)
+                {
+                    <MudPaper Class="pa-4 mb-4" Elevation="0" Style="border:1px solid #059669;border-radius:12px;background:#F0FDF4;">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-2">
+                            <MudIcon Icon="@Icons.Material.Filled.PeopleAlt" Color="Color.Success" />
+                            <MudText Typo="Typo.subtitle1" Style="font-weight:600;color:#059669;">
+                                Pa byggeplass na (@_onSitePersons.Count)
+                            </MudText>
+                        </MudStack>
+                        <MudStack Row="true" Spacing="2" Style="flex-wrap:wrap;">
+                            @foreach (var p in _onSitePersons)
+                            {
+                                <MudChip T="string" Size="Size.Small" Color="Color.Success" Style="height:26px;">
+                                    @p.FullName · @p.CheckInAt.ToLocalTime().ToString("HH:mm")
+                                </MudChip>
+                            }
+                        </MudStack>
+                    </MudPaper>
+                }
+
+                <MudGrid Spacing="3" Class="mb-4">
+                    <MudItem xs="12" md="8">
+                        <MudPaper Class="pa-5" Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;">
+                            @if (!string.IsNullOrEmpty(_project.Description))
+                            {
+                                <MudText Typo="Typo.body1" Class="mb-4">@_project.Description</MudText>
+                            }
+                            <MudGrid Spacing="3">
+                                <MudItem xs="6" sm="3">
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Kunde</MudText>
+                                    <MudText Typo="Typo.body2" Style="font-weight:500;">@(_project.ClientName ?? "---")</MudText>
+                                </MudItem>
+                                <MudItem xs="6" sm="3">
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Startdato</MudText>
+                                    <MudText Typo="Typo.body2" Style="font-weight:500;">@(_project.StartDate?.ToString("dd.MM.yyyy") ?? "---")</MudText>
+                                </MudItem>
+                                <MudItem xs="6" sm="3">
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Adresse</MudText>
+                                    <MudText Typo="Typo.body2" Style="font-weight:500;">@(_project.Address ?? "---")</MudText>
+                                </MudItem>
+                                <MudItem xs="6" sm="3">
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Apne avvik</MudText>
+                                    <MudText Typo="Typo.body2" Style="font-weight:500;">@_project.OpenDeviations.Count</MudText>
+                                </MudItem>
+                            </MudGrid>
+                        </MudPaper>
+                    </MudItem>
+                    <MudItem xs="12" md="4">
+                        <MudPaper Class="pa-5" Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;height:100%;">
+                            <MudText Typo="Typo.subtitle1" Style="font-weight:600;" Class="mb-3">Apne avvik</MudText>
+                            @if (_project.OpenDeviations.Count == 0)
+                            {
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">Ingen apne avvik</MudText>
+                            }
+                            else
+                            {
+                                <MudStack Spacing="2">
+                                    @foreach (var d in _project.OpenDeviations)
+                                    {
+                                        var devId = d.Id;
+                                        var sevColor = d.Severity switch { "Høy" => Color.Error, "Middels" => Color.Warning, _ => Color.Success };
+                                        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween"
+                                                  Style="cursor:pointer;" @onclick="() => GoToDeviation(devId)">
+                                            <MudText Typo="Typo.body2">@d.Title</MudText>
+                                            <MudChip T="string" Size="Size.Small" Color="@sevColor" Style="height:22px;">@d.Severity</MudChip>
+                                        </MudStack>
+                                    }
+                                </MudStack>
+                            }
+                        </MudPaper>
+                    </MudItem>
+                </MudGrid>
+            </div>
+        </MudTabPanel>
+
+        @* Tab 1: Sjekklister *@
+        <MudTabPanel Text="Sjekklister" Icon="@Icons.Material.Filled.Checklist">
+            <div class="pa-4">
+                @* Inline template picker for creating checklist *@
+                @if (!_showChecklistPicker)
+                {
+                    <MudStack Row="true" Justify="Justify.FlexEnd" Class="mb-3">
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.Add"
+                                   OnClick="() => OpenChecklistPicker()"
+                                   Style="text-transform:none;border-radius:8px;">
+                            Opprett sjekkliste
+                        </MudButton>
+                    </MudStack>
+                }
+                else
+                {
+                    <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-4 mb-4">
+                        <MudText Typo="Typo.subtitle1" Style="font-weight:600;" Class="mb-3">Velg mal</MudText>
+                        <MudStack Spacing="2">
+                            <MudSelect T="Guid?" @bind-Value="_selectedTemplateId" Label="Mal"
+                                       Variant="Variant.Outlined" Required="true"
+                                       RequiredError="Velg en mal">
+                                @foreach (var t in _publishedTemplates)
+                                {
+                                    <MudSelectItem T="Guid?" Value="@((Guid?)t.Id)">
+                                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                            <span>@t.Name</span>
+                                            @if (!string.IsNullOrWhiteSpace(t.DocumentNumber))
+                                            {
+                                                <MudText Typo="Typo.caption" Color="Color.Secondary">@t.DocumentNumber</MudText>
+                                            }
+                                        </MudStack>
+                                    </MudSelectItem>
+                                }
+                            </MudSelect>
+
+                            <MudTextField T="string" @bind-Value="_checklistLocation" Label="Lokasjon (valgfritt)"
+                                          Variant="Variant.Outlined" Margin="Margin.Dense"
+                                          HelperText="F.eks. Etasje 3, Seksjon B" />
+
+                            <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="2">
+                                <MudButton Variant="Variant.Text" Color="Color.Default"
+                                           OnClick="() => _showChecklistPicker = false"
+                                           Style="text-transform:none;">
+                                    Avbryt
+                                </MudButton>
+                                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                                           OnClick="CreateChecklistFromProject"
+                                           Disabled="_creatingChecklist"
+                                           Style="text-transform:none;border-radius:8px;min-height:48px;">
+                                    @if (_creatingChecklist)
+                                    {
+                                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                                    }
+                                    Start sjekkliste
+                                </MudButton>
+                            </MudStack>
+                        </MudStack>
+                    </MudPaper>
+                }
+
+                @if (_loadingChecklists)
+                {
+                    <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+                }
+                else if (_checklists.Count == 0 && !_showChecklistPicker)
+                {
+                    <MudStack AlignItems="AlignItems.Center" Spacing="2" Class="pa-8">
+                        <MudIcon Icon="@Icons.Material.Filled.PlaylistAddCheck" Size="Size.Large" Color="Color.Secondary" />
+                        <MudText Typo="Typo.body1" Color="Color.Secondary">Ingen sjekklister for dette prosjektet</MudText>
+                    </MudStack>
+                }
+                else
+                {
+                    var drafts = _checklists.Where(c => c.Status is "Utkast" or "Gjenåpnet" or "Gjenapnet").ToList();
+                    var completedList = _checklists.Where(c => c.Status is "Innsendt" or "Godkjent").ToList();
+
+                    <MudTabs Elevation="0" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-0 pt-3" MinimumTabWidth="100px">
+                        <MudTabPanel Text="@($"Aktive ({drafts.Count})")" Icon="@Icons.Material.Filled.Edit">
+                            @if (drafts.Count == 0)
+                            {
+                                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="pa-4" Style="text-align:center;">Ingen aktive sjekklister</MudText>
+                            }
+                            else
+                            {
+                                @RenderChecklistGroup(drafts)
+                            }
+                        </MudTabPanel>
+                        <MudTabPanel Text="@($"Fullforte ({completedList.Count})")" Icon="@Icons.Material.Filled.CheckCircle">
+                            @if (completedList.Count == 0)
+                            {
+                                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="pa-4" Style="text-align:center;">Ingen fullforte sjekklister</MudText>
+                            }
+                            else
+                            {
+                                @RenderChecklistGroup(completedList)
+                            }
+                        </MudTabPanel>
+                    </MudTabs>
+                }
+            </div>
+        </MudTabPanel>
+
+        @* Tab 2: Timer *@
+        <MudTabPanel Text="Timer" Icon="@Icons.Material.Filled.AccessTime">
+            <div class="pa-4">
+                @if (_loadingHours)
+                {
+                    <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+                }
+                else if (_timeEntries.Count == 0)
+                {
+                    <MudStack AlignItems="AlignItems.Center" Spacing="2" Class="pa-8">
+                        <MudIcon Icon="@Icons.Material.Filled.TimerOff" Size="Size.Large" Color="Color.Secondary" />
+                        <MudText Typo="Typo.body1" Color="Color.Secondary">Ingen timer registrert pa dette prosjektet</MudText>
+                    </MudStack>
+                }
+                else
+                {
+                    @* Summary cards *@
+                    <MudGrid Spacing="3" Class="mb-4">
+                        <MudItem xs="6" sm="3">
+                            <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:8px;" Class="pa-3">
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">Totalt</MudText>
+                                <MudText Typo="Typo.h6" Style="font-weight:600;color:#4361EE;">
+                                    @_timeEntries.Sum(t => t.Hours).ToString("N1") t
+                                </MudText>
+                            </MudPaper>
+                        </MudItem>
+                        <MudItem xs="6" sm="3">
+                            <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:8px;" Class="pa-3">
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">Overtid</MudText>
+                                <MudText Typo="Typo.h6" Style="font-weight:600;">
+                                    @_timeEntries.Sum(t => t.OvertimeHours).ToString("N1") t
+                                </MudText>
+                            </MudPaper>
+                        </MudItem>
+                        <MudItem xs="6" sm="3">
+                            <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:8px;" Class="pa-3">
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">Registreringer</MudText>
+                                <MudText Typo="Typo.h6" Style="font-weight:600;">@_timeEntries.Count</MudText>
+                            </MudPaper>
+                        </MudItem>
+                        <MudItem xs="6" sm="3">
+                            <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:8px;" Class="pa-3">
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">Denne uken</MudText>
+                                <MudText Typo="Typo.h6" Style="font-weight:600;">
+                                    @_timeEntries.Where(t => IsThisWeek(t.Date)).Sum(t => t.Hours).ToString("N1") t
+                                </MudText>
+                            </MudPaper>
+                        </MudItem>
+                    </MudGrid>
+
+                    @* Time entries table *@
+                    <MudSimpleTable Dense="true" Hover="true" Style="border:1px solid #e9ecef;border-radius:8px;">
+                        <thead>
+                            <tr>
+                                <th>Dato</th>
+                                <th>Timer</th>
+                                <th>Overtid</th>
+                                <th>Kategori</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var entry in _timeEntries.OrderByDescending(t => t.Date).Take(20))
+                            {
+                                var statusColor = entry.Status switch
+                                {
+                                    "Godkjent" or "Approved" => Color.Success,
+                                    "Innsendt" or "Submitted" => Color.Warning,
+                                    _ => Color.Default
+                                };
+                                <tr>
+                                    <td>@entry.Date.ToString("dd.MM.yyyy")</td>
+                                    <td>@entry.Hours.ToString("N1")</td>
+                                    <td>@entry.OvertimeHours.ToString("N1")</td>
+                                    <td>@entry.Category</td>
+                                    <td><MudChip T="string" Size="Size.Small" Color="@statusColor" Style="height:22px;">@entry.Status</MudChip></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </MudSimpleTable>
+                }
+            </div>
+        </MudTabPanel>
+
+        @* Tab 3: Avvik *@
+        <MudTabPanel Text="Avvik" Icon="@Icons.Material.Filled.Warning">
+            <div class="pa-4">
+                <MudStack Row="true" Justify="Justify.FlexEnd" Class="mb-3">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.Add"
+                               Href="@($"/deviations/new?projectId={Id}")"
+                               Style="text-transform:none;border-radius:8px;">
+                        Registrer avvik
+                    </MudButton>
+                </MudStack>
+
+                @if (_loadingDeviations)
+                {
+                    <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+                }
+                else if (_deviations.Count == 0)
+                {
+                    <MudStack AlignItems="AlignItems.Center" Spacing="2" Class="pa-8">
+                        <MudIcon Icon="@Icons.Material.Filled.VerifiedUser" Size="Size.Large" Color="Color.Secondary" />
+                        <MudText Typo="Typo.body1" Color="Color.Secondary">Ingen avvik registrert pa dette prosjektet</MudText>
+                    </MudStack>
+                }
+                else
+                {
+                    <MudStack Spacing="2">
+                        @foreach (var dev in _deviations)
+                        {
+                            var devId = dev.Id;
+                            var statusColor = dev.Status switch
+                            {
+                                "Apen" or "Åpen" => Color.Error,
+                                "Under behandling" => Color.Warning,
+                                "Lukket" => Color.Success,
+                                _ => Color.Default
+                            };
+                            var sevColor = dev.Severity switch
+                            {
+                                "Høy" => Color.Error,
+                                "Middels" => Color.Warning,
+                                _ => Color.Success
+                            };
+                            <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:8px;cursor:pointer;"
+                                      Class="pa-3" @onclick="() => GoToDeviation(devId)">
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                                    <MudStack Spacing="0">
+                                        <MudText Typo="Typo.body1" Style="font-weight:500;">@dev.Title</MudText>
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                            Rapportert av @dev.ReportedBy, @dev.CreatedAt.ToString("dd.MM.yyyy")
+                                        </MudText>
+                                    </MudStack>
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                        <MudChip T="string" Size="Size.Small" Color="@sevColor" Style="height:22px;">@dev.Severity</MudChip>
+                                        <MudChip T="string" Size="Size.Small" Color="@statusColor" Style="height:22px;">@dev.Status</MudChip>
+                                    </MudStack>
+                                </MudStack>
+                            </MudPaper>
+                        }
+                    </MudStack>
+                }
+            </div>
+        </MudTabPanel>
+
+        @* Tab 4: Mannskap *@
+        <MudTabPanel Text="Mannskap" Icon="@Icons.Material.Filled.Group">
+            <div class="pa-4">
+                @if (_loadingCrew)
+                {
+                    <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+                }
+                else if (_crewMembers.Count == 0)
+                {
+                    <MudStack AlignItems="AlignItems.Center" Spacing="2" Class="pa-8">
+                        <MudIcon Icon="@Icons.Material.Filled.GroupOff" Size="Size.Large" Color="Color.Secondary" />
+                        <MudText Typo="Typo.body1" Color="Color.Secondary">Ingen mannskap registrert pa dette prosjektet</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                            Mannskap bygges automatisk fra timer og innsjekking
+                        </MudText>
+                    </MudStack>
+                }
+                else
+                {
+                    <MudSimpleTable Dense="true" Hover="true" Style="border:1px solid #e9ecef;border-radius:8px;">
+                        <thead>
+                            <tr>
+                                <th>Navn</th>
+                                <th>E-post</th>
+                                <th>Rolle</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var member in _crewMembers)
+                            {
+                                <tr>
+                                    <td>@member.FullName</td>
+                                    <td>@member.Email</td>
+                                    <td>
+                                        @{
+                                            var roleColor = member.Role switch
+                                            {
+                                                "Admin" => Color.Primary,
+                                                "Prosjektleder" => Color.Info,
+                                                _ => Color.Default
+                                            };
+                                        }
+                                        <MudChip T="string" Size="Size.Small" Color="@roleColor" Style="height:22px;">@member.Role</MudChip>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </MudSimpleTable>
+                }
+            </div>
+        </MudTabPanel>
+
+        @* Tab 5: Dokumenter *@
+        <MudTabPanel Text="Dokumenter" Icon="@Icons.Material.Filled.Description">
+            <div class="pa-4">
+                <MudStack AlignItems="AlignItems.Center" Spacing="2" Class="pa-8">
+                    <MudIcon Icon="@Icons.Material.Filled.FolderOpen" Size="Size.Large" Color="Color.Secondary" />
+                    <MudText Typo="Typo.body1" Color="Color.Secondary">Dokumentopplasting kommer snart</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                        Last opp prosjektdokumenter, kontrakter og tegninger her
+                    </MudText>
+                </MudStack>
+            </div>
+        </MudTabPanel>
+    </MudTabs>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private Solodoc.Shared.Projects.ProjectDetailDto? _project;
+    private bool _loading = true;
+
+    // Tab data
+    private List<Solodoc.Shared.Checklists.ChecklistInstanceListItemDto> _checklists = [];
+    private List<Solodoc.Shared.Hours.TimeEntryListItemDto> _timeEntries = [];
+    private List<Solodoc.Shared.Deviations.DeviationListItemDto> _deviations = [];
+    private List<Solodoc.Shared.Employees.EmployeeListItemDto> _crewMembers = [];
+
+    private bool _loadingChecklists;
+    private bool _loadingHours;
+    private bool _loadingDeviations;
+    private bool _loadingCrew;
+    private List<OnSitePersonDto> _onSitePersons = [];
+
+    private bool _checklistsLoaded;
+    private bool _hoursLoaded;
+    private bool _deviationsLoaded;
+    private bool _crewLoaded;
+
+    // Checklist creation state
+    private bool _showChecklistPicker;
+    private List<Solodoc.Shared.Checklists.ChecklistTemplateListItemDto> _publishedTemplates = [];
+    private Guid? _selectedTemplateId;
+    private string _checklistLocation = string.Empty;
+    private bool _creatingChecklist;
+
+    private void GoToDeviation(Guid id) => Navigation.NavigateTo($"/deviations/{id}");
+
+    private RenderFragment RenderChecklistGroup(List<Solodoc.Shared.Checklists.ChecklistInstanceListItemDto> items) => __builder =>
+    {
+        var grouped = items.GroupBy(c => c.TemplateName).ToList();
+
+        foreach (var group in grouped)
+        {
+            if (group.Count() == 1)
+            {
+                // Single item — render directly
+                var cl = group.First();
+                var capturedCl = cl;
+                @RenderSingleChecklist(capturedCl);
+            }
+            else
+            {
+                // Multiple items of same template — expandable group
+                var groupList = group.OrderBy(c => c.LocationIdentifier).ToList();
+                var groupCompleted = groupList.Count(c => c.Status is "Innsendt" or "Godkjent");
+                <MudExpansionPanels Class="mb-2">
+                    <MudExpansionPanel Style="border:1px solid #e9ecef;border-radius:12px;">
+                        <TitleContent>
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Style="width:100%;">
+                                <MudText Typo="Typo.body1" Style="font-weight:600;">@group.Key</MudText>
+                                <MudChip T="string" Size="Size.Small" Style="height:22px;">
+                                    @groupCompleted / @groupList.Count
+                                </MudChip>
+                            </MudStack>
+                        </TitleContent>
+                        <ChildContent>
+                            @foreach (var cl in groupList)
+                            {
+                                var capturedCl = cl;
+                                @RenderSingleChecklist(capturedCl);
+                            }
+                        </ChildContent>
+                    </MudExpansionPanel>
+                </MudExpansionPanels>
+            }
+        }
+    };
+
+    private RenderFragment RenderSingleChecklist(Solodoc.Shared.Checklists.ChecklistInstanceListItemDto cl) => __builder =>
+    {
+        var statusColor = cl.Status switch
+        {
+            "Godkjent" => Color.Success, "Innsendt" => Color.Info,
+            "Utkast" => Color.Default, _ => Color.Warning
+        };
+        var capturedCl = cl;
+        var pct = cl.ItemCount > 0 ? (double)cl.CompletedItemCount / cl.ItemCount * 100 : 0;
+
+        <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:8px;cursor:pointer;"
+                  Class="pa-3 mb-2" @onclick="() => GoToChecklist(capturedCl)">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Style="flex-wrap:wrap;gap:8px;">
+                <MudStack Spacing="0" Style="flex:1;min-width:0;">
+                    @if (!string.IsNullOrWhiteSpace(cl.LocationIdentifier))
+                    {
+                        <MudText Typo="Typo.subtitle2" Style="font-weight:700;">@cl.LocationIdentifier</MudText>
+                    }
+                    <MudText Typo="Typo.body2" Style="font-weight:500;">@cl.TemplateName</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                        @cl.StartedBy · @cl.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy")
+                    </MudText>
+                </MudStack>
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                    <MudStack Spacing="0" Style="min-width:50px;">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">@cl.CompletedItemCount/@cl.ItemCount</MudText>
+                        <MudProgressLinear Value="@pct" Color="Color.Primary" Rounded="true" Style="height:4px;" />
+                    </MudStack>
+                    <MudChip T="string" Size="Size.Small" Color="@statusColor" Style="height:22px;">@cl.Status</MudChip>
+                    @if (cl.Status is "Utkast" or "Gjenåpnet" or "Gjenapnet")
+                    {
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                                   OnClick="() => GoToChecklist(capturedCl)"
+                                   Style="text-transform:none;border-radius:6px;">Fyll ut</MudButton>
+                        <MudIconButton Icon="@Icons.Material.Filled.DeleteOutline" Size="Size.Small"
+                                       Color="Color.Error" Title="Fjern"
+                                       OnClick="async () => await RemoveChecklistInstance(capturedCl.Id)" />
+                    }
+                </MudStack>
+            </MudStack>
+        </MudPaper>
+    };
+
+    private async Task RemoveChecklistInstance(Guid instanceId)
+    {
+        if (await ChecklistService.DeleteInstanceAsync(instanceId))
+        {
+            Snackbar.Add("Sjekkliste fjernet", Severity.Success);
+            _checklists = await ChecklistService.GetInstancesAsync(Id);
+            StateHasChanged();
+        }
+        else Snackbar.Add("Kunne ikke fjerne. Kun utkast kan slettes.", Severity.Warning);
+    }
+
+    private void GoToChecklist(Solodoc.Shared.Checklists.ChecklistInstanceListItemDto cl)
+    {
+        if (cl.Status is "Utkast" or "Gjenåpnet" or "Gjenapnet")
+            Navigation.NavigateTo($"/checklists/{cl.Id}/fill");
+        else
+            Navigation.NavigateTo($"/checklists/{cl.Id}");
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _project = await ProjectService.GetProjectByIdAsync(Id);
+        _loading = false;
+        try { _onSitePersons = await CheckInService.GetOnSiteAsync("project", Id); } catch { }
+    }
+
+    private async Task OnTabChanged(int tabIndex)
+    {
+        switch (tabIndex)
+        {
+            case 1 when !_checklistsLoaded:
+                await LoadChecklistsAsync();
+                break;
+            case 2 when !_hoursLoaded:
+                await LoadHoursAsync();
+                break;
+            case 3 when !_deviationsLoaded:
+                await LoadDeviationsAsync();
+                break;
+            case 4 when !_crewLoaded:
+                await LoadCrewAsync();
+                break;
+        }
+    }
+
+    private async Task LoadChecklistsAsync()
+    {
+        _loadingChecklists = true;
+        StateHasChanged();
+        _checklists = await ChecklistService.GetInstancesAsync(Id);
+        _checklistsLoaded = true;
+        _loadingChecklists = false;
+        StateHasChanged();
+    }
+
+    private async Task LoadHoursAsync()
+    {
+        _loadingHours = true;
+        StateHasChanged();
+        var result = await HoursService.GetTimeEntriesAsync(projectId: Id);
+        _timeEntries = result.Items.ToList();
+        _hoursLoaded = true;
+        _loadingHours = false;
+        StateHasChanged();
+    }
+
+    private async Task LoadDeviationsAsync()
+    {
+        _loadingDeviations = true;
+        StateHasChanged();
+        var result = await DeviationService.GetDeviationsForProjectAsync(Id);
+        _deviations = result.Items.ToList();
+        _deviationsLoaded = true;
+        _loadingDeviations = false;
+        StateHasChanged();
+    }
+
+    private async Task LoadCrewAsync()
+    {
+        _loadingCrew = true;
+        StateHasChanged();
+        _crewMembers = await EmployeeService.GetProjectCrewAsync(Id);
+        _crewLoaded = true;
+        _loadingCrew = false;
+        StateHasChanged();
+    }
+
+    // ── Checklist creation from project ──
+
+    private async Task OpenChecklistPicker()
+    {
+        if (_publishedTemplates.Count == 0)
+        {
+            var all = await ChecklistService.GetTemplatesAsync();
+            _publishedTemplates = all.Where(t => t.IsPublished).ToList();
+        }
+        _selectedTemplateId = null;
+        _checklistLocation = string.Empty;
+        _showChecklistPicker = true;
+    }
+
+    private async Task CreateChecklistFromProject()
+    {
+        if (!_selectedTemplateId.HasValue) return;
+
+        _creatingChecklist = true;
+        var request = new Solodoc.Shared.Checklists.CreateChecklistInstanceRequest(
+            _selectedTemplateId.Value,
+            Id,
+            null,
+            string.IsNullOrWhiteSpace(_checklistLocation) ? null : _checklistLocation);
+
+        var instanceId = await ChecklistService.CreateInstanceAsync(request);
+        _creatingChecklist = false;
+
+        if (instanceId.HasValue)
+        {
+            Snackbar.Add("Sjekkliste opprettet", Severity.Success);
+            Navigation.NavigateTo($"/checklists/{instanceId.Value}/fill");
+        }
+        else
+        {
+            Snackbar.Add("Kunne ikke opprette sjekkliste", Severity.Error);
+        }
+    }
+
+    // ── Status management ──
+
+    private Task ActivateProject() => ChangeStatus("Aktiv");
+    private Task CompleteProject() => ChangeStatus("Fullført");
+    private Task CancelProject() => ChangeStatus("Kansellert");
+
+    private async Task ChangeStatus(string newStatus)
+    {
+        var success = await ProjectService.ChangeStatusAsync(Id, newStatus);
+        if (success)
+        {
+            Snackbar.Add($"Status endret til {newStatus}", Severity.Success);
+            _project = await ProjectService.GetProjectByIdAsync(Id);
+            StateHasChanged();
+        }
+        else
+        {
+            Snackbar.Add("Kunne ikke endre status", Severity.Error);
+        }
+    }
+
+    private static bool IsThisWeek(DateOnly date)
+    {
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        var dayOfWeek = (int)today.DayOfWeek;
+        if (dayOfWeek == 0) dayOfWeek = 7;
+        var monday = today.AddDays(1 - dayOfWeek);
+        var sunday = monday.AddDays(6);
+        return date >= monday && date <= sunday;
+    }
+}

@@ -1,0 +1,566 @@
+@page "/checklists/{Id:guid}"
+@attribute [Authorize]
+@inject ChecklistService ChecklistService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject IJSRuntime JS
+
+<PageTitle>Solodoc - Sjekkliste</PageTitle>
+
+@* Project context bar *@
+@if (_instance?.ProjectName is not null)
+{
+    <MudPaper Elevation="0" Style="border:1px solid #4361EE;border-radius:8px;background:#EBF0FF;" Class="pa-2 px-4 mb-3">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Filled.Folder" Size="Size.Small" Color="Color.Primary" />
+            <MudText Typo="Typo.body2" Style="font-weight:600;color:#4361EE;">@_instance.ProjectName</MudText>
+        </MudStack>
+    </MudPaper>
+}
+
+<MudButton Variant="Variant.Text" Color="Color.Primary"
+           StartIcon="@Icons.Material.Filled.ArrowBack"
+           OnClick="GoBackInstance"
+           Style="text-transform:none;margin-bottom:16px;">
+    Tilbake
+</MudButton>
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+}
+else if (_instance is null)
+{
+    <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-8">
+        <MudStack AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Filled.ErrorOutline" Size="Size.Large" Color="Color.Warning" />
+            <MudText Typo="Typo.body1" Color="Color.Secondary">Sjekkliste ikke funnet</MudText>
+        </MudStack>
+    </MudPaper>
+}
+else
+{
+    @* ── Header ── *@
+    <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-4 mb-4">
+        <MudStack Spacing="2">
+            <MudText Typo="Typo.h5" Style="font-weight:600;">@_instance.TemplateName</MudText>
+
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Style="flex-wrap:wrap;">
+                @if (!string.IsNullOrWhiteSpace(_instance.DocumentNumber))
+                {
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                             Color="Color.Default" Style="height:24px;">@_instance.DocumentNumber</MudChip>
+                }
+                @{
+                    var (statusBg, statusText) = GetStatusColors(_instance.Status);
+                }
+                <span style="display:inline-block;padding:2px 12px;border-radius:12px;font-size:0.8125rem;font-weight:500;background:@statusBg;color:@statusText;">
+                    @GetStatusLabel(_instance.Status)
+                </span>
+            </MudStack>
+
+            @if (!string.IsNullOrWhiteSpace(_instance.ProjectName))
+            {
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                    <MudIcon Icon="@Icons.Material.Filled.Business" Size="Size.Small" Color="Color.Secondary" />
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">@_instance.ProjectName</MudText>
+                </MudStack>
+            }
+            @if (!string.IsNullOrWhiteSpace(_instance.LocationIdentifier))
+            {
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                    <MudIcon Icon="@Icons.Material.Filled.LocationOn" Size="Size.Small" Color="Color.Secondary" />
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">@_instance.LocationIdentifier</MudText>
+                </MudStack>
+            }
+
+            @* Completed by and date *@
+            <MudStack Row="true" Spacing="3" Style="flex-wrap:wrap;">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                    <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" Color="Color.Secondary" />
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Startet av @_instance.StartedBy</MudText>
+                </MudStack>
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                    <MudIcon Icon="@Icons.Material.Filled.CalendarToday" Size="Size.Small" Color="Color.Secondary" />
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        @_instance.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")
+                    </MudText>
+                </MudStack>
+            </MudStack>
+
+            @if (_instance.SubmittedAt.HasValue)
+            {
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                    <MudIcon Icon="@Icons.Material.Filled.Send" Size="Size.Small" Color="Color.Secondary" />
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        Innsendt @_instance.SubmittedAt.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm")
+                        @if (!string.IsNullOrWhiteSpace(_instance.SubmittedBy))
+                        {
+                            <text> av @_instance.SubmittedBy</text>
+                        }
+                    </MudText>
+                </MudStack>
+            }
+            @if (_instance.ApprovedAt.HasValue)
+            {
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                    <MudIcon Icon="@Icons.Material.Filled.Verified" Size="Size.Small" Color="Color.Secondary" />
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        Godkjent @_instance.ApprovedAt.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm")
+                        @if (!string.IsNullOrWhiteSpace(_instance.ApprovedBy))
+                        {
+                            <text> av @_instance.ApprovedBy</text>
+                        }
+                    </MudText>
+                </MudStack>
+            }
+
+            @* GPS map link placeholder *@
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                <MudIcon Icon="@Icons.Material.Filled.Map" Size="Size.Small" Color="Color.Secondary" />
+                <MudText Typo="Typo.body2" Color="Color.Secondary">GPS-posisjon ikke tilgjengelig</MudText>
+            </MudStack>
+        </MudStack>
+    </MudPaper>
+
+    @* ── Reopened Banner ── *@
+    @if (_instance.IsReopened)
+    {
+        <MudAlert Severity="Severity.Warning" Variant="Variant.Filled" Class="mb-4"
+                  Style="border-radius:12px;">
+            @{
+                var reopenedText = "Gjenåpnet";
+                if (!string.IsNullOrWhiteSpace(_instance.ReopenedReason))
+                {
+                    reopenedText += $" — {_instance.ReopenedReason}";
+                }
+            }
+            @reopenedText
+        </MudAlert>
+    }
+
+    @* ── Progress ── *@
+    <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-4 mb-4">
+        <MudStack Spacing="1">
+            <MudStack Row="true" Justify="Justify.SpaceBetween">
+                <MudText Typo="Typo.body2" Style="font-weight:500;">Fremgang</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                    @_completedCount av @_totalCount elementer utfylt
+                </MudText>
+            </MudStack>
+            <MudProgressLinear Value="@_progressPercent" Color="Color.Primary" Rounded="true"
+                               Style="height:8px;" />
+        </MudStack>
+    </MudPaper>
+
+    @* ── Items by Section Group (read-only) ── *@
+    @foreach (var group in _instance.Items
+        .OrderBy(i => i.SortOrder)
+        .GroupBy(i => i.SectionGroup ?? "Generelt")
+        .ToList())
+    {
+        <MudExpansionPanels Class="mb-3" MultiExpansion="true">
+            <MudExpansionPanel Text="@group.Key" IsInitiallyExpanded="true"
+                               Style="border:1px solid #E9ECEF;border-radius:12px;">
+                <MudStack Spacing="3">
+                    @foreach (var item in group)
+                    {
+                        <MudPaper Elevation="0"
+                                  Style="@GetItemBorderStyle(item)"
+                                  Class="pa-4">
+                            <MudStack Spacing="2">
+                                @* Label *@
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                    <MudIcon Icon="@GetTypeIcon(item.Type)" Size="Size.Small" Color="Color.Primary" />
+                                    <MudText Typo="Typo.body1" Style="font-weight:500;">@item.Label</MudText>
+                                    @if (item.IsRequired)
+                                    {
+                                        <MudText Typo="Typo.body1" Color="Color.Error">*</MudText>
+                                    }
+                                </MudStack>
+
+                                @* Response display (read-only) *@
+                                @switch (item.Type)
+                                {
+                                    case "Check":
+                                        @if (item.CheckValue == true)
+                                        {
+                                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                                <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small"
+                                                         Style="color:#059669;" />
+                                                <MudText Typo="Typo.body2" Style="color:#059669;font-weight:500;">OK</MudText>
+                                            </MudStack>
+                                        }
+                                        else if (item.IsIrrelevant)
+                                        {
+                                            <MudStack Spacing="1">
+                                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                                    <MudIcon Icon="@Icons.Material.Filled.Remove" Size="Size.Small"
+                                                             Color="Color.Secondary" />
+                                                    <MudText Typo="Typo.body2" Color="Color.Secondary">Irrelevant</MudText>
+                                                </MudStack>
+                                                @if (!string.IsNullOrWhiteSpace(item.IrrelevantComment))
+                                                {
+                                                    <MudText Typo="Typo.body2" Color="Color.Secondary" Style="margin-left:28px;">
+                                                        @item.IrrelevantComment
+                                                    </MudText>
+                                                }
+                                            </MudStack>
+                                        }
+                                        else
+                                        {
+                                            <MudText Typo="Typo.body2" Color="Color.Secondary">Ikke besvart</MudText>
+                                        }
+                                        break;
+
+                                    case "TextInput":
+                                    case "NumberInput":
+                                    case "DateInput":
+                                    case "Dropdown":
+                                        @if (!string.IsNullOrWhiteSpace(item.Value))
+                                        {
+                                            <MudText Typo="Typo.body2">
+                                                @item.Value
+                                                @if (!string.IsNullOrWhiteSpace(item.UnitLabel))
+                                                {
+                                                    <text> @item.UnitLabel</text>
+                                                }
+                                            </MudText>
+                                        }
+                                        else
+                                        {
+                                            <MudText Typo="Typo.body2" Color="Color.Secondary">Ikke besvart</MudText>
+                                        }
+                                        break;
+
+                                    case "Photo":
+                                        @if (!string.IsNullOrWhiteSpace(item.PhotoFileKey))
+                                        {
+                                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                                <MudIcon Icon="@Icons.Material.Filled.Image" Size="Size.Small" Color="Color.Primary" />
+                                                <MudText Typo="Typo.body2">Bilde vedlagt</MudText>
+                                            </MudStack>
+                                        }
+                                        else
+                                        {
+                                            <MudText Typo="Typo.body2" Color="Color.Secondary">Ingen bilde</MudText>
+                                        }
+                                        break;
+
+                                    case "Signature":
+                                        @if (!string.IsNullOrWhiteSpace(item.SignatureFileKey))
+                                        {
+                                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                                <MudIcon Icon="@Icons.Material.Filled.Draw" Size="Size.Small" Color="Color.Primary" />
+                                                <MudText Typo="Typo.body2">Signert</MudText>
+                                            </MudStack>
+                                        }
+                                        else
+                                        {
+                                            <MudText Typo="Typo.body2" Color="Color.Secondary">Ikke signert</MudText>
+                                        }
+                                        break;
+                                }
+
+                                @* Comment *@
+                                @if (!string.IsNullOrWhiteSpace(item.Comment))
+                                {
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                        <MudIcon Icon="@Icons.Material.Filled.Comment" Size="Size.Small" Color="Color.Secondary" />
+                                        <MudText Typo="Typo.body2" Color="Color.Secondary">@item.Comment</MudText>
+                                    </MudStack>
+                                }
+
+                                @* Photo indicator on check items *@
+                                @if (item.Type == "Check" && !string.IsNullOrWhiteSpace(item.PhotoFileKey))
+                                {
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                        <MudIcon Icon="@Icons.Material.Filled.Image" Size="Size.Small" Color="Color.Primary" />
+                                        <MudText Typo="Typo.body2">Bilde vedlagt</MudText>
+                                    </MudStack>
+                                }
+
+                                @* Timestamp *@
+                                @if (item.CompletedAt.HasValue)
+                                {
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                        @item.CompletedAt.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm")
+                                    </MudText>
+                                }
+                            </MudStack>
+                        </MudPaper>
+                    }
+                </MudStack>
+            </MudExpansionPanel>
+        </MudExpansionPanels>
+    }
+
+    @* ── Signature Section ── *@
+    <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-4 mb-4">
+        <MudStack Spacing="2">
+            <MudText Typo="Typo.subtitle1" Style="font-weight:600;">Signaturer</MudText>
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                <MudIcon Icon="@Icons.Material.Filled.Draw" Size="Size.Small" Color="Color.Primary" />
+                <MudText Typo="Typo.body2">
+                    Signert av @_instance.StartedBy
+                    @if (_instance.SubmittedAt.HasValue)
+                    {
+                        <text> den @_instance.SubmittedAt.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</text>
+                    }
+                </MudText>
+            </MudStack>
+        </MudStack>
+    </MudPaper>
+
+    @* ── Footer (hash + branding) ── *@
+    <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;background:#F9FAFB;" Class="pa-4 mb-4">
+        <MudStack Spacing="1">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                <MudIcon Icon="@Icons.Material.Filled.Fingerprint" Size="Size.Small" Color="Color.Secondary" />
+                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                    SHA-256: Dokumenthash genereres ved eksport
+                </MudText>
+            </MudStack>
+            <MudText Typo="Typo.caption" Color="Color.Secondary">Generert fra Solodoc</MudText>
+        </MudStack>
+    </MudPaper>
+
+    @* ── Action Buttons ── *@
+    <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-4 mt-4">
+        <MudStack Spacing="2">
+            @if (_instance.Status is "Utkast" or "Gjenåpnet" or "Gjenapnet")
+            {
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
+                           StartIcon="@Icons.Material.Filled.Edit"
+                           Href="@($"/checklists/{Id}/fill")"
+                           Style="text-transform:none;border-radius:8px;min-height:48px;">
+                    Fortsett utfylling
+                </MudButton>
+            }
+
+            @if (_instance.Status == "Innsendt")
+            {
+                <MudButton Variant="Variant.Filled" FullWidth="true"
+                           StartIcon="@Icons.Material.Filled.Approval"
+                           OnClick="ApproveInstance" Disabled="_approving"
+                           Style="text-transform:none;border-radius:8px;min-height:48px;background:#059669;color:white;">
+                    @if (_approving)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                    }
+                    Godkjenn
+                </MudButton>
+            }
+
+            @if (_instance.Status is "Innsendt" or "Godkjent")
+            {
+                <MudButton Variant="Variant.Outlined" FullWidth="true"
+                           StartIcon="@Icons.Material.Filled.Replay"
+                           OnClick="ShowReopenDialog"
+                           Style="text-transform:none;border-radius:8px;min-height:48px;border-color:#D97706;color:#D97706;">
+                    Gjenåpne
+                </MudButton>
+            }
+
+            <MudButton Variant="Variant.Outlined" Color="Color.Default" FullWidth="true"
+                       StartIcon="@Icons.Material.Filled.PictureAsPdf"
+                       Style="text-transform:none;border-radius:8px;min-height:48px;"
+                       Disabled="true">
+                Eksporter PDF
+            </MudButton>
+
+            <MudButton Variant="Variant.Outlined" Color="Color.Default" FullWidth="true"
+                       StartIcon="@Icons.Material.Filled.ContentCopy"
+                       OnClick="ShowDuplicateDialog"
+                       Style="text-transform:none;border-radius:8px;min-height:48px;">
+                Dupliser for ny lokasjon
+            </MudButton>
+        </MudStack>
+    </MudPaper>
+}
+
+@* ── Reopen Dialog ── *@
+<MudDialog @bind-Visible="_showReopenDialog" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true })">
+    <TitleContent>
+        <MudText Typo="Typo.h6">Gjenåpne sjekkliste</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudTextField T="string" @bind-Value="_reopenReason" Label="Begrunnelse"
+                      Variant="Variant.Outlined" Lines="3" Required="true" />
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => _showReopenDialog = false" Style="text-transform:none;">Avbryt</MudButton>
+        <MudButton Variant="Variant.Filled"
+                   OnClick="ReopenInstance"
+                   Disabled="@(string.IsNullOrWhiteSpace(_reopenReason) || _reopening)"
+                   Style="text-transform:none;background:#D97706;color:white;">
+            Gjenåpne
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@* ── Duplicate Dialog ── *@
+<MudDialog @bind-Visible="_showDuplicateDialog" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true })">
+    <TitleContent>
+        <MudText Typo="Typo.h6">Dupliser for ny lokasjon</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudTextField T="string" @bind-Value="_duplicateLocation" Label="Lokasjon"
+                      Variant="Variant.Outlined"
+                      HelperText="F.eks. Etasje 3, Seksjon B" />
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => _showDuplicateDialog = false" Style="text-transform:none;">Avbryt</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="DuplicateInstance"
+                   Disabled="_duplicatingInstance"
+                   Style="text-transform:none;">
+            Dupliser
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private ChecklistInstanceDetailDto? _instance;
+    private bool _loading = true;
+    private bool _approving;
+    private bool _reopening;
+    private bool _duplicatingInstance;
+
+    private bool _showReopenDialog;
+    private string _reopenReason = string.Empty;
+
+    private bool _showDuplicateDialog;
+    private string _duplicateLocation = string.Empty;
+
+    private int _completedCount;
+    private int _totalCount;
+    private double _progressPercent;
+
+    private async Task GoBackInstance() => await JS.InvokeVoidAsync("history.back");
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadInstance();
+    }
+
+    private async Task LoadInstance()
+    {
+        _loading = true;
+        _instance = await ChecklistService.GetInstanceDetailAsync(Id);
+        UpdateProgress();
+        _loading = false;
+    }
+
+    private void UpdateProgress()
+    {
+        if (_instance is null) return;
+        _totalCount = _instance.Items.Count;
+        _completedCount = _instance.Items.Count(IsItemCompleted);
+        _progressPercent = _totalCount > 0 ? (double)_completedCount / _totalCount * 100 : 0;
+    }
+
+    private static bool IsItemCompleted(ChecklistInstanceItemDto item)
+    {
+        return item.Type switch
+        {
+            "Check" => item.CheckValue == true || item.IsIrrelevant,
+            "Photo" => !string.IsNullOrWhiteSpace(item.PhotoFileKey),
+            "Signature" => !string.IsNullOrWhiteSpace(item.SignatureFileKey),
+            _ => !string.IsNullOrWhiteSpace(item.Value)
+        };
+    }
+
+    // ── Instance actions ──
+
+    private async Task ApproveInstance()
+    {
+        _approving = true;
+        var success = await ChecklistService.ApproveInstanceAsync(Id);
+        _approving = false;
+        if (success)
+        {
+            Snackbar.Add("Sjekkliste godkjent", Severity.Success);
+            await LoadInstance();
+        }
+        else Snackbar.Add("Kunne ikke godkjenne", Severity.Error);
+    }
+
+    private void ShowReopenDialog()
+    {
+        _reopenReason = string.Empty;
+        _showReopenDialog = true;
+    }
+
+    private async Task ReopenInstance()
+    {
+        _reopening = true;
+        var success = await ChecklistService.ReopenInstanceAsync(Id, new ReopenInstanceRequest(_reopenReason));
+        _reopening = false;
+        _showReopenDialog = false;
+        if (success)
+        {
+            Snackbar.Add("Sjekkliste gjenåpnet", Severity.Success);
+            await LoadInstance();
+        }
+        else Snackbar.Add("Kunne ikke gjenåpne", Severity.Error);
+    }
+
+    private void ShowDuplicateDialog()
+    {
+        _duplicateLocation = string.Empty;
+        _showDuplicateDialog = true;
+    }
+
+    private async Task DuplicateInstance()
+    {
+        _duplicatingInstance = true;
+        var newId = await ChecklistService.DuplicateInstanceAsync(Id,
+            new DuplicateInstanceRequest(_duplicateLocation));
+        _duplicatingInstance = false;
+        _showDuplicateDialog = false;
+        if (newId.HasValue)
+        {
+            Snackbar.Add("Sjekkliste duplisert", Severity.Success);
+            Navigation.NavigateTo($"/checklists/{newId.Value}/fill");
+        }
+        else Snackbar.Add("Kunne ikke duplisere", Severity.Error);
+    }
+
+    // ── Helpers ──
+
+    private static (string bg, string text) GetStatusColors(string status) => status switch
+    {
+        "Utkast" => ("#F3F4F6", "#6B7280"),
+        "Innsendt" => ("#DBEAFE", "#2563EB"),
+        "Godkjent" => ("#D1FAE5", "#059669"),
+        "Gjenåpnet" or "Gjenapnet" => ("#FEF3C7", "#D97706"),
+        _ => ("#F3F4F6", "#6B7280")
+    };
+
+    private static string GetStatusLabel(string status) => status switch
+    {
+        "Gjenapnet" => "Gjenåpnet",
+        _ => status
+    };
+
+    private static string GetItemBorderStyle(ChecklistInstanceItemDto item)
+    {
+        var baseStyle = "border:1px solid #E9ECEF;border-radius:12px;";
+        return IsItemCompleted(item) ? baseStyle + "border-left:4px solid #059669;" : baseStyle;
+    }
+
+    private static string GetTypeIcon(string type) => type switch
+    {
+        "Check" => Icons.Material.Filled.CheckBox,
+        "TextInput" => Icons.Material.Filled.TextFields,
+        "NumberInput" => Icons.Material.Filled.Numbers,
+        "DateInput" => Icons.Material.Filled.CalendarMonth,
+        "Dropdown" => Icons.Material.Filled.ArrowDropDown,
+        "Photo" => Icons.Material.Filled.CameraAlt,
+        "Signature" => Icons.Material.Filled.Draw,
+        _ => Icons.Material.Filled.HelpOutline
+    };
+}

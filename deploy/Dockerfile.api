@@ -1,0 +1,38 @@
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+WORKDIR /src
+
+# Copy solution and project files first (layer caching)
+COPY *.sln .
+COPY src/Api/*.csproj src/Api/
+COPY src/Application/*.csproj src/Application/
+COPY src/Domain/*.csproj src/Domain/
+COPY src/Infrastructure/*.csproj src/Infrastructure/
+COPY src/Shared/*.csproj src/Shared/
+COPY src/Worker/*.csproj src/Worker/
+COPY src/Client/*.csproj src/Client/
+
+# Restore
+RUN dotnet restore src/Api/Solodoc.Api.csproj
+
+# Copy everything and publish
+COPY . .
+RUN dotnet publish src/Api/Solodoc.Api.csproj -c Release -o /app/publish --no-restore
+
+# Runtime image
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+WORKDIR /app
+
+# Install EF Core tools for migrations
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
+
+COPY --from=build /app/publish .
+
+ENV ASPNETCORE_ENVIRONMENT=Production
+ENV ASPNETCORE_URLS=http://+:5078
+
+EXPOSE 5078
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:5078/health || exit 1
+
+ENTRYPOINT ["dotnet", "Solodoc.Api.dll"]

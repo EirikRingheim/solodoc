@@ -1,0 +1,234 @@
+@page "/jobs/{Id:guid}"
+@attribute [Authorize]
+@inject JobService JobService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<PageTitle>Solodoc - @(_job?.Description ?? "Oppdrag")</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-4">
+    <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Href="/jobs" />
+    <MudText Typo="Typo.h5">Oppdrag</MudText>
+    @if (_job is not null)
+    {
+        var color = _job.Status switch
+        {
+            "Aktiv" => Color.Success,
+            "VenterPaDeler" => Color.Warning,
+            "Fullfort" => Color.Default,
+            _ => Color.Default
+        };
+        <MudChip T="string" Size="Size.Small" Color="@color">@FormatStatus(_job.Status)</MudChip>
+    }
+</MudStack>
+
+@if (_loading)
+{
+    <MudProgressLinear Color="Color.Primary" Indeterminate="true" />
+}
+else if (_job is null)
+{
+    <MudAlert Severity="Severity.Warning">Oppdraget ble ikke funnet.</MudAlert>
+}
+else
+{
+    <MudGrid Spacing="3" Class="mb-4">
+        <!-- Main info card -->
+        <MudItem xs="12" md="8">
+            <MudPaper Class="pa-5" Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;">
+                <MudText Typo="Typo.subtitle1" Style="font-weight:600;" Class="mb-3">Beskrivelse</MudText>
+                <MudText Typo="Typo.body1" Class="mb-4">@_job.Description</MudText>
+
+                <MudGrid Spacing="3">
+                    <MudItem xs="6" sm="3">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Kunde</MudText>
+                        <MudText Typo="Typo.body2" Style="font-weight:500;">@(_job.CustomerName ?? "\u2014")</MudText>
+                    </MudItem>
+                    <MudItem xs="6" sm="3">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Adresse</MudText>
+                        <MudText Typo="Typo.body2" Style="font-weight:500;">@(_job.Address ?? "\u2014")</MudText>
+                    </MudItem>
+                    <MudItem xs="6" sm="3">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Opprettet av</MudText>
+                        <MudText Typo="Typo.body2" Style="font-weight:500;">@_job.CreatedBy</MudText>
+                    </MudItem>
+                    <MudItem xs="6" sm="3">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Opprettet</MudText>
+                        <MudText Typo="Typo.body2" Style="font-weight:500;">@_job.CreatedAt.ToString("dd.MM.yyyy HH:mm")</MudText>
+                    </MudItem>
+                </MudGrid>
+
+                @if (!string.IsNullOrWhiteSpace(_job.Notes))
+                {
+                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-4">Notater</MudText>
+                    <MudText Typo="Typo.body2">@_job.Notes</MudText>
+                }
+            </MudPaper>
+        </MudItem>
+
+        <!-- Actions card -->
+        <MudItem xs="12" md="4">
+            <MudPaper Class="pa-5" Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;">
+                <MudText Typo="Typo.subtitle1" Style="font-weight:600;" Class="mb-3">Handlinger</MudText>
+
+                <MudSelect T="string" Label="Endre status" Value="_job.Status"
+                           Variant="Variant.Outlined" Margin="Margin.Dense"
+                           ValueChanged="OnStatusChanged" Class="mb-3">
+                    <MudSelectItem Value="@("Aktiv")">Aktiv</MudSelectItem>
+                    <MudSelectItem Value="@("VenterPaDeler")">Venter pa deler</MudSelectItem>
+                    <MudSelectItem Value="@("Fullfort")">Fullfort</MudSelectItem>
+                </MudSelect>
+
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Upgrade"
+                           FullWidth="true"
+                           OnClick="OnPromoteToProject"
+                           Disabled="_promoting"
+                           Style="text-transform:none;border-radius:8px;">
+                    @if (_promoting)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                    }
+                    Promoter til prosjekt
+                </MudButton>
+            </MudPaper>
+        </MudItem>
+
+        <!-- Parts list card -->
+        <MudItem xs="12">
+            <MudPaper Class="pa-5" Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;">
+                <MudText Typo="Typo.subtitle1" Style="font-weight:600;" Class="mb-3">Deler/utstyr</MudText>
+
+                @if (_job.PartsItems.Count == 0 && !_showAddPart)
+                {
+                    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">Ingen deler registrert</MudText>
+                }
+                else
+                {
+                    <MudStack Spacing="2" Class="mb-3">
+                        @foreach (var part in _job.PartsItems)
+                        {
+                            var partColor = part.Status switch
+                            {
+                                "Trengs" => Color.Error,
+                                "Bestilt" => Color.Warning,
+                                "Mottatt" => Color.Success,
+                                _ => Color.Default
+                            };
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween"
+                                      Style="padding:8px 12px;background:#f8f9fa;border-radius:8px;">
+                                <MudText Typo="Typo.body2">@part.Description</MudText>
+                                <MudChip T="string" Size="Size.Small" Color="@partColor"
+                                         Style="height:22px;">@part.Status</MudChip>
+                            </MudStack>
+                        }
+                    </MudStack>
+                }
+
+                @if (_showAddPart)
+                {
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                        <MudTextField @bind-Value="_newPartName" T="string"
+                                      Placeholder="Navn pa del/utstyr"
+                                      Variant="Variant.Outlined" Margin="Margin.Dense"
+                                      Style="flex:1;" />
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                                   OnClick="OnAddPart" Disabled="_addingPart || string.IsNullOrWhiteSpace(_newPartName)"
+                                   Style="text-transform:none;border-radius:8px;background-color:#4361EE;">
+                            Legg til
+                        </MudButton>
+                        <MudIconButton Icon="@Icons.Material.Filled.Close" OnClick="() => _showAddPart = false" />
+                    </MudStack>
+                }
+                else
+                {
+                    <MudButton Variant="Variant.Text" Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.Add"
+                               OnClick="() => _showAddPart = true"
+                               Style="text-transform:none;">
+                        Legg til del
+                    </MudButton>
+                }
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private JobDetailDto? _job;
+    private bool _loading = true;
+    private bool _promoting;
+    private bool _showAddPart;
+    private bool _addingPart;
+    private string? _newPartName;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _job = await JobService.GetJobByIdAsync(Id);
+        _loading = false;
+    }
+
+    private async Task OnStatusChanged(string newStatus)
+    {
+        if (_job is null || newStatus == _job.Status) return;
+
+        var success = await JobService.UpdateStatusAsync(Id, newStatus);
+        if (success)
+        {
+            _job = await JobService.GetJobByIdAsync(Id);
+            Snackbar.Add("Status oppdatert", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add("Kunne ikke oppdatere status", Severity.Error);
+        }
+    }
+
+    private async Task OnPromoteToProject()
+    {
+        if (_job is null) return;
+        _promoting = true;
+
+        var success = await JobService.PromoteToProjectAsync(Id);
+        if (success)
+        {
+            Snackbar.Add("Oppdrag promotert til prosjekt", Severity.Success);
+            Navigation.NavigateTo("/projects");
+        }
+        else
+        {
+            Snackbar.Add("Kunne ikke promotere oppdraget", Severity.Error);
+            _promoting = false;
+        }
+    }
+
+    private async Task OnAddPart()
+    {
+        if (_job is null || string.IsNullOrWhiteSpace(_newPartName)) return;
+        _addingPart = true;
+
+        var success = await JobService.AddPartsItemAsync(Id, new AddPartsItemRequest(_newPartName, null));
+        if (success)
+        {
+            _job = await JobService.GetJobByIdAsync(Id);
+            _newPartName = null;
+            _showAddPart = false;
+            Snackbar.Add("Del lagt til", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add("Kunne ikke legge til del", Severity.Error);
+        }
+
+        _addingPart = false;
+    }
+
+    private static string FormatStatus(string status) => status switch
+    {
+        "VenterPaDeler" => "Venter pa deler",
+        "Fullfort" => "Fullfort",
+        _ => status
+    };
+}

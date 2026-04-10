@@ -1,0 +1,126 @@
+@page "/jobs"
+@attribute [Authorize]
+@inject JobService JobService
+@inject NavigationManager Navigation
+
+<PageTitle>Solodoc - Oppdrag</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4">
+    <MudText Typo="Typo.h5">Oppdrag</MudText>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.Add"
+               Href="/jobs/new"
+               Style="text-transform:none;border-radius:8px;background-color:#4361EE;">
+        Nytt oppdrag
+    </MudButton>
+</MudStack>
+
+<MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;overflow:hidden;">
+    <MudDataGrid @ref="_grid" T="JobListItemDto"
+                 ServerData="LoadServerData"
+                 Sortable="true"
+                 Filterable="false"
+                 Hover="true"
+                 Dense="false"
+                 RowClick="OnRowClick"
+                 RowStyle="cursor:pointer;"
+                 Loading="_loading"
+                 Class="job-grid">
+        <ToolBarContent>
+            <MudSpacer />
+            <MudTextField T="string" Value="_search" Placeholder="Sok oppdrag..."
+                          Variant="Variant.Outlined" Margin="Margin.Dense"
+                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                          Immediate="true" DebounceInterval="300"
+                          ValueChanged="OnSearchChanged"
+                          Style="max-width:300px;" />
+        </ToolBarContent>
+        <Columns>
+            <PropertyColumn Property="x => x.Description" Title="Beskrivelse" />
+            <PropertyColumn Property="x => x.CustomerName" Title="Kunde" SortLabel="customername" />
+            <TemplateColumn Title="Status" SortLabel="status">
+                <CellTemplate>
+                    @{
+                        var color = context.Item.Status switch
+                        {
+                            "Aktiv" => Color.Success,
+                            "VenterPaDeler" => Color.Warning,
+                            "Fullfort" => Color.Default,
+                            _ => Color.Default
+                        };
+                    }
+                    <MudChip T="string" Size="Size.Small" Color="@color"
+                             Style="height:22px;">@FormatStatus(context.Item.Status)</MudChip>
+                </CellTemplate>
+            </TemplateColumn>
+            <TemplateColumn Title="Opprettet" SortLabel="createdat">
+                <CellTemplate>
+                    <MudText Typo="Typo.body2">@context.Item.CreatedAt.ToString("dd.MM.yyyy")</MudText>
+                </CellTemplate>
+            </TemplateColumn>
+            <TemplateColumn Title="Timer" SortLabel="hours">
+                <CellTemplate>
+                    <MudText Typo="Typo.body2">@context.Item.Hours.ToString("0.#")</MudText>
+                </CellTemplate>
+            </TemplateColumn>
+        </Columns>
+        <PagerContent>
+            <MudDataGridPager T="JobListItemDto"
+                              PageSizeOptions="@(new[] { 10, 25, 50 })" />
+        </PagerContent>
+        <NoRecordsContent>
+            <MudStack AlignItems="AlignItems.Center" Spacing="2" Class="pa-8">
+                <MudIcon Icon="@Icons.Material.Filled.WorkOff" Size="Size.Large" Color="Color.Secondary" />
+                <MudText Typo="Typo.body1" Color="Color.Secondary">Ingen oppdrag funnet</MudText>
+            </MudStack>
+        </NoRecordsContent>
+    </MudDataGrid>
+</MudPaper>
+
+@code {
+    private string? _search;
+    private bool _loading;
+    private MudDataGrid<JobListItemDto>? _grid;
+
+    private async Task<GridData<JobListItemDto>> LoadServerData(
+        GridState<JobListItemDto> state, CancellationToken ct)
+    {
+        _loading = true;
+        StateHasChanged();
+
+        var sortDef = state.SortDefinitions.FirstOrDefault();
+        var sortBy = sortDef?.SortBy;
+        var sortDesc = sortDef?.Descending ?? false;
+
+        var page = state.Page + 1;
+        var result = await JobService.GetJobsAsync(
+            page, state.PageSize, _search, sortBy, sortDesc);
+
+        _loading = false;
+
+        return new GridData<JobListItemDto>
+        {
+            Items = result.Items,
+            TotalItems = result.TotalCount
+        };
+    }
+
+    private async Task OnSearchChanged(string value)
+    {
+        _search = value;
+        if (_grid is not null)
+            await _grid.ReloadServerData();
+    }
+
+    private void OnRowClick(DataGridRowClickEventArgs<JobListItemDto> args)
+    {
+        Navigation.NavigateTo($"/jobs/{args.Item.Id}");
+    }
+
+    private static string FormatStatus(string status) => status switch
+    {
+        "VenterPaDeler" => "Venter pa deler",
+        "Fullfort" => "Fullfort",
+        _ => status
+    };
+}

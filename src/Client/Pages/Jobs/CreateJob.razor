@@ -1,0 +1,93 @@
+@page "/jobs/new"
+@attribute [Authorize]
+@inject JobService JobService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<PageTitle>Solodoc - Nytt oppdrag</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-4">
+    <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Href="/jobs" />
+    <MudText Typo="Typo.h5">Nytt oppdrag</MudText>
+</MudStack>
+
+<MudPaper Class="pa-5" Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;max-width:600px;">
+    <EditForm Model="_model" OnValidSubmit="OnSubmit">
+        <DataAnnotationsValidator />
+
+        <MudStack Spacing="3">
+            <MudTextField @bind-Value="_model.Description" T="string"
+                          Label="Beskrivelse" Required="true" RequiredError="Beskrivelse er pakrevd"
+                          Variant="Variant.Outlined"
+                          Lines="3"
+                          Placeholder="Beskriv oppdraget..." />
+
+            <MudTextField @bind-Value="_model.CustomerName" T="string"
+                          Label="Kundenavn"
+                          Variant="Variant.Outlined"
+                          Placeholder="Firma eller privatperson" />
+
+            <MudTextField @bind-Value="_model.Address" T="string"
+                          Label="Adresse"
+                          Variant="Variant.Outlined"
+                          Placeholder="Arbeidssted" />
+
+            <MudTextField @bind-Value="_model.Notes" T="string"
+                          Label="Notater"
+                          Variant="Variant.Outlined"
+                          Lines="2"
+                          Placeholder="Ekstra informasjon..." />
+
+            <MudButton ButtonType="ButtonType.Submit"
+                       Variant="Variant.Filled" Color="Color.Primary"
+                       FullWidth="true"
+                       Disabled="_submitting"
+                       StartIcon="@Icons.Material.Filled.Add"
+                       Style="text-transform:none;border-radius:8px;background-color:#4361EE;height:48px;font-size:1rem;">
+                @if (_submitting)
+                {
+                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                }
+                Opprett oppdrag
+            </MudButton>
+        </MudStack>
+    </EditForm>
+</MudPaper>
+
+@code {
+    private readonly CreateJobModel _model = new();
+    private bool _submitting;
+
+    private async Task OnSubmit()
+    {
+        if (string.IsNullOrWhiteSpace(_model.Description)) return;
+        _submitting = true;
+
+        var request = new CreateJobRequest(
+            _model.Description,
+            null,
+            string.IsNullOrWhiteSpace(_model.Address) ? null : _model.Address,
+            string.IsNullOrWhiteSpace(_model.Notes) ? null : _model.Notes);
+
+        var id = await JobService.CreateJobAsync(request);
+        if (id.HasValue)
+        {
+            Snackbar.Add("Oppdrag opprettet", Severity.Success);
+            Navigation.NavigateTo($"/jobs/{id.Value}");
+        }
+        else
+        {
+            Snackbar.Add("Kunne ikke opprette oppdrag", Severity.Error);
+            _submitting = false;
+        }
+    }
+
+    private class CreateJobModel
+    {
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Beskrivelse er pakrevd")]
+        public string? Description { get; set; }
+        public string? CustomerName { get; set; }
+        public string? Address { get; set; }
+        public string? Notes { get; set; }
+    }
+}

@@ -1,0 +1,784 @@
+@page "/admin/hours"
+@attribute [Authorize]
+@inject HoursService HoursService
+@inject ProjectService ProjectService
+@inject EmployeeService EmployeeService
+@inject ISnackbar Snackbar
+@inject IJSRuntime JS
+
+<PageTitle>Solodoc - Timeadministrasjon</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4">Timeadministrasjon</MudText>
+
+@if (_accessDenied)
+{
+    <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-8">
+        <MudStack AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Filled.Lock" Size="Size.Large" Color="Color.Warning" />
+            <MudText Typo="Typo.h6">Ingen tilgang</MudText>
+        </MudStack>
+    </MudPaper>
+}
+else
+{
+    @* ═══ Top controls: Month nav + filters + export ═══ *@
+    <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-3 mb-4">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Style="flex-wrap:wrap;gap:8px;">
+            @* Month navigator *@
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft" OnClick="PreviousMonth" Size="Size.Small" />
+                <MudText Typo="Typo.subtitle1" Style="font-weight:600;min-width:140px;text-align:center;">
+                    @_currentMonth.ToString("MMMM yyyy", System.Globalization.CultureInfo.GetCultureInfo("nb-NO"))
+                </MudText>
+                <MudIconButton Icon="@Icons.Material.Filled.ChevronRight" OnClick="NextMonth" Size="Size.Small" />
+                <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="GoToCurrentMonth"
+                           Style="text-transform:none;">I dag</MudButton>
+            </MudStack>
+
+            @* Filters *@
+            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Style="flex-wrap:wrap;">
+                <MudSelect T="Guid?" Value="_employeeFilter" Label="Ansatt" Variant="Variant.Outlined"
+                           Margin="Margin.Dense" Clearable="true" Style="min-width:180px;max-width:220px;"
+                           ValueChanged="OnEmployeeFilterChanged">
+                    @foreach (var emp in _employees)
+                    {
+                        <MudSelectItem T="Guid?" Value="@emp.PersonId">@emp.FullName</MudSelectItem>
+                    }
+                </MudSelect>
+
+                <MudButton Variant="Variant.Outlined" Color="Color.Default" Size="Size.Small"
+                           StartIcon="@Icons.Material.Filled.FileDownload"
+                           OnClick="ExportMonth"
+                           Style="text-transform:none;border-radius:8px;">
+                    Eksporter
+                </MudButton>
+            </MudStack>
+        </MudStack>
+    </MudPaper>
+
+    @if (_loadingHeatmap)
+    {
+        <MudStack AlignItems="AlignItems.Center" Class="pa-8">
+            <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+        </MudStack>
+    }
+    else if (_heatmap is not null)
+    {
+        @* ═══ Heatmap table ═══ *@
+        <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-3">
+            <div tabindex="0" @onkeydown="HandleKeyDown" @ref="_heatmapRef"
+                 style="outline:none;">
+                <table style="border-collapse:separate;border-spacing:2px;width:100%;">
+                            <thead>
+                                <tr>
+                                    <th style="padding:6px 10px;text-align:left;font-weight:600;font-size:0.8rem;min-width:130px;position:sticky;left:0;background:#FFF;z-index:1;">Ansatt</th>
+                                    @foreach (var date in _heatmap.Dates)
+                                    {
+                                        var isWe = date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday;
+                                        var isToday = date == DateOnly.FromDateTime(DateTime.Today);
+                                        <th style="padding:3px 1px;text-align:center;font-size:0.65rem;font-weight:@(isWe ? "400" : "500");color:@(isWe ? "#9CA3AF" : "#374151");min-width:32px;@(isToday ? "background:#EBF0FF;" : "")">
+                                            @date.Day<br/>@date.ToString("ddd", System.Globalization.CultureInfo.GetCultureInfo("nb-NO")).Substring(0, 2)
+                                        </th>
+                                    }
+                                    <th style="padding:6px 4px;text-align:center;font-weight:600;font-size:0.8rem;">Sum</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @for (var ri = 0; ri < _filteredRows.Count; ri++)
+                                {
+                                    var row = _filteredRows[ri];
+                                    var capturedRi = ri;
+                                    var rowTotal = row.Cells.Sum(c => c.Hours);
+
+                                    <tr>
+                                        <td style="padding:4px 10px;font-size:0.8rem;font-weight:500;white-space:nowrap;position:sticky;left:0;background:#FFF;z-index:1;">
+                                            @row.EmployeeName
+                                        </td>
+                                        @for (var ci = 0; ci < row.Cells.Count; ci++)
+                                        {
+                                            var cell = row.Cells[ci];
+                                            var capturedCi = ci;
+                                            var isSelected = _selRow == capturedRi && _selCol == capturedCi;
+                                            var bg = GetStatusBg(cell.Status);
+                                            var fg = GetStatusFg(cell.Status);
+                                            var confirmingThis = _confirmRow == capturedRi && _confirmCol == capturedCi;
+
+                                            <td style="padding:2px;text-align:center;font-size:0.7rem;font-weight:500;background:@bg;color:@fg;border-radius:4px;cursor:pointer;height:30px;border:1px solid #E5E7EB;@(isSelected ? "outline:2px solid #4361EE;outline-offset:-1px;" : "")"
+                                                title="@($"{cell.Date:dd.MM} — {cell.Hours:0.#}t — {cell.Status}")"
+                                                @onclick="async () => await SelectCell(capturedRi, capturedCi)"
+                                                @ondblclick="async () => await OpenAdminEdit(capturedRi, capturedCi)">
+                                                @if (confirmingThis)
+                                                {
+                                                    <span style="font-size:0.6rem;color:#4361EE;">Godkjenn?</span>
+                                                }
+                                                else if (cell.AbsenceType is not null)
+                                                {
+                                                    <span style="font-size:0.55rem;">@cell.AbsenceType</span>
+                                                }
+                                                else
+                                                {
+                                                    @(cell.Hours > 0 ? cell.Hours.ToString("0.#") : "")
+                                                }
+                                            </td>
+                                        }
+                                        <td style="padding:4px;text-align:center;font-size:0.8rem;font-weight:600;">
+                                            @(rowTotal > 0 ? rowTotal.ToString("0.#") : "")
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+            </div>
+        </MudPaper>
+
+        @* Legend *@
+        <MudStack Row="true" Spacing="3" AlignItems="AlignItems.Center" Class="mt-2 mb-2">
+                    <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+                        <span style="width:12px;height:12px;background:#D1FAE5;border-radius:2px;display:inline-block;"></span>
+                        <MudText Typo="Typo.caption">Godkjent</MudText>
+                    </MudStack>
+                    <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+                        <span style="width:12px;height:12px;background:#FEF3C7;border-radius:2px;display:inline-block;"></span>
+                        <MudText Typo="Typo.caption">Registrert</MudText>
+                    </MudStack>
+                    <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+                        <span style="width:12px;height:12px;background:#FEE2E2;border-radius:2px;display:inline-block;"></span>
+                        <MudText Typo="Typo.caption">Mangler</MudText>
+                    </MudStack>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                        Piltaster: naviger | Enter: godkjenn | Klikk: detaljer
+                    </MudText>
+                </MudStack>
+
+        @* ═══ Detail panel (below heatmap) ═══ *@
+        @if (_selectedCell is not null)
+        {
+            <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-4 mt-3">
+                        @if (_loadingDetail)
+                        {
+                            <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+                        }
+                        else if (_dayDetail is not null)
+                        {
+                            <MudStack Spacing="2">
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                                    <MudStack Spacing="0">
+                                        <MudText Typo="Typo.subtitle1" Style="font-weight:600;">@_dayDetail.EmployeeName</MudText>
+                                        <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                            @_dayDetail.Date.ToString("dddd d. MMMM", System.Globalization.CultureInfo.GetCultureInfo("nb-NO"))
+                                        </MudText>
+                                    </MudStack>
+                                    <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
+                                                   OnClick="CloseDetail" />
+                                </MudStack>
+
+                                @* Summary *@
+                                <MudStack Row="true" Spacing="3">
+                                    <MudStack Spacing="0">
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary">Timer</MudText>
+                                        <MudText Typo="Typo.h6" Style="font-weight:600;">@_dayDetail.TotalHours.ToString("0.##")</MudText>
+                                    </MudStack>
+                                    @if (_dayDetail.TotalOvertime > 0)
+                                    {
+                                        <MudStack Spacing="0">
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary">Overtid</MudText>
+                                            <MudText Typo="Typo.h6" Style="font-weight:600;color:#D97706;">@_dayDetail.TotalOvertime.ToString("0.##")</MudText>
+                                        </MudStack>
+                                    }
+                                    @{
+                                        var (dsBg, dsTxt) = GetStatusTagColors(_dayDetail.DayStatus);
+                                    }
+                                    <span style="align-self:center;padding:4px 12px;border-radius:12px;font-size:0.8rem;font-weight:500;background:@dsBg;color:@dsTxt;">
+                                        @_dayDetail.DayStatus
+                                    </span>
+                                </MudStack>
+
+                                @* Entry blocks *@
+                                @if (_dayDetail.Entries.Count == 0)
+                                {
+                                    <MudText Typo="Typo.body2" Color="Color.Secondary">Ingen registreringer denne dagen.</MudText>
+                                }
+                                else
+                                {
+                                    @foreach (var entry in _dayDetail.Entries)
+                                    {
+                                        var hasTime = entry.StartTime.HasValue && entry.EndTime.HasValue;
+                                        var blockColor = GetCategoryColor(entry.Category);
+
+                                        <div style="border-left:3px solid @blockColor;background:#FAFBFC;border-radius:0 8px 8px 0;padding:8px 12px;">
+                                            <MudStack Spacing="0">
+                                                @if (hasTime)
+                                                {
+                                                    <MudText Typo="Typo.caption" Style="font-weight:600;">
+                                                        @entry.StartTime!.Value.ToLocalTime().ToString("HH:mm") – @entry.EndTime!.Value.ToLocalTime().ToString("HH:mm")
+                                                    </MudText>
+                                                }
+                                                <MudText Typo="Typo.body2" Style="font-weight:500;">
+                                                    @(entry.ProjectName ?? entry.JobDescription ?? "Generell")
+                                                </MudText>
+                                                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                                    @entry.Category — @entry.Hours.ToString("0.##")t
+                                                </MudText>
+                                                @if (entry.Allowances.Count > 0)
+                                                {
+                                                    <MudStack Row="true" Spacing="1" Style="flex-wrap:wrap;margin-top:2px;">
+                                                        @foreach (var a in entry.Allowances)
+                                                        {
+                                                            <MudChip T="string" Size="Size.Small"
+                                                                     Style="height:18px;font-size:0.65rem;background:#FEF3C7;color:#92400E;">
+                                                                @a.RuleName
+                                                            </MudChip>
+                                                        }
+                                                    </MudStack>
+                                                }
+                                            </MudStack>
+                                        </div>
+                                    }
+                                }
+
+                                @* Approve button *@
+                                @if (_dayDetail.DayStatus == "Registrert")
+                                {
+                                    <MudButton Variant="Variant.Filled" Color="Color.Success" FullWidth="true"
+                                               OnClick="ApproveSelectedDay" Disabled="_approving"
+                                               Style="text-transform:none;border-radius:8px;">
+                                        @if (_approving) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> }
+                                        Godkjenn denne dagen
+                                    </MudButton>
+                                }
+
+                                @* Employee balance *@
+                                @if (_selectedBalance is not null)
+                                {
+                                    <MudDivider Class="my-2" />
+                                    <MudText Typo="Typo.caption" Style="font-weight:600;">Saldo — @_dayDetail.EmployeeName</MudText>
+                                    <MudGrid Spacing="1">
+                                        <MudItem xs="6">
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary">Ferie</MudText>
+                                            <MudText Typo="Typo.body2" Style="font-weight:500;">
+                                                @_selectedBalance.VacationUsedHours.ToString("0.#") / @_selectedBalance.VacationAllowanceHours.ToString("0.#")t
+                                            </MudText>
+                                        </MudItem>
+                                        <MudItem xs="6">
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary">Sykfravaer</MudText>
+                                            <MudText Typo="Typo.body2" Style="font-weight:500;">@_selectedBalance.SickLeaveHours.ToString("0.#")t</MudText>
+                                        </MudItem>
+                                        @if (_selectedBalance.TimebankEnabled)
+                                        {
+                                            <MudItem xs="6">
+                                                <MudText Typo="Typo.caption" Color="Color.Secondary">Timebank</MudText>
+                                                <MudText Typo="Typo.body2" Style="font-weight:500;">@_selectedBalance.OvertimeBankBalance.ToString("0.#")t</MudText>
+                                            </MudItem>
+                                        }
+                                    </MudGrid>
+                                }
+                            </MudStack>
+                        }
+                    </MudPaper>
+        }
+    }
+}
+
+@* ═══ Admin Edit Day Dialog ═══ *@
+<MudDialog @bind-Visible="_editDayDialogOpen" Options="_editDayDialogOptions">
+    <TitleContent>
+        <MudText Typo="Typo.h6">Rediger dag — @_editEmployeeName</MudText>
+    </TitleContent>
+    <DialogContent>
+        @if (_editDayDetail is null)
+        {
+            <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+        }
+        else
+        {
+            <MudStack Spacing="3">
+                <MudText Typo="Typo.body2" Style="font-weight:500;">
+                    @_editDayDate.ToString("dddd d. MMMM yyyy", System.Globalization.CultureInfo.GetCultureInfo("nb-NO"))
+                </MudText>
+
+                @* Existing entries *@
+                @if (_editDayDetail.Entries.Count > 0)
+                {
+                    @foreach (var entry in _editDayDetail.Entries)
+                    {
+                        var capturedId = entry.Id;
+                        var hasTime = entry.StartTime.HasValue && entry.EndTime.HasValue;
+                        var blockColor = GetCategoryColor(entry.Category);
+                        var (eBg, eTxt) = GetStatusTagColors(entry.Status);
+
+                        <div style="border-left:3px solid @blockColor;background:#FAFBFC;border-radius:0 8px 8px 0;padding:8px 12px;">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                                <MudStack Spacing="0">
+                                    @if (hasTime)
+                                    {
+                                        <MudText Typo="Typo.caption" Style="font-weight:600;">
+                                            @entry.StartTime!.Value.ToLocalTime().ToString("HH:mm")–@entry.EndTime!.Value.ToLocalTime().ToString("HH:mm")
+                                        </MudText>
+                                    }
+                                    <MudText Typo="Typo.body2" Style="font-weight:500;">
+                                        @(entry.ProjectName ?? entry.JobDescription ?? "Generell")
+                                    </MudText>
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                        @entry.Category — @entry.Hours.ToString("0.##")t
+                                    </MudText>
+                                </MudStack>
+                                <span style="padding:2px 8px;border-radius:10px;font-size:0.7rem;font-weight:500;background:@eBg;color:@eTxt;">
+                                    @entry.Status
+                                </span>
+                            </MudStack>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Ingen registreringer denne dagen.</MudText>
+                }
+
+                @* Add new entry form *@
+                <MudDivider />
+                <MudText Typo="Typo.subtitle2" Style="font-weight:600;">Legg til ny periode</MudText>
+
+                <MudGrid Spacing="2">
+                    <MudItem xs="5">
+                        <MudTextField T="string" Value="@_adminStartStr" Label="Fra"
+                                      Variant="Variant.Outlined" Placeholder="07:00" Margin="Margin.Dense"
+                                      Immediate="true" ValueChanged="v => _adminStartStr = AutoColon(v)" />
+                    </MudItem>
+                    <MudItem xs="2" Style="display:flex;align-items:center;justify-content:center;">
+                        <MudIcon Icon="@Icons.Material.Filled.ArrowForward" Color="Color.Secondary" Size="Size.Small" />
+                    </MudItem>
+                    <MudItem xs="5">
+                        <MudTextField T="string" Value="@_adminEndStr" Label="Til"
+                                      Variant="Variant.Outlined" Placeholder="15:00" Margin="Margin.Dense"
+                                      Immediate="true" ValueChanged="v => _adminEndStr = AutoColon(v)" />
+                    </MudItem>
+                </MudGrid>
+
+                <MudSelect T="string" @bind-Value="_adminTargetKey" Label="Prosjekt / Oppdrag"
+                           Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true">
+                    @foreach (var p in _adminProjects)
+                    {
+                        <MudSelectItem T="string" Value="@($"p:{p.Id}")">@p.Name</MudSelectItem>
+                    }
+                </MudSelect>
+
+                <MudSelect T="string" @bind-Value="_adminCategory" Label="Kategori"
+                           Variant="Variant.Outlined" Margin="Margin.Dense">
+                    <MudSelectItem T="string" Value="@("Arbeid")">Arbeid</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("Reise")">Reise</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("Kontorarbeid")">Kontorarbeid</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("Lagerarbeid")">Lagerarbeid</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("Kurs")">Kurs</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("Annet")">Annet</MudSelectItem>
+                </MudSelect>
+            </MudStack>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => _editDayDialogOpen = false" Style="text-transform:none;">Lukk</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAdminEntry"
+                   Disabled="_adminSaving" Style="text-transform:none;border-radius:8px;">
+            @if (_adminSaving) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> }
+            Legg til periode
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    // Data
+    private List<EmployeeListItemDto> _employees = [];
+    private HoursHeatmapDto? _heatmap;
+    private List<HeatmapEmployeeRow> _filteredRows = [];
+    private bool _loadingHeatmap = true;
+    private bool _accessDenied;
+
+    // Month navigation
+    private DateOnly _currentMonth;
+
+    // Filters
+    private Guid? _employeeFilter;
+
+    // Cell selection
+    private int _selRow = -1;
+    private int _selCol = -1;
+    private HeatmapCell? _selectedCell;
+    private ElementReference _heatmapRef;
+
+    // Confirm approve (Enter flow)
+    private int _confirmRow = -1;
+    private int _confirmCol = -1;
+
+    // Detail panel
+    private DayDetailDto? _dayDetail;
+    private BalanceSummaryDto? _selectedBalance;
+    private bool _loadingDetail;
+    private bool _approving;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _currentMonth = new DateOnly(DateTime.Today.Year, DateTime.Today.Month, 1);
+
+        try
+        {
+            _employees = await EmployeeService.GetEmployeesAsync();
+            await LoadHeatmap();
+        }
+        catch
+        {
+            _accessDenied = true;
+            _loadingHeatmap = false;
+        }
+    }
+
+    // ── Month navigation ──
+
+    private async Task PreviousMonth() { _currentMonth = _currentMonth.AddMonths(-1); await LoadHeatmap(); }
+    private async Task NextMonth() { _currentMonth = _currentMonth.AddMonths(1); await LoadHeatmap(); }
+    private async Task GoToCurrentMonth() { _currentMonth = new DateOnly(DateTime.Today.Year, DateTime.Today.Month, 1); await LoadHeatmap(); }
+
+    private async Task LoadHeatmap()
+    {
+        _loadingHeatmap = true;
+        _selectedCell = null;
+        _dayDetail = null;
+        _selRow = -1; _selCol = -1;
+        _confirmRow = -1; _confirmCol = -1;
+        StateHasChanged();
+
+        var lastDay = _currentMonth.AddMonths(1).AddDays(-1);
+        _heatmap = await HoursService.GetHeatmapAsync(_currentMonth, lastDay);
+        ApplyFilter();
+        _loadingHeatmap = false;
+        StateHasChanged();
+    }
+
+    private void ApplyFilter()
+    {
+        if (_heatmap is null) { _filteredRows = []; return; }
+        _filteredRows = _employeeFilter.HasValue
+            ? _heatmap.Rows.Where(r => r.PersonId == _employeeFilter.Value).ToList()
+            : _heatmap.Rows;
+    }
+
+    private async Task OnEmployeeFilterChanged(Guid? value)
+    {
+        _employeeFilter = value;
+        ApplyFilter();
+        _selectedCell = null; _dayDetail = null;
+        _selRow = -1; _selCol = -1;
+        StateHasChanged();
+    }
+
+    // ── Cell selection ──
+
+    private async Task SelectCell(int row, int col)
+    {
+        _selRow = row; _selCol = col;
+        _confirmRow = -1; _confirmCol = -1;
+
+        if (row >= 0 && row < _filteredRows.Count && col >= 0 && col < _filteredRows[row].Cells.Count)
+        {
+            _selectedCell = _filteredRows[row].Cells[col];
+            await LoadDayDetail();
+        }
+    }
+
+    private async Task LoadDayDetail()
+    {
+        if (_selectedCell is null || _selRow < 0 || _selRow >= _filteredRows.Count) return;
+
+        _loadingDetail = true;
+        StateHasChanged();
+
+        var personId = _filteredRows[_selRow].PersonId;
+        var detailTask = HoursService.GetDayDetailAsync(personId, _selectedCell.Date);
+        var balanceTask = HoursService.GetEmployeeBalanceAsync(personId);
+        _dayDetail = await detailTask;
+        _selectedBalance = await balanceTask;
+
+        _loadingDetail = false;
+        StateHasChanged();
+    }
+
+    private void CloseDetail()
+    {
+        _selectedCell = null;
+        _dayDetail = null;
+        _selRow = -1; _selCol = -1;
+    }
+
+    // ── Keyboard navigation ──
+
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (_filteredRows.Count == 0) return;
+
+        var maxRow = _filteredRows.Count - 1;
+        var maxCol = _filteredRows.Count > 0 ? _filteredRows[0].Cells.Count - 1 : 0;
+
+        switch (e.Key)
+        {
+            case "ArrowRight":
+                if (_selCol < maxCol) await SelectCell(_selRow, _selCol + 1);
+                break;
+            case "ArrowLeft":
+                if (_selCol > 0) await SelectCell(_selRow, _selCol - 1);
+                break;
+            case "ArrowDown":
+                if (_selRow < maxRow) await SelectCell(_selRow + 1, _selCol);
+                break;
+            case "ArrowUp":
+                if (_selRow > 0) await SelectCell(_selRow - 1, _selCol);
+                break;
+            case "Enter":
+                await HandleEnterKey();
+                break;
+            case "Escape":
+                CloseDetail();
+                break;
+        }
+    }
+
+    private async Task HandleEnterKey()
+    {
+        if (_selRow < 0 || _selCol < 0) return;
+
+        var cell = _filteredRows[_selRow].Cells[_selCol];
+
+        // Already approved or no data — skip
+        if (cell.Status is not "Registrert") return;
+
+        // First Enter: show "Godkjenn?"
+        if (_confirmRow != _selRow || _confirmCol != _selCol)
+        {
+            _confirmRow = _selRow;
+            _confirmCol = _selCol;
+            StateHasChanged();
+            return;
+        }
+
+        // Second Enter: approve
+        _confirmRow = -1; _confirmCol = -1;
+        await ApproveCell(_selRow, _selCol);
+    }
+
+    private async Task ApproveCell(int row, int col)
+    {
+        var personId = _filteredRows[row].PersonId;
+        var date = _filteredRows[row].Cells[col].Date;
+
+        var count = await HoursService.ApproveDayAsync(personId, date);
+        if (count > 0)
+        {
+            Snackbar.Add($"{count} timer godkjent", Severity.Success);
+            await LoadHeatmap();
+            if (row < _filteredRows.Count && col < _filteredRows[row].Cells.Count)
+                await SelectCell(row, col);
+            // Re-focus heatmap so arrows keep working
+            await Task.Delay(50);
+            try { await _heatmapRef.FocusAsync(); } catch { }
+        }
+    }
+
+    private async Task ApproveSelectedDay()
+    {
+        if (_dayDetail is null || _selRow < 0) return;
+        _approving = true; StateHasChanged();
+
+        var personId = _filteredRows[_selRow].PersonId;
+        var count = await HoursService.ApproveDayAsync(personId, _dayDetail.Date);
+
+        if (count > 0)
+        {
+            Snackbar.Add($"{count} timer godkjent", Severity.Success);
+            await LoadHeatmap();
+            if (_selRow < _filteredRows.Count && _selCol < _filteredRows[_selRow].Cells.Count)
+                await SelectCell(_selRow, _selCol);
+        }
+
+        _approving = false; StateHasChanged();
+    }
+
+    // ── Export ──
+
+    private async Task ExportMonth()
+    {
+        // Generate CSV client-side for now
+        if (_heatmap is null) return;
+
+        var rows = _employeeFilter.HasValue
+            ? _heatmap.Rows.Where(r => r.PersonId == _employeeFilter.Value).ToList()
+            : _heatmap.Rows;
+
+        var csv = new System.Text.StringBuilder();
+
+        // Header
+        csv.Append("Ansatt");
+        foreach (var d in _heatmap.Dates) csv.Append($";{d:dd.MM}");
+        csv.AppendLine(";Sum");
+
+        // Rows
+        foreach (var row in rows)
+        {
+            csv.Append(row.EmployeeName);
+            foreach (var cell in row.Cells)
+                csv.Append($";{(cell.Hours > 0 ? cell.Hours.ToString("0.##") : "")}");
+            csv.AppendLine($";{row.Cells.Sum(c => c.Hours):0.##}");
+        }
+
+        var bytes = System.Text.Encoding.UTF8.GetBytes(csv.ToString());
+        var base64 = Convert.ToBase64String(bytes);
+        var fileName = $"timer-{_currentMonth:yyyy-MM}.csv";
+
+        await JS.InvokeVoidAsync("eval", $"{{var a=document.createElement('a');a.href='data:text/csv;base64,{base64}';a.download='{fileName}';a.click();}}");
+
+        Snackbar.Add("Eksportert", Severity.Success);
+    }
+
+    // ── Helpers ──
+
+    private static (string bg, string text) GetStatusTagColors(string status) => status switch
+    {
+        "Utkast" => ("#E9ECEF", "#495057"), "Innsendt" or "Registrert" => ("#FEF3C7", "#92400E"),
+        "Godkjent" => ("#D1FAE5", "#059669"), "Avvist" => ("#FEE2E2", "#DC2626"),
+        "Mangler" => ("#FEE2E2", "#991B1B"), _ => ("#F3F4F6", "#6B7280")
+    };
+
+    private static string GetStatusBg(string s) => s switch
+    { "Godkjent" => "#BBF7D0", "Registrert" => "#FDE68A", "Mangler" => "#FECACA",
+      "Fravaer" => "#DDD6FE", _ => "#F3F4F6" };
+    private static string GetStatusFg(string s) => s switch
+    { "Godkjent" => "#166534", "Registrert" => "#92400E", "Mangler" => "#991B1B",
+      "Fravaer" => "#5B21B6", _ => "#D1D5DB" };
+
+    private static string GetCategoryColor(string c) => c switch
+    {
+        "Arbeid" => "#4361EE", "Reise" => "#7C3AED", "Kontorarbeid" => "#0891B2",
+        "Lagerarbeid" => "#CA8A04", "Kurs" => "#059669", "Annet" => "#6B7280", _ => "#4361EE"
+    };
+
+    private static string AutoColon(string v)
+    {
+        if (string.IsNullOrEmpty(v)) return v;
+        var clean = v.Replace(":", "").Replace(".", "");
+        if (clean.Length == 2 && !v.Contains(':') && !v.Contains('.')) return clean + ":";
+        if (v.Length > 5) return v[..5];
+        return v;
+    }
+
+    private static TimeSpan? ParseTime(string? s)
+    {
+        if (string.IsNullOrWhiteSpace(s)) return null;
+        s = s.Trim().Replace('.', ':');
+        if (TimeSpan.TryParseExact(s, @"hh\:mm", null, out var ts)) return ts;
+        if (TimeSpan.TryParseExact(s, @"h\:mm", null, out ts)) return ts;
+        if (int.TryParse(s, out var h) && h is >= 0 and <= 23) return new TimeSpan(h, 0, 0);
+        return null;
+    }
+
+    // ── Admin Edit Day ──
+
+    private bool _editDayDialogOpen;
+    private readonly DialogOptions _editDayDialogOptions = new() { MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true };
+    private DayDetailDto? _editDayDetail;
+    private string _editEmployeeName = "";
+    private Guid _editPersonId;
+    private DateOnly _editDayDate;
+    private string _adminStartStr = "07:00";
+    private string _adminEndStr = "15:00";
+    private string? _adminTargetKey;
+    private string _adminCategory = "Arbeid";
+    private bool _adminSaving;
+    private List<ProjectListItemDto> _adminProjects = [];
+
+    private async Task OpenAdminEdit(int row, int col)
+    {
+        if (row < 0 || row >= _filteredRows.Count || col < 0 || col >= _filteredRows[row].Cells.Count) return;
+
+        var r = _filteredRows[row];
+        _editPersonId = r.PersonId;
+        _editEmployeeName = r.EmployeeName;
+        _editDayDate = r.Cells[col].Date;
+
+        // Load projects if not loaded
+        if (_adminProjects.Count == 0)
+        {
+            try { _adminProjects = await ProjectService.GetActiveProjectsAsync(); } catch { }
+        }
+
+        // Load day detail
+        _editDayDetail = await HoursService.GetDayDetailAsync(_editPersonId, _editDayDate);
+
+        // Chain from last entry
+        if (_editDayDetail?.Entries.Count > 0)
+        {
+            var last = _editDayDetail.Entries.LastOrDefault(e => e.EndTime.HasValue);
+            if (last?.EndTime is not null)
+            {
+                var t = last.EndTime.Value.ToLocalTime().TimeOfDay;
+                _adminStartStr = $"{t.Hours:D2}:{t.Minutes:D2}";
+                var end = t.Add(TimeSpan.FromHours(1));
+                _adminEndStr = end.TotalHours >= 24 ? "23:59" : $"{end.Hours:D2}:{end.Minutes:D2}";
+            }
+            else
+            {
+                _adminStartStr = "07:00"; _adminEndStr = "15:00";
+            }
+        }
+        else
+        {
+            _adminStartStr = "07:00"; _adminEndStr = "15:00";
+        }
+
+        _editDayDialogOpen = true;
+        StateHasChanged();
+    }
+
+    private async Task SaveAdminEntry()
+    {
+        var start = ParseTime(_adminStartStr);
+        var end = ParseTime(_adminEndStr);
+        if (start is null || end is null) { Snackbar.Add("Ugyldig tid", Severity.Warning); return; }
+
+        _adminSaving = true; StateHasChanged();
+
+        var (projectId, jobId) = ParseAdminTarget();
+        var startDto = new DateTimeOffset(_editDayDate.ToDateTime(new TimeOnly(start.Value.Hours, start.Value.Minutes)), TimeSpan.Zero);
+        var endDto = new DateTimeOffset(_editDayDate.ToDateTime(new TimeOnly(end.Value.Hours, end.Value.Minutes)), TimeSpan.Zero);
+        if (endDto <= startDto) endDto = endDto.AddDays(1);
+
+        // Note: this creates a manual entry as the admin user. For proper "on behalf of" we'd need a separate endpoint.
+        // For now it creates under admin's name — good enough for corrections.
+        var request = new ManualTimeEntryRequest(_editDayDate, null, projectId, jobId, _adminCategory, null, startDto, endDto, 30);
+        var id = await HoursService.CreateManualEntryAsync(request);
+
+        if (id.HasValue)
+        {
+            Snackbar.Add("Periode lagt til", Severity.Success);
+            _editDayDetail = await HoursService.GetDayDetailAsync(_editPersonId, _editDayDate);
+            // Chain times
+            _adminStartStr = _adminEndStr;
+            var endTs = ParseTime(_adminEndStr);
+            if (endTs.HasValue)
+            {
+                var next = endTs.Value.Add(TimeSpan.FromHours(1));
+                _adminEndStr = next.TotalHours >= 24 ? "23:59" : $"{next.Hours:D2}:{next.Minutes:D2}";
+            }
+            await LoadHeatmap();
+        }
+        else
+        {
+            Snackbar.Add("Feil ved lagring", Severity.Error);
+        }
+
+        _adminSaving = false; StateHasChanged();
+    }
+
+    private (Guid? projectId, Guid? jobId) ParseAdminTarget()
+    {
+        if (string.IsNullOrEmpty(_adminTargetKey)) return (null, null);
+        if (_adminTargetKey.StartsWith("p:") && Guid.TryParse(_adminTargetKey[2..], out var pid)) return (pid, null);
+        if (_adminTargetKey.StartsWith("j:") && Guid.TryParse(_adminTargetKey[2..], out var jid)) return (null, jid);
+        return (null, null);
+    }
+}

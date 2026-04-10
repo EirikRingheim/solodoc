@@ -1,0 +1,152 @@
+@page "/employees"
+@attribute [Authorize]
+@inject EmployeeService EmployeeService
+@inject NavigationManager Navigation
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+
+<PageTitle>Solodoc - Ansatte</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4">
+    <MudText Typo="Typo.h5">Ansatte</MudText>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.PersonAdd"
+               Style="text-transform:none;border-radius:8px;"
+               OnClick="OpenInviteDialog">
+        Inviter ansatt
+    </MudButton>
+</MudStack>
+
+<MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;overflow:hidden;">
+    <MudDataGrid T="EmployeeListItemDto"
+                 Items="_filteredEmployees"
+                 Sortable="true"
+                 Filterable="false"
+                 Hover="true"
+                 Dense="false"
+                 RowClick="OnRowClick"
+                 RowStyle="cursor:pointer;"
+                 Loading="_loading">
+        <ToolBarContent>
+            <MudSpacer />
+            <MudTextField T="string" @bind-Value="_search" Placeholder="Sok ansatte..."
+                          Variant="Variant.Outlined" Margin="Margin.Dense"
+                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                          Immediate="true" DebounceInterval="300"
+                          TextChanged="OnSearchChanged"
+                          Style="max-width:300px;" />
+        </ToolBarContent>
+        <Columns>
+            <PropertyColumn Property="x => x.FullName" Title="Navn" />
+            <PropertyColumn Property="x => x.Email" Title="E-post" />
+            <TemplateColumn Title="Rolle">
+                <CellTemplate>
+                    <MudChip T="string" Size="Size.Small" Color="Color.Default"
+                             Style="height:22px;">@context.Item.Role</MudChip>
+                </CellTemplate>
+            </TemplateColumn>
+            <TemplateColumn Title="Sertifikater" Sortable="false">
+                <CellTemplate>
+                    <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+                        @if (context.Item.TotalCerts == 0)
+                        {
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">Ingen</MudText>
+                        }
+                        else
+                        {
+                            var okCount = context.Item.TotalCerts - context.Item.ExpiringCerts - context.Item.ExpiredCerts;
+                            @if (okCount > 0)
+                            {
+                                <MudTooltip Text="@($"{okCount} gyldige")">
+                                    <MudChip T="string" Size="Size.Small"
+                                             Style="height:22px;min-width:28px;background-color:#2dc653;color:white;"
+                                             Class="cert-ok">@okCount</MudChip>
+                                </MudTooltip>
+                            }
+                            @if (context.Item.ExpiringCerts > 0)
+                            {
+                                <MudTooltip Text="@($"{context.Item.ExpiringCerts} utloper snart")">
+                                    <MudChip T="string" Size="Size.Small"
+                                             Style="height:22px;min-width:28px;background-color:#f59e0b;color:white;"
+                                             Class="cert-expiring">@context.Item.ExpiringCerts</MudChip>
+                                </MudTooltip>
+                            }
+                            @if (context.Item.ExpiredCerts > 0)
+                            {
+                                <MudTooltip Text="@($"{context.Item.ExpiredCerts} utlopte")">
+                                    <MudChip T="string" Size="Size.Small"
+                                             Style="height:22px;min-width:28px;background-color:#ef4444;color:white;"
+                                             Class="cert-expired">@context.Item.ExpiredCerts</MudChip>
+                                </MudTooltip>
+                            }
+                        }
+                    </MudStack>
+                </CellTemplate>
+            </TemplateColumn>
+        </Columns>
+        <NoRecordsContent>
+            <MudStack AlignItems="AlignItems.Center" Spacing="2" Class="pa-8">
+                <MudIcon Icon="@Icons.Material.Filled.PeopleOutline" Size="Size.Large" Color="Color.Secondary" />
+                <MudText Typo="Typo.body1" Color="Color.Secondary">Ingen ansatte funnet</MudText>
+            </MudStack>
+        </NoRecordsContent>
+    </MudDataGrid>
+</MudPaper>
+
+@code {
+    private List<EmployeeListItemDto> _employees = [];
+    private List<EmployeeListItemDto> _filteredEmployees = [];
+    private string? _search;
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _employees = await EmployeeService.GetEmployeesAsync();
+        _filteredEmployees = _employees;
+        _loading = false;
+    }
+
+    private void OnSearchChanged(string value)
+    {
+        _search = value;
+        if (string.IsNullOrWhiteSpace(_search))
+        {
+            _filteredEmployees = _employees;
+        }
+        else
+        {
+            var term = _search.Trim().ToLowerInvariant();
+            _filteredEmployees = _employees
+                .Where(e => e.FullName.Contains(term, StringComparison.OrdinalIgnoreCase)
+                         || e.Email.Contains(term, StringComparison.OrdinalIgnoreCase)
+                         || e.Role.Contains(term, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+        }
+    }
+
+    private void OnRowClick(DataGridRowClickEventArgs<EmployeeListItemDto> args)
+    {
+        Navigation.NavigateTo($"/employees/{args.Item.PersonId}");
+    }
+
+    private async Task OpenInviteDialog()
+    {
+        var parameters = new DialogParameters<InviteEmployeeDialog>();
+        var options = new DialogOptions
+        {
+            CloseButton = true,
+            MaxWidth = MaxWidth.Small,
+            FullWidth = true
+        };
+        var dialog = await DialogService.ShowAsync<InviteEmployeeDialog>("Inviter ansatt", parameters, options);
+        var result = await dialog.Result;
+        if (result is not null && !result.Canceled)
+        {
+            _loading = true;
+            StateHasChanged();
+            _employees = await EmployeeService.GetEmployeesAsync();
+            _filteredEmployees = _employees;
+            _loading = false;
+        }
+    }
+}

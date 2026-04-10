@@ -1,0 +1,272 @@
+@page "/forefallende"
+@attribute [Authorize]
+@inject ForefallendeService ForefallendeService
+@inject NavigationManager Navigation
+@using Solodoc.Shared.Forefallende
+
+<PageTitle>Solodoc - Forefallende</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+        <MudText Typo="Typo.h5" Style="font-weight:700;">Forefallende</MudText>
+        @if (_overdueCount > 0)
+        {
+            <MudChip T="string" Size="Size.Small" Color="Color.Error">@_overdueCount over frist</MudChip>
+        }
+    </MudStack>
+    <MudButton Variant="Variant.Outlined" Color="Color.Default"
+               StartIcon="@Icons.Material.Filled.Tune"
+               Style="text-transform:none;border-radius:8px;">
+        Rediger visning
+    </MudButton>
+</MudStack>
+
+@* ── Filter chips ── *@
+<MudStack Row="true" Spacing="1" Class="mb-4" Style="flex-wrap:wrap;">
+    @foreach (var filter in _typeFilters)
+    {
+        var isActive = _activeFilters.Contains(filter.Key);
+        <MudChip T="string" Size="Size.Small"
+                 Variant="@(isActive ? Variant.Filled : Variant.Outlined)"
+                 Color="@(isActive ? Color.Primary : Color.Default)"
+                 OnClick="@(() => ToggleFilter(filter.Key))"
+                 Style="text-transform:none;border-radius:16px;">
+            @filter.Value
+        </MudChip>
+    }
+</MudStack>
+
+@if (_loading)
+{
+    <MudGrid Spacing="3">
+        @for (var i = 0; i < 4; i++)
+        {
+            <MudItem xs="12" sm="6" md="3">
+                <MudSkeleton Width="120px" Height="24px" Class="mb-2" />
+                <MudSkeleton Height="72px" Class="mb-2" />
+                <MudSkeleton Height="72px" />
+            </MudItem>
+        }
+    </MudGrid>
+}
+else
+{
+    <MudGrid Spacing="3">
+        @* Over frist *@
+        <MudItem xs="12" sm="6" md="3">
+            <MudText Typo="Typo.overline" Color="Color.Error" Class="mb-2" Style="font-weight:600;">
+                <MudIcon Icon="@Icons.Material.Filled.Warning" Size="Size.Small" Class="mr-1" />
+                Over frist (@FilteredItems("overdue").Count)
+            </MudText>
+            <MudStack Spacing="2">
+                @if (FilteredItems("overdue").Count == 0)
+                {
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Ingen elementer over frist</MudText>
+                }
+                @foreach (var item in FilteredItems("overdue"))
+                {
+                    <MudPaper Elevation="0" Class="kanban-card kanban-card--overdue pa-3 cursor-pointer"
+                              @onclick="@(() => NavigateToItem(item))">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudIcon Icon="@GetTypeIcon(item.Type)" Size="Size.Small" Color="Color.Error" />
+                            <MudText Typo="Typo.body2" Style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                                @item.Title
+                            </MudText>
+                        </MudStack>
+                        <MudText Typo="Typo.caption" Color="Color.Error">@FormatSubtitle(item)</MudText>
+                    </MudPaper>
+                }
+            </MudStack>
+        </MudItem>
+
+        @* Denne uken *@
+        <MudItem xs="12" sm="6" md="3">
+            <MudText Typo="Typo.overline" Color="Color.Warning" Class="mb-2" Style="font-weight:600;">
+                <MudIcon Icon="@Icons.Material.Filled.Schedule" Size="Size.Small" Class="mr-1" />
+                Denne uken (@FilteredItems("this-week").Count)
+            </MudText>
+            <MudStack Spacing="2">
+                @if (FilteredItems("this-week").Count == 0)
+                {
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Ingen elementer denne uken</MudText>
+                }
+                @foreach (var item in FilteredItems("this-week"))
+                {
+                    <MudPaper Elevation="0" Class="kanban-card kanban-card--thisweek pa-3 cursor-pointer"
+                              @onclick="@(() => NavigateToItem(item))">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudIcon Icon="@GetTypeIcon(item.Type)" Size="Size.Small" Color="Color.Warning" />
+                            <MudText Typo="Typo.body2" Style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                                @item.Title
+                            </MudText>
+                        </MudStack>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">@FormatSubtitle(item)</MudText>
+                    </MudPaper>
+                }
+            </MudStack>
+        </MudItem>
+
+        @* Denne maneden *@
+        <MudItem xs="12" sm="6" md="3">
+            <MudText Typo="Typo.overline" Color="Color.Default" Class="mb-2" Style="font-weight:600;">
+                <MudIcon Icon="@Icons.Material.Filled.CalendarMonth" Size="Size.Small" Class="mr-1" />
+                Denne måneden (@FilteredItems("this-month").Count)
+            </MudText>
+            <MudStack Spacing="2">
+                @if (FilteredItems("this-month").Count == 0)
+                {
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Ingen elementer denne måneden</MudText>
+                }
+                @foreach (var item in FilteredItems("this-month"))
+                {
+                    <MudPaper Elevation="0" Class="kanban-card kanban-card--thismonth pa-3 cursor-pointer"
+                              @onclick="@(() => NavigateToItem(item))">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudIcon Icon="@GetTypeIcon(item.Type)" Size="Size.Small" Color="Color.Default" />
+                            <MudText Typo="Typo.body2" Style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                                @item.Title
+                            </MudText>
+                        </MudStack>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">@FormatSubtitle(item)</MudText>
+                    </MudPaper>
+                }
+            </MudStack>
+        </MudItem>
+
+        @* Seinare *@
+        <MudItem xs="12" sm="6" md="3">
+            <MudText Typo="Typo.overline" Color="Color.Default" Class="mb-2" Style="font-weight:600;color:#9e9e9e;">
+                <MudIcon Icon="@Icons.Material.Filled.EventNote" Size="Size.Small" Class="mr-1" />
+                Seinare (@FilteredItems("later").Count)
+            </MudText>
+            <MudStack Spacing="2">
+                @if (FilteredItems("later").Count == 0)
+                {
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Ingen kommende elementer</MudText>
+                }
+                @foreach (var item in FilteredItems("later"))
+                {
+                    <MudPaper Elevation="0" Class="kanban-card kanban-card--later pa-3 cursor-pointer"
+                              @onclick="@(() => NavigateToItem(item))">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudIcon Icon="@GetTypeIcon(item.Type)" Size="Size.Small" Style="color:#9e9e9e;" />
+                            <MudText Typo="Typo.body2" Style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                                @item.Title
+                            </MudText>
+                        </MudStack>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">@FormatSubtitle(item)</MudText>
+                    </MudPaper>
+                }
+            </MudStack>
+        </MudItem>
+    </MudGrid>
+}
+
+<style>
+    .kanban-card {
+        border: 1px solid #E9ECEF;
+        border-radius: 12px;
+        border-left-width: 4px;
+    }
+    .kanban-card--overdue {
+        border-left-color: #F44336;
+    }
+    .kanban-card--thisweek {
+        border-left-color: #FF9800;
+    }
+    .kanban-card--thismonth {
+        border-left-color: #E9ECEF;
+    }
+    .kanban-card--later {
+        border-left-color: #BDBDBD;
+    }
+</style>
+
+@code {
+    private List<ForefallendItemDto> _items = [];
+    private bool _loading = true;
+    private int _overdueCount;
+    private HashSet<string> _activeFilters = [];
+
+    private static readonly Dictionary<string, string> _typeFilters = new()
+    {
+        ["deviation"] = "Avvik",
+        ["certification"] = "Sertifikat",
+        ["calendar"] = "Kalender",
+        ["safety-round"] = "Vernerunde",
+        ["hms-meeting"] = "HMS-møte"
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        _items = await ForefallendeService.GetItemsAsync();
+        _overdueCount = _items.Count(i => i.Column == "overdue");
+        _loading = false;
+    }
+
+    private List<ForefallendItemDto> FilteredItems(string column)
+    {
+        var columnItems = _items.Where(i => i.Column == column);
+        if (_activeFilters.Count > 0)
+            columnItems = columnItems.Where(i => _activeFilters.Contains(i.Type));
+        return columnItems.ToList();
+    }
+
+    private void ToggleFilter(string type)
+    {
+        if (!_activeFilters.Remove(type))
+            _activeFilters.Add(type);
+    }
+
+    private static string GetTypeIcon(string type) => type switch
+    {
+        "deviation" => Icons.Material.Filled.ReportProblem,
+        "certification" => Icons.Material.Filled.VerifiedUser,
+        "calendar" => Icons.Material.Filled.Event,
+        "safety-round" => Icons.Material.Filled.HealthAndSafety,
+        "hms-meeting" => Icons.Material.Filled.Groups,
+        _ => Icons.Material.Filled.Assignment
+    };
+
+    private static string FormatSubtitle(ForefallendItemDto item)
+    {
+        var typeLabel = item.Type switch
+        {
+            "deviation" => "Avvik",
+            "certification" => "Sertifikat",
+            "calendar" => "Kalender",
+            "safety-round" => "Vernerunde",
+            "hms-meeting" => "HMS-møte",
+            _ => ""
+        };
+
+        var diff = item.DueDate - DateTimeOffset.UtcNow;
+        var timeText = diff.TotalDays switch
+        {
+            < -1 => $"Forfalt {(int)Math.Abs(diff.TotalDays)} dager",
+            < 0 => "Forfalt i dag",
+            < 1 => "I dag",
+            < 2 => "I morgen",
+            < 7 => $"Om {(int)diff.TotalDays} dager",
+            _ => item.DueDate.LocalDateTime.ToString("dd.MM.yyyy")
+        };
+
+        return item.Subtitle is not null
+            ? $"{item.Subtitle} - {timeText}"
+            : $"{typeLabel} - {timeText}";
+    }
+
+    private void NavigateToItem(ForefallendItemDto item)
+    {
+        var url = item.Type switch
+        {
+            "deviation" => $"/deviations/{item.Id}",
+            "certification" => "/employees",
+            "calendar" => "/calendar",
+            "safety-round" => "/hms/safety-rounds",
+            "hms-meeting" => "/hms/meetings",
+            _ => "/forefallende"
+        };
+        Navigation.NavigateTo(url);
+    }
+}

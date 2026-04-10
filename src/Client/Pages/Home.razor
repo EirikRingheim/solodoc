@@ -1,0 +1,815 @@
+@page "/"
+@attribute [Authorize]
+@inject DashboardService DashboardService
+@inject HoursService HoursService
+@inject ProjectService ProjectService
+@inject NotificationService NotificationService
+@inject ForefallendeService ForefallendeService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+@inject AuthenticationStateProvider AuthStateProvider
+@inject ShiftService ShiftService
+@inject CheckInService CheckInService
+@inject JobService JobService
+@inject LocationService LocationService
+@implements IDisposable
+@using Solodoc.Shared.Dashboard
+@using Solodoc.Shared.Forefallende
+@using Solodoc.Shared.CheckIn
+@using Solodoc.Shared.Projects
+@using Solodoc.Shared.Locations
+@using System.Security.Claims
+
+<PageTitle>Solodoc - Dashboard</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4" Style="font-weight:700;">Dashboard</MudText>
+
+@* ── Quick action buttons ── *@
+<MudStack Row="true" Spacing="2" Class="mb-4" Style="flex-wrap:wrap;">
+    @if (_activeClock is not null)
+    {
+        <MudButton Variant="Variant.Filled"
+                   StartIcon="@Icons.Material.Filled.Timer"
+                   OnClick="HandleClockOut"
+                   Disabled="_clockActionInProgress"
+                   Style="border-radius:24px;text-transform:none;background:#E63946;color:#fff;min-width:140px;">
+            Stemple ut
+        </MudButton>
+    }
+    else
+    {
+        <MudButton Variant="Variant.Filled"
+                   StartIcon="@Icons.Material.Filled.PlayArrow"
+                   OnClick="OpenClockInDialog"
+                   Disabled="_clockActionInProgress"
+                   Style="border-radius:24px;text-transform:none;background:#4361EE;color:#fff;min-width:140px;">
+            Stemple inn
+        </MudButton>
+    }
+    @if (_checkInStatus?.IsCheckedIn == true)
+    {
+        <MudButton Variant="Variant.Filled"
+                   StartIcon="@Icons.Material.Filled.Logout"
+                   OnClick="HandleCheckOut"
+                   Style="border-radius:24px;text-transform:none;background:#059669;color:#fff;min-width:140px;">
+            Sjekk ut (@_checkInStatus.SiteName)
+        </MudButton>
+    }
+    else
+    {
+        <MudButton Variant="Variant.Outlined"
+                   StartIcon="@Icons.Material.Filled.Login"
+                   OnClick="OpenCheckInDialog"
+                   Style="border-radius:24px;text-transform:none;border-color:#059669;color:#059669;min-width:140px;">
+            Sjekk inn
+        </MudButton>
+    }
+    <MudButton Variant="Variant.Outlined"
+               StartIcon="@Icons.Material.Filled.Add"
+               Href="/jobs/create"
+               Style="border-radius:24px;text-transform:none;border-color:#4361EE;color:#4361EE;">
+        Nytt oppdrag
+    </MudButton>
+    <MudButton Variant="Variant.Outlined"
+               StartIcon="@Icons.Material.Filled.Warning"
+               Href="/deviations/create"
+               Style="border-radius:24px;text-transform:none;border-color:#E63946;color:#E63946;">
+        Avvik
+    </MudButton>
+    <MudButton Variant="Variant.Outlined"
+               StartIcon="@Icons.Material.Filled.Checklist"
+               Href="/checklists"
+               Style="border-radius:24px;text-transform:none;border-color:#6C757D;color:#6C757D;">
+        Sjekkliste
+    </MudButton>
+</MudStack>
+
+@* ── Active clock status ── *@
+@if (_activeClock is not null)
+{
+    <MudPaper Class="pa-4 mb-4" Elevation="0"
+              Style="border:1px solid #2D6A4F;border-radius:12px;background:#D8F3DC;">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+            <div>
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-1">
+                    <MudIcon Icon="@Icons.Material.Filled.AccessTime" Size="Size.Small" Style="color:#2D6A4F;" />
+                    <MudText Typo="Typo.subtitle1" Style="font-weight:600;color:#2D6A4F;">Innstemplet</MudText>
+                </MudStack>
+                <MudText Typo="Typo.h5" Style="font-weight:700;color:#1B4332;">@FormatElapsed()</MudText>
+                @if (!string.IsNullOrEmpty(_activeClock.ProjectName))
+                {
+                    <MudText Typo="Typo.body2" Style="color:#2D6A4F;">@_activeClock.ProjectName</MudText>
+                }
+            </div>
+            <MudButton Variant="Variant.Filled"
+                       StartIcon="@Icons.Material.Filled.Stop"
+                       OnClick="HandleClockOut"
+                       Disabled="_clockActionInProgress"
+                       Style="border-radius:24px;text-transform:none;background:#E63946;color:#fff;">
+                Stemple ut
+            </MudButton>
+        </MudStack>
+    </MudPaper>
+}
+else
+{
+    <MudPaper Class="pa-3 mb-4" Elevation="0"
+              Style="border:1px solid #e9ecef;border-radius:12px;">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Filled.AccessTime" Size="Size.Small" Color="Color.Secondary" />
+            <MudText Typo="Typo.body2" Color="Color.Secondary">Ikke innstemplet</MudText>
+            @if (_todayShift?.ShiftName is not null)
+            {
+                <span style="padding:2px 8px;border-radius:10px;font-size:0.7rem;font-weight:500;background:@(_todayShift.ShiftColor ?? "#E9ECEF");color:#FFF;">
+                    @_todayShift.ShiftName @(_todayShift.StartTime?.ToString("HH:mm"))–@(_todayShift.EndTime?.ToString("HH:mm"))
+                </span>
+            }
+        </MudStack>
+    </MudPaper>
+}
+
+@* ── Stat cards ── *@
+<MudGrid Spacing="3" Class="mb-4">
+    <MudItem xs="4">
+        <MudPaper Class="pa-4 cursor-pointer" Elevation="0"
+                  Style="border:1px solid #e9ecef;border-radius:12px;"
+                  @onclick="@(() => Navigation.NavigateTo("/projects"))">
+            @if (_loading)
+            {
+                <MudSkeleton Width="60px" Height="36px" />
+            }
+            else
+            {
+                <MudText Typo="Typo.h4" Style="font-weight:700;color:#4361EE;">@_summary.ActiveProjects</MudText>
+            }
+            <MudText Typo="Typo.caption" Color="Color.Secondary">Aktive prosjekter</MudText>
+        </MudPaper>
+    </MudItem>
+    <MudItem xs="4">
+        <MudPaper Class="pa-4 cursor-pointer" Elevation="0"
+                  Style="border:1px solid #e9ecef;border-radius:12px;"
+                  @onclick="@(() => Navigation.NavigateTo("/hours"))">
+            @if (_loading)
+            {
+                <MudSkeleton Width="80px" Height="36px" />
+            }
+            else
+            {
+                <MudText Typo="Typo.h4" Style="font-weight:700;color:#4361EE;">@($"{_summary.HoursThisMonth:0.#}t")</MudText>
+            }
+            <MudText Typo="Typo.caption" Color="Color.Secondary">Timer denne mnd</MudText>
+        </MudPaper>
+    </MudItem>
+    <MudItem xs="4">
+        <MudPaper Class="pa-4 cursor-pointer" Elevation="0"
+                  Style="border:1px solid #e9ecef;border-radius:12px;"
+                  @onclick="@(() => Navigation.NavigateTo("/deviations"))">
+            @if (_loading)
+            {
+                <MudSkeleton Width="40px" Height="36px" />
+            }
+            else
+            {
+                var deviationColor = _summary.OpenDeviations > 0 ? "#E63946" : "#212529";
+                <MudText Typo="Typo.h4" Style="@($"font-weight:700;color:{deviationColor};")">
+                    @(_summary.OpenDeviations > 0 ? _summary.OpenDeviations : 0)
+                </MudText>
+            }
+            <MudText Typo="Typo.caption" Color="Color.Secondary">Åpne avvik</MudText>
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+@* ── Weekly hours summary ── *@
+<MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+    Denne uken: @($"{_summary.HoursThisWeek:0.#}t") / 37,5t
+</MudText>
+
+@* ── Who's Where (Check-in Overview) ── *@
+@if (_siteOverview.Count > 0)
+{
+    <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;" Class="pa-4 mb-4">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-3">
+            <MudIcon Icon="@Icons.Material.Filled.PeopleAlt" Color="Color.Primary" />
+            <MudText Typo="Typo.subtitle1" Style="font-weight:600;">Pa jobb na</MudText>
+            <MudChip T="string" Size="Size.Small" Color="Color.Primary" Style="height:22px;">
+                @_siteOverview.Sum(s => s.PersonCount) personer
+            </MudChip>
+        </MudStack>
+
+        <MudStack Spacing="2">
+            @foreach (var site in _siteOverview)
+            {
+                <MudExpansionPanels>
+                    <MudExpansionPanel Style="border:1px solid #e9ecef;border-radius:8px;">
+                        <TitleContent>
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Style="width:100%;">
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                    <MudIcon Icon="@GetSiteIcon(site.SiteType)" Size="Size.Small" Color="Color.Secondary" />
+                                    <MudText Typo="Typo.body1" Style="font-weight:500;">@site.SiteName</MudText>
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">@site.SiteType</MudText>
+                                </MudStack>
+                                <MudChip T="string" Size="Size.Small" Color="Color.Success" Style="height:22px;">
+                                    @site.PersonCount
+                                </MudChip>
+                            </MudStack>
+                        </TitleContent>
+                        <ChildContent>
+                            <MudSimpleTable Dense="true" Hover="true">
+                                <tbody>
+                                    @foreach (var person in site.Persons)
+                                    {
+                                        <tr>
+                                            <td style="font-weight:500;">@person.FullName</td>
+                                            <td><MudChip T="string" Size="Size.Small" Style="height:20px;font-size:0.7rem;">@person.Role</MudChip></td>
+                                            <td style="font-size:0.8rem;color:#6B7280;">Siden @person.CheckInAt.ToLocalTime().ToString("HH:mm")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </MudSimpleTable>
+                        </ChildContent>
+                    </MudExpansionPanel>
+                </MudExpansionPanels>
+            }
+        </MudStack>
+    </MudPaper>
+}
+
+@* ── Announcements ── *@
+@if (_announcementsLoading)
+{
+    <MudPaper Class="pa-4 mb-4" Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;">
+        <MudSkeleton Width="200px" Height="24px" Class="mb-2" />
+        <MudSkeleton Height="48px" />
+    </MudPaper>
+}
+else if (_announcements.Count > 0)
+{
+    <MudPaper Class="pa-4 mb-4" Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-3">
+            <MudIcon Icon="@Icons.Material.Filled.Campaign" Size="Size.Small" Style="color:#4361EE;" />
+            <MudText Typo="Typo.h6" Style="font-weight:600;">Kunngjøringer</MudText>
+        </MudStack>
+
+        <MudStack Spacing="2">
+            @foreach (var ann in _announcements)
+            {
+                var borderColor = ann.UrgencyLevel switch
+                {
+                    3 => "#E63946",
+                    2 => "#F4A261",
+                    _ => "#4361EE"
+                };
+                <MudPaper Class="pa-3" Elevation="0"
+                          Style="@($"border-left:4px solid {borderColor};border-radius:8px;background:#FAFAFA;")">
+                    <MudStack Row="true" AlignItems="AlignItems.Start" Justify="Justify.SpaceBetween">
+                        <div style="flex:1;min-width:0;">
+                            <MudText Typo="Typo.subtitle2" Style="font-weight:600;">@ann.Title</MudText>
+                            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-1">@ann.Body</MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-1">
+                                @ann.CreatedBy — @ann.CreatedAt.LocalDateTime.ToString("dd.MM.yyyy HH:mm")
+                            </MudText>
+                        </div>
+                        @if (ann.RequiresAcknowledgment && !ann.HasAcknowledged)
+                        {
+                            <MudButton Variant="Variant.Outlined" Size="Size.Small"
+                                       OnClick="@(() => AcknowledgeAnnouncement(ann.Id))"
+                                       Style="text-transform:none;border-radius:8px;border-color:#4361EE;color:#4361EE;flex-shrink:0;">
+                                Bekreft
+                            </MudButton>
+                        }
+                    </MudStack>
+                </MudPaper>
+            }
+        </MudStack>
+    </MudPaper>
+}
+
+@* ── Forefallende (kanban preview) ── *@
+<MudPaper Class="pa-4 mb-4" Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Filled.Alarm" Size="Size.Small" Color="Color.Warning" />
+            <MudText Typo="Typo.h6" Style="font-weight:600;">Forefallende</MudText>
+            @if (_overdueCount > 0)
+            {
+                <MudChip T="string" Size="Size.Small" Color="Color.Error" Style="height:20px;">@_overdueCount</MudChip>
+            }
+        </MudStack>
+        <MudButton Variant="Variant.Outlined" Size="Size.Small" Href="/forefallende"
+                   Style="text-transform:none;border-radius:8px;">Se alle</MudButton>
+    </MudStack>
+
+    @if (_forefallendeLoading)
+    {
+        <MudGrid Spacing="3">
+            @for (var col = 0; col < 4; col++)
+            {
+                <MudItem xs="6" sm="3">
+                    <MudSkeleton Width="100px" Height="20px" Class="mb-2" />
+                    <MudSkeleton Height="60px" />
+                </MudItem>
+            }
+        </MudGrid>
+    }
+    else
+    {
+        <MudGrid Spacing="3">
+            @foreach (var col in _kanbanColumns)
+            {
+                var colItems = _forefallendeItems.Where(i => i.Column == col.Key).Take(3).ToList();
+                <MudItem xs="6" sm="3">
+                    <MudText Typo="Typo.overline" Color="@col.LabelColor"
+                             Style="@(col.Key == "later" ? "font-weight:600;color:#9e9e9e;" : "font-weight:600;")">@col.Label</MudText>
+                    @if (colItems.Count == 0)
+                    {
+                        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-2">Ingen</MudText>
+                    }
+                    else
+                    {
+                        <MudStack Spacing="2" Class="mt-1">
+                            @foreach (var item in colItems)
+                            {
+                                <MudPaper Class="pa-3" Elevation="0"
+                                          Style="@($"border-left:3px solid {col.BorderColor};border-radius:8px;background:{col.BgColor};")">
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                        <MudIcon Icon="@GetTypeIcon(item.Type)" Size="Size.Small"
+                                                 Style="@(col.Key == "later" ? "color:#9e9e9e;" : "")"
+                                                 Color="@(col.Key == "overdue" ? Color.Error : col.Key == "this-week" ? Color.Warning : Color.Default)" />
+                                        <MudText Typo="Typo.body2" Style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                                            @item.Title
+                                        </MudText>
+                                    </MudStack>
+                                    <MudText Typo="Typo.caption" Color="@(col.Key == "overdue" ? Color.Error : Color.Secondary)">
+                                        @(item.Subtitle ?? FormatDueDate(item.DueDate))
+                                    </MudText>
+                                </MudPaper>
+                            }
+                        </MudStack>
+                    }
+                </MudItem>
+            }
+        </MudGrid>
+    }
+</MudPaper>
+
+@* ── Bottom 3-column section ── *@
+<MudGrid Spacing="3">
+    @* Siste prosjekter *@
+    <MudItem xs="12" md="4">
+        <MudPaper Class="pa-4" Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;height:100%;">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                    <MudIcon Icon="@Icons.Material.Filled.Folder" Size="Size.Small" Style="color:#4361EE;" />
+                    <MudText Typo="Typo.subtitle1" Style="font-weight:600;">Siste prosjekter</MudText>
+                </MudStack>
+                <MudButton Variant="Variant.Text" Size="Size.Small" Href="/projects"
+                           Style="text-transform:none;color:#4361EE;">Se alle</MudButton>
+            </MudStack>
+
+            @if (_loading)
+            {
+                <MudSkeleton Height="24px" Class="mb-2" />
+                <MudSkeleton Height="24px" Class="mb-2" />
+                <MudSkeleton Height="24px" />
+            }
+            else if (_summary.RecentProjects.Count == 0)
+            {
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Ingen prosjekter ennå</MudText>
+            }
+            else
+            {
+                <MudStack Spacing="2">
+                    @foreach (var project in _summary.RecentProjects)
+                    {
+                        <MudPaper Class="pa-2 cursor-pointer" Elevation="0"
+                                  Style="border:1px solid #e9ecef;border-radius:8px;"
+                                  @onclick="@(() => Navigation.NavigateTo($"/projects/{project.Id}"))">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                                <MudText Typo="Typo.body2" Style="font-weight:500;">@project.Name</MudText>
+                                <MudChip T="string" Size="Size.Small"
+                                         Color="@GetProjectStatusColor(project.Status)"
+                                         Style="height:22px;">@project.Status</MudChip>
+                            </MudStack>
+                        </MudPaper>
+                    }
+                </MudStack>
+            }
+        </MudPaper>
+    </MudItem>
+
+    @* Åpne avvik *@
+    <MudItem xs="12" md="4">
+        <MudPaper Class="pa-4" Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;height:100%;">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                    <MudIcon Icon="@Icons.Material.Filled.Warning" Size="Size.Small" Color="Color.Error" />
+                    <MudText Typo="Typo.subtitle1" Style="font-weight:600;">Åpne avvik</MudText>
+                </MudStack>
+                <MudButton Variant="Variant.Text" Size="Size.Small" Href="/deviations"
+                           Style="text-transform:none;color:#4361EE;">Behandle</MudButton>
+            </MudStack>
+
+            @if (_loading)
+            {
+                <MudSkeleton Height="24px" Class="mb-2" />
+                <MudSkeleton Height="24px" Class="mb-2" />
+                <MudSkeleton Height="24px" />
+            }
+            else if (_summary.OpenDeviationsList.Count == 0)
+            {
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Ingen åpne avvik</MudText>
+            }
+            else
+            {
+                <MudStack Spacing="2">
+                    @foreach (var deviation in _summary.OpenDeviationsList)
+                    {
+                        <MudPaper Class="pa-2 cursor-pointer" Elevation="0"
+                                  Style="border:1px solid #e9ecef;border-radius:8px;"
+                                  @onclick="@(() => Navigation.NavigateTo($"/deviations/{deviation.Id}"))">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                                <div style="min-width:0;flex:1;">
+                                    <MudText Typo="Typo.body2" Style="font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                                        @deviation.Title
+                                    </MudText>
+                                    @if (!string.IsNullOrEmpty(deviation.ProjectName))
+                                    {
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary">@deviation.ProjectName</MudText>
+                                    }
+                                </div>
+                                <MudChip T="string" Size="Size.Small"
+                                         Color="@(deviation.Status == "Åpen" ? Color.Error : Color.Warning)"
+                                         Style="height:22px;flex-shrink:0;">@deviation.Status</MudChip>
+                            </MudStack>
+                        </MudPaper>
+                    }
+                </MudStack>
+            }
+        </MudPaper>
+    </MudItem>
+
+    @* Kalender *@
+    <MudItem xs="12" md="4">
+        <MudPaper Class="pa-4" Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;height:100%;">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                    <MudIcon Icon="@Icons.Material.Filled.CalendarMonth" Size="Size.Small" Color="Color.Warning" />
+                    <MudText Typo="Typo.subtitle1" Style="font-weight:600;">Kalender</MudText>
+                </MudStack>
+                <MudButton Variant="Variant.Text" Size="Size.Small" Href="/calendar"
+                           Style="text-transform:none;color:#4361EE;">Åpne</MudButton>
+            </MudStack>
+
+            <MudText Typo="Typo.body2" Color="Color.Secondary">Ingen kommende hendelser</MudText>
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+@* ── Check-in dialog ── *@
+<MudDialog @bind-Visible="_checkInDialogOpen" Options="_checkInDlgOpts">
+    <TitleContent><MudText Typo="Typo.h6">Sjekk inn</MudText></TitleContent>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudText Typo="Typo.body2" Color="Color.Secondary">Velg hvor du sjekker inn:</MudText>
+            <MudSelect T="string" @bind-Value="_checkInTargetKey" Label="Prosjekt / Oppdrag / Lokasjon" Variant="Variant.Outlined">
+                @foreach (var p in _checkInProjects)
+                {
+                    <MudSelectItem T="string" Value="@($"p:{p.Id}")">@p.Name (Prosjekt)</MudSelectItem>
+                }
+                @foreach (var j in _checkInJobs)
+                {
+                    <MudSelectItem T="string" Value="@($"j:{j.Id}")">@j.Description (Oppdrag)</MudSelectItem>
+                }
+                @foreach (var l in _checkInLocations)
+                {
+                    <MudSelectItem T="string" Value="@($"l:{l.Id}")">@l.Name (Lokasjon)</MudSelectItem>
+                }
+            </MudSelect>
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => _checkInDialogOpen = false" Style="text-transform:none;">Avbryt</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Success" OnClick="ExecuteCheckIn"
+                   Disabled="@(string.IsNullOrEmpty(_checkInTargetKey))"
+                   Style="text-transform:none;border-radius:8px;">Sjekk inn</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private DashboardSummaryDto _summary = new(0, 0m, 0, [], []);
+    private ActiveClockDto? _activeClock;
+    private TodayShiftDto? _todayShift;
+    private List<SiteOverviewDto> _siteOverview = [];
+    private List<AnnouncementDto> _announcements = [];
+    private List<ForefallendItemDto> _forefallendeItems = [];
+    private bool _loading = true;
+    private bool _announcementsLoading = true;
+    private bool _forefallendeLoading = true;
+    private bool _clockActionInProgress;
+    private int _overdueCount;
+    private string _userRole = "field-worker";
+    private System.Threading.Timer? _elapsedTimer;
+
+    // Check-in state
+    private MyCheckInStatusDto? _checkInStatus;
+    private bool _checkInDialogOpen;
+    private string? _checkInTargetKey;
+    private List<ProjectListItemDto> _checkInProjects = [];
+    private List<JobListItemDto> _checkInJobs = [];
+    private List<LocationListItemDto> _checkInLocations = [];
+    private static readonly DialogOptions _checkInDlgOpts = new()
+    {
+        MaxWidth = MaxWidth.Small,
+        FullWidth = true,
+        CloseOnEscapeKey = true
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Determine user role
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var roleClaim = authState.User.FindFirst("role")?.Value
+                        ?? authState.User.FindFirst(ClaimTypes.Role)?.Value;
+        if (!string.IsNullOrEmpty(roleClaim))
+        {
+            _userRole = roleClaim.ToLowerInvariant() switch
+            {
+                "tenantadmin" or "admin" or "super-admin" => "admin",
+                "projectleader" or "prosjektleder" => "project-leader",
+                _ => "field-worker"
+            };
+        }
+
+        var summaryTask = DashboardService.GetSummaryAsync();
+        var clockTask = HoursService.GetActiveClockAsync();
+        var shiftTask = ShiftService.GetTodayShiftAsync();
+        var announcementsTask = NotificationService.GetAnnouncementsAsync();
+        var forefallendeTask = ForefallendeService.GetItemsAsync();
+
+        try { await Task.WhenAll(summaryTask, clockTask, shiftTask, announcementsTask, forefallendeTask); } catch { }
+
+        _summary = summaryTask.IsCompletedSuccessfully ? summaryTask.Result : null;
+        _activeClock = clockTask.IsCompletedSuccessfully ? clockTask.Result : null;
+        _todayShift = shiftTask.IsCompletedSuccessfully ? shiftTask.Result : null;
+        _announcements = announcementsTask.IsCompletedSuccessfully ? announcementsTask.Result : [];
+
+        // Load check-in status + overview (non-blocking)
+        try
+        {
+            var statusTask = CheckInService.GetMyStatusAsync();
+            var sitesTask = CheckInService.GetAllSitesAsync();
+            await Task.WhenAll(statusTask, sitesTask);
+            _checkInStatus = statusTask.Result;
+            _siteOverview = sitesTask.Result;
+        }
+        catch { }
+        _forefallendeItems = forefallendeTask.Result;
+        _overdueCount = _forefallendeItems.Count(i => i.Column == "overdue");
+
+        _loading = false;
+        _announcementsLoading = false;
+        _forefallendeLoading = false;
+
+        if (_activeClock is not null)
+        {
+            StartElapsedTimer();
+        }
+    }
+
+    private record KanbanColumnDef(string Key, string Label, Color LabelColor, string BorderColor, string BgColor);
+
+    private static readonly KanbanColumnDef[] _kanbanColumns =
+    [
+        new("overdue", "OVER FRIST", Color.Error, "#E63946", "#FFF5F5"),
+        new("this-week", "DENNE UKEN", Color.Warning, "#F4A261", "#FFF8F0"),
+        new("this-month", "DENNE MÅNEDEN", Color.Default, "#E9ECEF", "#FAFAFA"),
+        new("later", "SEINARE", Color.Default, "#ADB5BD", "#F8F9FA")
+    ];
+
+    private static string GetSiteIcon(string siteType) => siteType switch
+    {
+        "Prosjekt" => Icons.Material.Filled.Folder,
+        "Oppdrag" => Icons.Material.Filled.Build,
+        "Lokasjon" => Icons.Material.Filled.LocationOn,
+        _ => Icons.Material.Filled.Place
+    };
+
+    private static string GetTypeIcon(string type) => type switch
+    {
+        "deviation" => Icons.Material.Filled.ReportProblem,
+        "certification" => Icons.Material.Filled.VerifiedUser,
+        "calendar" => Icons.Material.Filled.Event,
+        "safety-round" => Icons.Material.Filled.HealthAndSafety,
+        "hms-meeting" => Icons.Material.Filled.Groups,
+        _ => Icons.Material.Filled.Assignment
+    };
+
+    private static string FormatDueDate(DateTimeOffset dueDate)
+    {
+        var diff = dueDate - DateTimeOffset.UtcNow;
+        if (diff.TotalDays < -1)
+            return $"Forfalt {(int)Math.Abs(diff.TotalDays)} dager";
+        if (diff.TotalDays < 0)
+            return "Forfalt i dag";
+        if (diff.TotalDays < 1)
+            return "I dag";
+        if (diff.TotalDays < 2)
+            return "I morgen";
+        if (diff.TotalDays < 7)
+            return $"{(int)diff.TotalDays} dager";
+        return dueDate.LocalDateTime.ToString("dd.MM.yyyy");
+    }
+
+    private void StartElapsedTimer()
+    {
+        _elapsedTimer?.Dispose();
+        _elapsedTimer = new System.Threading.Timer(_ =>
+        {
+            InvokeAsync(StateHasChanged);
+        }, null, TimeSpan.Zero, TimeSpan.FromSeconds(1));
+    }
+
+    private string FormatElapsed()
+    {
+        if (_activeClock is null) return "--:--:--";
+        var elapsed = DateTimeOffset.UtcNow - _activeClock.StartTime;
+        return $"{(int)elapsed.TotalHours:D2}:{elapsed.Minutes:D2}:{elapsed.Seconds:D2}";
+    }
+
+    private async Task OpenClockInDialog()
+    {
+        var parameters = new DialogParameters<ClockInDialog>();
+        var options = new DialogOptions
+        {
+            MaxWidth = MaxWidth.Small,
+            FullWidth = true,
+            CloseOnEscapeKey = true
+        };
+
+        var dialog = await DialogService.ShowAsync<ClockInDialog>("Stemple inn", parameters, options);
+        var result = await dialog.Result;
+
+        if (result is not null && !result.Canceled && result.Data is ClockInRequest request)
+        {
+            _clockActionInProgress = true;
+            StateHasChanged();
+
+            var id = await HoursService.ClockInAsync(request);
+            if (id.HasValue)
+            {
+                _activeClock = await HoursService.GetActiveClockAsync();
+                StartElapsedTimer();
+                Snackbar.Add("Innstemplet!", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add("Kunne ikke stemple inn. Prøv igjen.", Severity.Error);
+            }
+
+            _clockActionInProgress = false;
+        }
+    }
+
+    private async Task HandleClockOut()
+    {
+        _clockActionInProgress = true;
+        StateHasChanged();
+
+        try
+        {
+            var result = await HoursService.ClockOutAsync(new ClockOutRequest(null, null));
+            if (result is not null)
+            {
+                _activeClock = null;
+                _elapsedTimer?.Dispose();
+                _elapsedTimer = null;
+
+                // Refresh summary to update hours
+                try { _summary = await DashboardService.GetSummaryAsync() ?? _summary; } catch { }
+
+                Snackbar.Add($"Utstemplet! {result.Hours:0.#} timer registrert.", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add("Kunne ikke stemple ut. Prøv igjen.", Severity.Error);
+            }
+        }
+        catch
+        {
+            Snackbar.Add("Feil ved utstempling.", Severity.Error);
+        }
+        finally
+        {
+            _clockActionInProgress = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task AcknowledgeAnnouncement(Guid id)
+    {
+        await NotificationService.AcknowledgeAnnouncementAsync(id);
+        var ann = _announcements.FirstOrDefault(a => a.Id == id);
+        if (ann is not null)
+        {
+            var index = _announcements.IndexOf(ann);
+            _announcements[index] = ann with { HasAcknowledged = true };
+        }
+        Snackbar.Add("Kunngjøring bekreftet.", Severity.Info);
+    }
+
+    private static Color GetProjectStatusColor(string status) => status.ToLowerInvariant() switch
+    {
+        "aktiv" => Color.Success,
+        "planlagt" => Color.Info,
+        "ferdig" or "avsluttet" => Color.Default,
+        _ => Color.Default
+    };
+
+    private async Task OpenCheckInDialog()
+    {
+        _checkInTargetKey = null;
+
+        // Load projects, jobs, locations in parallel
+        var projectsTask = ProjectService.GetActiveProjectsAsync();
+        var jobsTask = JobService.GetJobsAsync(1, 50, null, null, false);
+        var locationsTask = LocationService.GetLocationsAsync();
+
+        try { await Task.WhenAll(projectsTask, jobsTask, locationsTask); } catch { }
+
+        _checkInProjects = projectsTask.IsCompletedSuccessfully ? projectsTask.Result : [];
+        _checkInJobs = jobsTask.IsCompletedSuccessfully ? jobsTask.Result.Items : [];
+        _checkInLocations = locationsTask.IsCompletedSuccessfully ? locationsTask.Result : [];
+
+        _checkInDialogOpen = true;
+    }
+
+    private async Task ExecuteCheckIn()
+    {
+        if (string.IsNullOrEmpty(_checkInTargetKey)) return;
+
+        try
+        {
+            var parts = _checkInTargetKey.Split(':', 2);
+            var type = parts[0];
+            var id = Guid.Parse(parts[1]);
+
+            var request = new CheckInRequest(
+                ProjectId: type == "p" ? id : null,
+                JobId: type == "j" ? id : null,
+                LocationId: type == "l" ? id : null,
+                Source: "Manual",
+                Latitude: null,
+                Longitude: null);
+
+            var ok = await CheckInService.CheckInAsync(request);
+            _checkInDialogOpen = false;
+
+            if (ok)
+            {
+                _checkInStatus = await CheckInService.GetMyStatusAsync();
+                _siteOverview = await CheckInService.GetAllSitesAsync();
+                Snackbar.Add("Sjekket inn!", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add("Kunne ikke sjekke inn. Prov igjen.", Severity.Error);
+            }
+        }
+        catch
+        {
+            _checkInDialogOpen = false;
+            Snackbar.Add("Feil ved innsjekking.", Severity.Error);
+        }
+        StateHasChanged();
+    }
+
+    private async Task HandleCheckOut()
+    {
+        try
+        {
+            var ok = await CheckInService.CheckOutAsync(new CheckOutRequest(null, null));
+            if (ok)
+            {
+                _checkInStatus = await CheckInService.GetMyStatusAsync();
+                _siteOverview = await CheckInService.GetAllSitesAsync();
+                Snackbar.Add("Sjekket ut!", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add("Kunne ikke sjekke ut. Prov igjen.", Severity.Error);
+            }
+        }
+        catch
+        {
+            Snackbar.Add("Feil ved utsjekking.", Severity.Error);
+        }
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        _elapsedTimer?.Dispose();
+    }
+}

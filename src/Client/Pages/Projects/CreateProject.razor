@@ -1,0 +1,143 @@
+@page "/projects/new"
+@attribute [Authorize]
+@inject ProjectService ProjectService
+@inject ContactService ContactService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<PageTitle>Solodoc - Nytt prosjekt</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-4">
+    <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Href="/projects" />
+    <MudText Typo="Typo.h5">Nytt prosjekt</MudText>
+</MudStack>
+
+<MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-5">
+    <MudForm @ref="_form">
+        <MudStack Spacing="3">
+            <MudTextField T="string" @bind-Value="_name" Label="Prosjektnavn"
+                          Required="true" RequiredError="Prosjektnavn er pakrevd"
+                          Variant="Variant.Outlined" />
+
+            <MudTextField T="string" @bind-Value="_description" Label="Beskrivelse"
+                          Variant="Variant.Outlined" Lines="3" />
+
+            @* Customer selection *@
+            <MudSelect T="Guid?" @bind-Value="_customerId" Label="Kunde (valgfritt)"
+                       Variant="Variant.Outlined" Clearable="true"
+                       AnchorOrigin="Origin.BottomCenter">
+                @foreach (var contact in _contacts.Where(c => c.Type is "Bedrift" or "Privat"))
+                {
+                    <MudSelectItem T="Guid?" Value="@((Guid?)contact.Id)">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <span>@contact.Name</span>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">@contact.Type</MudText>
+                        </MudStack>
+                    </MudSelectItem>
+                }
+            </MudSelect>
+
+            @* Or type client name manually *@
+            @if (!_customerId.HasValue)
+            {
+                <MudTextField T="string" @bind-Value="_clientName" Label="Kundenavn (fritekst)"
+                              Variant="Variant.Outlined"
+                              HelperText="Brukes hvis kunden ikke finnes i kontaktregisteret" />
+            }
+
+            <MudTextField T="string" @bind-Value="_address" Label="Adresse"
+                          Variant="Variant.Outlined" />
+
+            <MudGrid Spacing="3">
+                <MudItem xs="12" sm="6">
+                    <MudDatePicker @bind-Date="_startDate" Label="Startdato"
+                                   Variant="Variant.Outlined" DateFormat="dd.MM.yyyy"
+                                   Placeholder="Velg dato" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudDatePicker @bind-Date="_plannedEndDate" Label="Planlagt sluttdato"
+                                   Variant="Variant.Outlined" DateFormat="dd.MM.yyyy"
+                                   Placeholder="Velg dato" />
+                </MudItem>
+            </MudGrid>
+
+            <MudNumericField T="decimal?" @bind-Value="_estimatedHours" Label="Estimerte timer"
+                             Variant="Variant.Outlined" Min="0" />
+
+            <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="2" Class="mt-2">
+                <MudButton Variant="Variant.Text" Color="Color.Default"
+                           Href="/projects"
+                           Style="text-transform:none;border-radius:8px;">
+                    Avbryt
+                </MudButton>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                           OnClick="Submit" Disabled="_submitting"
+                           Style="text-transform:none;border-radius:8px;min-height:48px;">
+                    @if (_submitting)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                    }
+                    Opprett prosjekt
+                </MudButton>
+            </MudStack>
+        </MudStack>
+    </MudForm>
+</MudPaper>
+
+@code {
+    private MudForm? _form;
+    private List<Solodoc.Shared.Contacts.ContactListItemDto> _contacts = [];
+    private bool _submitting;
+
+    private string _name = string.Empty;
+    private string? _description;
+    private Guid? _customerId;
+    private string? _clientName;
+    private string? _address;
+    private DateTime? _startDate;
+    private DateTime? _plannedEndDate;
+    private decimal? _estimatedHours;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _contacts = await ContactService.GetContactsAsync();
+    }
+
+    private async Task Submit()
+    {
+        if (_form is not null)
+            await _form.ValidateAsync();
+
+        if (_form?.IsValid != true)
+            return;
+
+        _submitting = true;
+
+        var selectedClientName = _customerId.HasValue
+            ? _contacts.FirstOrDefault(c => c.Id == _customerId.Value)?.Name
+            : _clientName;
+
+        var request = new CreateProjectRequest(
+            _name,
+            string.IsNullOrWhiteSpace(_description) ? null : _description,
+            _customerId,
+            string.IsNullOrWhiteSpace(selectedClientName) ? null : selectedClientName,
+            string.IsNullOrWhiteSpace(_address) ? null : _address,
+            _startDate.HasValue ? DateOnly.FromDateTime(_startDate.Value) : null,
+            _plannedEndDate.HasValue ? DateOnly.FromDateTime(_plannedEndDate.Value) : null,
+            _estimatedHours);
+
+        var id = await ProjectService.CreateProjectAsync(request);
+        _submitting = false;
+
+        if (id.HasValue)
+        {
+            Snackbar.Add("Prosjekt opprettet", Severity.Success);
+            Navigation.NavigateTo($"/projects/{id.Value}");
+        }
+        else
+        {
+            Snackbar.Add("Kunne ikke opprette prosjekt", Severity.Error);
+        }
+    }
+}

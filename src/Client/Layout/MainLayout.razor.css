@@ -1,0 +1,60 @@
+.main-content {
+    padding-bottom: 72px;
+    min-height: 100vh;
+}
+
+@media (min-width: 960px) {
+    .main-content {
+        padding-bottom: 0;
+    }
+}
+
+::deep .sidebar-drawer {
+    border-right: 1px solid #e9ecef;
+}
+
+::deep .sidebar-brand {
+    min-height: 64px;
+}
+
+::deep .nav-group-label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    color: #868e96;
+    padding: 4px 16px;
+    margin-top: 4px;
+}
+
+::deep .bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 1100;
+    background: white;
+    border-top: 1px solid #e0e0e0;
+}
+
+::deep .bottom-nav-inner {
+    width: 100%;
+    padding: 6px 0;
+    min-height: 56px;
+}
+
+::deep .bottom-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 56px;
+    padding: 4px 8px;
+    color: #6c757d;
+    text-decoration: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+}
+
+::deep .bottom-nav-item:hover,
+::deep .bottom-nav-item:active {
+    color: var(--mud-palette-primary);
+}

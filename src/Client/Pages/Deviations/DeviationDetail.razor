@@ -1,0 +1,467 @@
+@page "/deviations/{Id:guid}"
+@attribute [Authorize]
+@inject DeviationService DeviationService
+@inject EmployeeService EmployeeService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<PageTitle>Solodoc - @(_deviation?.Title ?? "Avvik")</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-4">
+    <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Href="/deviations" />
+    <MudText Typo="Typo.h5" Style="word-break:break-word;">@(_deviation?.Title ?? "Laster...")</MudText>
+</MudStack>
+
+@if (_loading)
+{
+    <MudProgressLinear Color="Color.Primary" Indeterminate="true" />
+}
+else if (_deviation is null)
+{
+    <MudAlert Severity="Severity.Warning">Avviket ble ikke funnet.</MudAlert>
+}
+else
+{
+    @* Header card with status, badges, and actions *@
+    <MudPaper Class="pa-5 mb-3" Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween"
+                   Style="flex-wrap:wrap;gap:8px;" Class="mb-4">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Style="flex-wrap:wrap;">
+                @{
+                    var statusCss = _deviation.Status switch
+                    {
+                        "Åpen" => "status-badge status-badge--open",
+                        "Under behandling" => "status-badge status-badge--inprogress",
+                        _ => "status-badge status-badge--closed"
+                    };
+                    var sevColor = _deviation.Severity switch
+                    {
+                        "Høy" => Color.Error,
+                        "Middels" => Color.Warning,
+                        _ => Color.Success
+                    };
+                }
+                <span class="@statusCss">@_deviation.Status</span>
+                <MudChip T="string" Variant="Variant.Outlined" Color="@sevColor"
+                         Size="Size.Small">@_deviation.Severity</MudChip>
+                @if (!string.IsNullOrWhiteSpace(_deviation.Category))
+                {
+                    <MudChip T="string" Variant="Variant.Outlined" Color="Color.Info"
+                             Size="Size.Small">@_deviation.Category</MudChip>
+                }
+                @if (_deviation.ProjectId.HasValue)
+                {
+                    <MudLink Href="@($"/projects/{_deviation.ProjectId}")" Typo="Typo.body2"
+                             Style="font-weight:500;">
+                        @_deviation.ProjectName
+                    </MudLink>
+                }
+                else
+                {
+                    <MudText Typo="Typo.body2" Style="font-weight:500;color:#6c757d;">Generelt</MudText>
+                }
+            </MudStack>
+            <MudStack Row="true" Spacing="1">
+                @if (_deviation.Status == "Åpen")
+                {
+                    <MudButton Variant="Variant.Filled" Color="Color.Warning" Size="Size.Small"
+                               StartIcon="@Icons.Material.Filled.AssignmentInd"
+                               Style="text-transform:none;border-radius:8px;"
+                               OnClick="OnAssignAndStart"
+                               Disabled="_updating">Tildel og start behandling</MudButton>
+                }
+                else if (_deviation.Status == "Under behandling")
+                {
+                    <MudButton Variant="Variant.Filled" Color="Color.Success" Size="Size.Small"
+                               StartIcon="@Icons.Material.Filled.CheckCircle"
+                               Style="text-transform:none;border-radius:8px;"
+                               OnClick="OnClose"
+                               Disabled="_updating">Lukk avvik</MudButton>
+                }
+                else if (_deviation.Status == "Lukket")
+                {
+                    <MudButton Variant="Variant.Outlined" Color="Color.Warning" Size="Size.Small"
+                               StartIcon="@Icons.Material.Filled.Replay"
+                               Style="text-transform:none;border-radius:8px;"
+                               OnClick="OnReopen"
+                               Disabled="_updating">Gjenåpne</MudButton>
+                }
+            </MudStack>
+        </MudStack>
+
+        @* Description *@
+        <MudText Typo="Typo.subtitle2" Color="Color.Secondary" Class="mb-1">Beskrivelse</MudText>
+        @if (!string.IsNullOrWhiteSpace(_deviation.Description))
+        {
+            <MudText Typo="Typo.body1" Class="mb-4" Style="white-space:pre-wrap;">@_deviation.Description</MudText>
+        }
+        else
+        {
+            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">Ingen beskrivelse</MudText>
+        }
+    </MudPaper>
+
+    @* Corrective Action section — visible when Under behandling or Lukket *@
+    @if (_deviation.Status is "Under behandling" or "Lukket" &&
+         (!string.IsNullOrWhiteSpace(_deviation.CorrectiveAction) ||
+          _deviation.CorrectiveActionDeadline.HasValue ||
+          _deviation.CorrectiveActionCompletedAt.HasValue ||
+          !string.IsNullOrWhiteSpace(_deviation.AssignedTo)))
+    {
+        <MudPaper Class="pa-5 mb-3" Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-3">
+                <MudIcon Icon="@Icons.Material.Filled.Build" Size="Size.Small" Color="Color.Secondary" />
+                <MudText Typo="Typo.subtitle2">Korrigerende tiltak</MudText>
+            </MudStack>
+            <MudGrid Spacing="3">
+                @if (!string.IsNullOrWhiteSpace(_deviation.CorrectiveAction))
+                {
+                    <MudItem xs="12">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Beskrivelse av tiltak</MudText>
+                        <MudText Typo="Typo.body2" Style="white-space:pre-wrap;">@_deviation.CorrectiveAction</MudText>
+                    </MudItem>
+                }
+                @if (!string.IsNullOrWhiteSpace(_deviation.AssignedTo))
+                {
+                    <MudItem xs="6" sm="4">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Ansvarlig</MudText>
+                        <MudText Typo="Typo.body2" Style="font-weight:500;">@_deviation.AssignedTo</MudText>
+                    </MudItem>
+                }
+                @if (_deviation.CorrectiveActionDeadline.HasValue)
+                {
+                    <MudItem xs="6" sm="4">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Frist</MudText>
+                        <MudText Typo="Typo.body2" Style="font-weight:500;">@_deviation.CorrectiveActionDeadline.Value.ToLocalTime().ToString("dd.MM.yyyy")</MudText>
+                    </MudItem>
+                }
+                @if (_deviation.CorrectiveActionCompletedAt.HasValue)
+                {
+                    <MudItem xs="6" sm="4">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Fullført</MudText>
+                        <MudText Typo="Typo.body2" Style="font-weight:500;">@_deviation.CorrectiveActionCompletedAt.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</MudText>
+                    </MudItem>
+                }
+            </MudGrid>
+        </MudPaper>
+    }
+
+    @* Details grid *@
+    <MudPaper Class="pa-5 mb-3" Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;">
+        <MudText Typo="Typo.subtitle2" Color="Color.Secondary" Class="mb-2">Detaljer</MudText>
+        <MudGrid Spacing="3">
+            <MudItem xs="6" sm="4">
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Rapportert av</MudText>
+                <MudText Typo="Typo.body2" Style="font-weight:500;">@(_deviation.ReportedBy ?? "—")</MudText>
+            </MudItem>
+            <MudItem xs="6" sm="4">
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Tildelt</MudText>
+                <MudText Typo="Typo.body2" Style="font-weight:500;">@(_deviation.AssignedTo ?? "Ikke tildelt")</MudText>
+            </MudItem>
+            <MudItem xs="6" sm="4">
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Prosjekt</MudText>
+                @if (_deviation.ProjectId.HasValue)
+                {
+                    <MudLink Href="@($"/projects/{_deviation.ProjectId}")" Typo="Typo.body2" Style="font-weight:500;">
+                        @_deviation.ProjectName
+                    </MudLink>
+                }
+                else
+                {
+                    <MudText Typo="Typo.body2" Style="font-weight:500;">Generelt</MudText>
+                }
+            </MudItem>
+            <MudItem xs="6" sm="4">
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Opprettet</MudText>
+                <MudText Typo="Typo.body2" Style="font-weight:500;">@_deviation.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</MudText>
+            </MudItem>
+            @if (_deviation.ClosedAt.HasValue)
+            {
+                <MudItem xs="6" sm="4">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Lukket</MudText>
+                    <MudText Typo="Typo.body2" Style="font-weight:500;">@_deviation.ClosedAt.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</MudText>
+                </MudItem>
+            }
+        </MudGrid>
+    </MudPaper>
+
+    @* Comments section *@
+    <MudPaper Class="pa-5 mb-3" Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-3">
+            <MudIcon Icon="@Icons.Material.Filled.Comment" Size="Size.Small" Color="Color.Secondary" />
+            <MudText Typo="Typo.subtitle2">Kommentarer</MudText>
+        </MudStack>
+
+        @if (_deviation.Comments.Count > 0)
+        {
+            <MudStack Spacing="2" Class="mb-3">
+                @foreach (var comment in _deviation.Comments)
+                {
+                    <MudPaper Class="pa-3" Elevation="0" Style="background:#f8f9fa;border-radius:8px;">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-1">
+                            <MudText Typo="Typo.body2" Style="font-weight:600;">@comment.AuthorName</MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">@comment.PostedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</MudText>
+                        </MudStack>
+                        <MudText Typo="Typo.body2" Style="white-space:pre-wrap;">@comment.Text</MudText>
+                    </MudPaper>
+                }
+            </MudStack>
+        }
+        else
+        {
+            <MudStack AlignItems="AlignItems.Center" Spacing="1" Class="pa-4 mb-3">
+                <MudIcon Icon="@Icons.Material.Filled.ChatBubbleOutline" Size="Size.Large" Color="Color.Default" Style="opacity:0.3;" />
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Ingen kommentarer enda</MudText>
+            </MudStack>
+        }
+
+        @* Add comment *@
+        <MudStack Row="true" Spacing="2" AlignItems="AlignItems.End">
+            <MudTextField @bind-Value="_newComment" Label="Legg til kommentar" Variant="Variant.Outlined"
+                          Lines="2" Style="flex:1;" Placeholder="Skriv en kommentar..." />
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                       StartIcon="@Icons.Material.Filled.Send"
+                       Style="text-transform:none;border-radius:8px;height:40px;"
+                       OnClick="OnAddComment"
+                       Disabled="@(string.IsNullOrWhiteSpace(_newComment) || _addingComment)">
+                Send
+            </MudButton>
+        </MudStack>
+    </MudPaper>
+
+    @* History / Timeline section *@
+    <MudPaper Class="pa-5" Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-3">
+            <MudIcon Icon="@Icons.Material.Filled.History" Size="Size.Small" Color="Color.Secondary" />
+            <MudText Typo="Typo.subtitle2">Historikk</MudText>
+        </MudStack>
+
+        @if (_deviation.Comments.Count > 0)
+        {
+            <MudTimeline TimelinePosition="TimelinePosition.Start">
+                <MudTimelineItem Color="Color.Primary" Size="Size.Small">
+                    <MudText Typo="Typo.body2" Style="font-weight:500;">Avvik opprettet</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                        @_deviation.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm") — @_deviation.ReportedBy
+                    </MudText>
+                </MudTimelineItem>
+                @foreach (var comment in _deviation.Comments)
+                {
+                    <MudTimelineItem Color="Color.Default" Size="Size.Small">
+                        <MudText Typo="Typo.body2" Style="font-weight:500;">Kommentar av @comment.AuthorName</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">@comment.PostedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</MudText>
+                        <MudText Typo="Typo.body2" Class="mt-1">@comment.Text</MudText>
+                    </MudTimelineItem>
+                }
+                @if (_deviation.ClosedAt.HasValue)
+                {
+                    <MudTimelineItem Color="Color.Success" Size="Size.Small">
+                        <MudText Typo="Typo.body2" Style="font-weight:500;">Avvik lukket</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">@_deviation.ClosedAt.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</MudText>
+                    </MudTimelineItem>
+                }
+            </MudTimeline>
+        }
+        else
+        {
+            <MudTimeline TimelinePosition="TimelinePosition.Start">
+                <MudTimelineItem Color="Color.Primary" Size="Size.Small">
+                    <MudText Typo="Typo.body2" Style="font-weight:500;">Avvik opprettet</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                        @_deviation.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm") — @_deviation.ReportedBy
+                    </MudText>
+                </MudTimelineItem>
+                @if (_deviation.ClosedAt.HasValue)
+                {
+                    <MudTimelineItem Color="Color.Success" Size="Size.Small">
+                        <MudText Typo="Typo.body2" Style="font-weight:500;">Avvik lukket</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">@_deviation.ClosedAt.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm")</MudText>
+                    </MudTimelineItem>
+                }
+            </MudTimeline>
+        }
+    </MudPaper>
+}
+
+@* Assign Dialog *@
+<MudDialog @bind-Visible="_showAssignDialog" Options="_dialogOptions">
+    <TitleContent>
+        <MudText Typo="Typo.h6">Tildel og start behandling</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudSelect @bind-Value="_assignToId" Label="Tildel til" Variant="Variant.Outlined"
+                       Required="true" RequiredError="Velg en person">
+                @foreach (var emp in _employees)
+                {
+                    <MudSelectItem Value="@((Guid?)emp.PersonId)">@emp.FullName</MudSelectItem>
+                }
+            </MudSelect>
+            <MudDatePicker @bind-Date="_assignDeadline" Label="Frist for korrigerende tiltak"
+                           Variant="Variant.Outlined" Clearable="true"
+                           DateFormat="dd.MM.yyyy" Placeholder="Velg frist (valgfritt)" />
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => _showAssignDialog = false" Style="text-transform:none;">Avbryt</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Warning"
+                   Style="text-transform:none;border-radius:8px;"
+                   OnClick="SubmitAssign"
+                   Disabled="@(!_assignToId.HasValue || _updating)">
+            Tildel
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@* Close Dialog *@
+<MudDialog @bind-Visible="_showCloseDialog" Options="_dialogOptions">
+    <TitleContent>
+        <MudText Typo="Typo.h6">Lukk avvik</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudTextField @bind-Value="_correctiveAction" Label="Korrigerende tiltak"
+                          Variant="Variant.Outlined" Lines="5"
+                          Required="true" RequiredError="Beskriv korrigerende tiltak"
+                          Placeholder="Beskriv hva som ble gjort for å rette opp avviket..." />
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => _showCloseDialog = false" Style="text-transform:none;">Avbryt</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Success"
+                   Style="text-transform:none;border-radius:8px;"
+                   OnClick="SubmitClose"
+                   Disabled="@(string.IsNullOrWhiteSpace(_correctiveAction) || _updating)">
+            Lukk avvik
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private DeviationDetailDto? _deviation;
+    private bool _loading = true;
+    private bool _updating;
+
+    // Comment
+    private string _newComment = "";
+    private bool _addingComment;
+
+    // Assign dialog
+    private bool _showAssignDialog;
+    private Guid? _assignToId;
+    private DateTime? _assignDeadline;
+    private List<EmployeeListItemDto> _employees = [];
+
+    // Close dialog
+    private bool _showCloseDialog;
+    private string _correctiveAction = "";
+
+    private readonly DialogOptions _dialogOptions = new()
+    {
+        MaxWidth = MaxWidth.Small,
+        FullWidth = true,
+        CloseOnEscapeKey = true
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        _deviation = await DeviationService.GetDeviationByIdAsync(Id);
+        _loading = false;
+    }
+
+    private async Task OnAssignAndStart()
+    {
+        if (_employees.Count == 0)
+            _employees = await EmployeeService.GetEmployeesAsync();
+
+        _assignToId = null;
+        _assignDeadline = null;
+        _showAssignDialog = true;
+    }
+
+    private async Task SubmitAssign()
+    {
+        if (!_assignToId.HasValue) return;
+
+        _updating = true;
+        DateTimeOffset? deadline = _assignDeadline.HasValue
+            ? new DateTimeOffset(_assignDeadline.Value, TimeSpan.Zero)
+            : null;
+
+        var success = await DeviationService.AssignAsync(Id, _assignToId.Value, deadline);
+        if (success)
+        {
+            _showAssignDialog = false;
+            _deviation = await DeviationService.GetDeviationByIdAsync(Id);
+            Snackbar.Add("Avvik tildelt og behandling startet", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add("Kunne ikke tildele avviket", Severity.Error);
+        }
+        _updating = false;
+    }
+
+    private void OnClose()
+    {
+        _correctiveAction = "";
+        _showCloseDialog = true;
+    }
+
+    private async Task SubmitClose()
+    {
+        if (string.IsNullOrWhiteSpace(_correctiveAction)) return;
+
+        _updating = true;
+        var success = await DeviationService.CloseAsync(Id, _correctiveAction);
+        if (success)
+        {
+            _showCloseDialog = false;
+            _deviation = await DeviationService.GetDeviationByIdAsync(Id);
+            Snackbar.Add("Avvik lukket", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add("Kunne ikke lukke avviket", Severity.Error);
+        }
+        _updating = false;
+    }
+
+    private async Task OnReopen()
+    {
+        _updating = true;
+        var success = await DeviationService.ReopenAsync(Id);
+        if (success)
+        {
+            _deviation = await DeviationService.GetDeviationByIdAsync(Id);
+            Snackbar.Add("Avvik gjenåpnet", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add("Kunne ikke gjenåpne avviket", Severity.Error);
+        }
+        _updating = false;
+    }
+
+    private async Task OnAddComment()
+    {
+        if (string.IsNullOrWhiteSpace(_newComment)) return;
+
+        _addingComment = true;
+        var success = await DeviationService.AddCommentAsync(Id, _newComment);
+        if (success)
+        {
+            _newComment = "";
+            _deviation = await DeviationService.GetDeviationByIdAsync(Id);
+            Snackbar.Add("Kommentar lagt til", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add("Kunne ikke legge til kommentar", Severity.Error);
+        }
+        _addingComment = false;
+    }
+}

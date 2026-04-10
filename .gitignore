@@ -71,11 +71,12 @@ yarn-error.log*
 # -----------------------------------------------------------------------------
 appsettings.Development.json
 appsettings.Staging.json
-appsettings.Production.json
+# appsettings.Production.json is safe to commit (secrets come from env vars)
 *.local
 .env
 .env.*
 !.env.example
+!deploy/.env.production.template
 
 # -----------------------------------------------------------------------------
 # Docker (local data volumes)

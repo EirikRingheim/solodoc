@@ -1,0 +1,169 @@
+@page "/checkin/qr/{Slug}"
+@inject CheckInService CheckInService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+@inject AuthenticationStateProvider AuthStateProvider
+@using Solodoc.Shared.CheckIn
+@using Microsoft.AspNetCore.Components.Authorization
+
+<PageTitle>Innsjekking - Solodoc</PageTitle>
+
+@if (_loading)
+{
+    <div style="display:flex;align-items:center;justify-content:center;min-height:80vh;">
+        <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+    </div>
+}
+else if (_notFound)
+{
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:80vh;text-align:center;padding:24px;">
+        <MudIcon Icon="@Icons.Material.Filled.ErrorOutline" Size="Size.Large" Color="Color.Error" Class="mb-4" />
+        <MudText Typo="Typo.h5" Style="font-weight:700;" Class="mb-2">QR-kode ikke funnet</MudText>
+        <MudText Typo="Typo.body1" Color="Color.Secondary" Class="mb-6">
+            Denne QR-koden er ugyldig eller har blitt deaktivert.
+        </MudText>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/"
+                   Style="border-radius:24px;text-transform:none;">
+            Til forsiden
+        </MudButton>
+    </div>
+}
+else if (_info is not null)
+{
+    var accent = _info.AccentColor ?? "#4361EE";
+
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:80vh;padding:24px;">
+        @* Company card *@
+        <MudPaper Elevation="3" Style="@($"border-radius:24px;overflow:hidden;max-width:400px;width:100%;border-top:6px solid {accent};")" Class="pa-0">
+            @* Header with accent *@
+            <div style="@($"background:linear-gradient(135deg, {accent}15, {accent}08);padding:32px 24px 24px;text-align:center;")">
+                @if (!string.IsNullOrEmpty(_info.LogoUrl))
+                {
+                    <div style="margin-bottom:16px;">
+                        <img src="@_info.LogoUrl" alt="@_info.TenantName"
+                             style="max-height:64px;max-width:200px;object-fit:contain;" />
+                    </div>
+                }
+                else if (!string.IsNullOrEmpty(_info.TenantName))
+                {
+                    <MudText Typo="Typo.h6" Style="@($"font-weight:700;color:{accent};")">@_info.TenantName</MudText>
+                }
+
+                <div style="@($"display:inline-block;padding:6px 16px;border-radius:20px;background:{accent};color:#fff;font-size:0.75rem;font-weight:600;letter-spacing:0.5px;margin-top:8px;")">
+                    @(_info.SiteType == "Prosjekt" ? "PROSJEKT" : _info.SiteType == "Lokasjon" ? "LOKASJON" : "OPPDRAG")
+                </div>
+
+                <MudText Typo="Typo.h5" Style="font-weight:700;margin-top:12px;">@_info.SiteName</MudText>
+            </div>
+
+            @* Action area *@
+            <div style="padding:24px;text-align:center;">
+                @if (_checkInDone)
+                {
+                    <div style="margin-bottom:16px;">
+                        <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Large"
+                                 Style="@($"color:{accent};font-size:56px;")" />
+                    </div>
+                    <MudText Typo="Typo.h6" Style="font-weight:600;" Class="mb-2">Sjekket inn!</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+                        Du er na registrert pa @_info.SiteName.
+                    </MudText>
+                    <MudButton Variant="Variant.Outlined" Href="/"
+                               Style="@($"border-radius:24px;text-transform:none;border-color:{accent};color:{accent};")">
+                        Til dashboard
+                    </MudButton>
+                }
+                else if (!_isAuthenticated)
+                {
+                    <MudText Typo="Typo.body1" Class="mb-4">
+                        Logg inn for a sjekke inn pa denne lokasjonen.
+                    </MudText>
+                    <MudButton Variant="Variant.Filled"
+                               StartIcon="@Icons.Material.Filled.Login"
+                               OnClick="GoToLogin"
+                               Style="@($"border-radius:24px;text-transform:none;background:{accent};color:#fff;width:100%;height:52px;font-size:1rem;")">
+                        Logg inn og sjekk inn
+                    </MudButton>
+                }
+                else
+                {
+                    <MudText Typo="Typo.body1" Color="Color.Secondary" Class="mb-4">
+                        Trykk for a registrere deg pa byggeplassen.
+                    </MudText>
+                    <MudButton Variant="Variant.Filled"
+                               StartIcon="@Icons.Material.Filled.Login"
+                               OnClick="DoCheckIn"
+                               Disabled="_submitting"
+                               Style="@($"border-radius:24px;text-transform:none;background:{accent};color:#fff;width:100%;height:52px;font-size:1rem;")">
+                        @if (_submitting)
+                        {
+                            <MudProgressCircular Indeterminate="true" Size="Size.Small" Color="Color.Surface" Class="mr-2" />
+                        }
+                        Sjekk inn
+                    </MudButton>
+                }
+            </div>
+        </MudPaper>
+
+        @* Footer *@
+        <MudText Typo="Typo.caption" Color="Color.Secondary" Style="margin-top:24px;">
+            Drevet av Solodoc
+        </MudText>
+    </div>
+}
+
+@code {
+    [Parameter] public string Slug { get; set; } = "";
+
+    private QrCodeInfoDto? _info;
+    private bool _loading = true;
+    private bool _notFound;
+    private bool _isAuthenticated;
+    private bool _submitting;
+    private bool _checkInDone;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Check auth state
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        _isAuthenticated = authState.User.Identity?.IsAuthenticated == true;
+
+        // Fetch QR info
+        _info = await CheckInService.GetQrLandingInfoAsync(Slug);
+        if (_info is null)
+            _notFound = true;
+
+        _loading = false;
+    }
+
+    private async Task DoCheckIn()
+    {
+        if (_info is null) return;
+        _submitting = true;
+
+        var request = new CheckInRequest(
+            ProjectId: _info.SiteType == "Prosjekt" ? _info.SiteId : null,
+            JobId: _info.SiteType == "Oppdrag" ? _info.SiteId : null,
+            LocationId: _info.SiteType == "Lokasjon" ? _info.SiteId : null,
+            Source: "QrCode",
+            Latitude: null,
+            Longitude: null);
+
+        var ok = await CheckInService.CheckInAsync(request);
+        _submitting = false;
+
+        if (ok)
+        {
+            _checkInDone = true;
+        }
+        else
+        {
+            Snackbar.Add("Kunne ikke sjekke inn. Prov igjen.", Severity.Error);
+        }
+    }
+
+    private void GoToLogin()
+    {
+        Navigation.NavigateTo($"/login?returnUrl=/checkin/qr/{Slug}");
+    }
+}

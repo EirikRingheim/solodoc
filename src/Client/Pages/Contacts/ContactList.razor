@@ -1,0 +1,98 @@
+@page "/contacts"
+@attribute [Authorize]
+@inject ContactService ContactService
+@inject NavigationManager Navigation
+
+<PageTitle>Solodoc - Kontakter</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4">
+    <MudText Typo="Typo.h5">Kontakter</MudText>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.Add"
+               Href="/contacts/new"
+               Style="text-transform:none;border-radius:8px;">
+        Ny kontakt
+    </MudButton>
+</MudStack>
+
+<MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;overflow:hidden;">
+    <MudDataGrid T="ContactListItemDto"
+                 Items="_contacts"
+                 Sortable="true"
+                 Filterable="false"
+                 Hover="true"
+                 Dense="false"
+                 RowClick="OnRowClick"
+                 RowStyle="cursor:pointer;"
+                 Loading="_loading"
+                 Class="contact-grid">
+        <ToolBarContent>
+            <MudSpacer />
+            <MudTextField T="string" @bind-Value="_search" Placeholder="Sok kontakter..."
+                          Variant="Variant.Outlined" Margin="Margin.Dense"
+                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                          Immediate="true" DebounceInterval="300"
+                          TextChanged="OnSearchChanged"
+                          Style="max-width:300px;" />
+        </ToolBarContent>
+        <Columns>
+            <PropertyColumn Property="x => x.Name" Title="Navn" />
+            <TemplateColumn Title="Type">
+                <CellTemplate>
+                    @{
+                        var (color, label) = GetTypeInfo(context.Item.Type);
+                    }
+                    <MudChip T="string" Size="Size.Small" Color="@color"
+                             Style="height:22px;">@label</MudChip>
+                </CellTemplate>
+            </TemplateColumn>
+            <PropertyColumn Property="x => x.Phone" Title="Telefon" />
+            <PropertyColumn Property="x => x.Email" Title="E-post" />
+            <PropertyColumn Property="x => x.City" Title="By" />
+        </Columns>
+        <NoRecordsContent>
+            <MudStack AlignItems="AlignItems.Center" Spacing="2" Class="pa-8">
+                <MudIcon Icon="@Icons.Material.Filled.PersonOff" Size="Size.Large" Color="Color.Secondary" />
+                <MudText Typo="Typo.body1" Color="Color.Secondary">Ingen kontakter funnet</MudText>
+            </MudStack>
+        </NoRecordsContent>
+    </MudDataGrid>
+</MudPaper>
+
+@code {
+    private List<ContactListItemDto> _contacts = [];
+    private string? _search;
+    private bool _loading;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadContacts();
+    }
+
+    private async Task LoadContacts()
+    {
+        _loading = true;
+        _contacts = await ContactService.GetContactsAsync(_search);
+        _loading = false;
+    }
+
+    private async Task OnSearchChanged(string value)
+    {
+        _search = value;
+        await LoadContacts();
+    }
+
+    private void OnRowClick(DataGridRowClickEventArgs<ContactListItemDto> args)
+    {
+        Navigation.NavigateTo($"/contacts/{args.Item.Id}");
+    }
+
+    private static (Color color, string label) GetTypeInfo(string type) => type switch
+    {
+        "Kunde" => (Color.Primary, "Kunde"),
+        "Underleverandor" => (Color.Secondary, "Underleverandor"),
+        "Leverandor" => (Color.Info, "Leverandor"),
+        "Inspektor" => (Color.Warning, "Inspektor"),
+        _ => (Color.Default, type)
+    };
+}

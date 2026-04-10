@@ -1,0 +1,89 @@
+@page "/login"
+@attribute [AllowAnonymous]
+@layout Solodoc.Client.Layout.AuthLayout
+@inject Solodoc.Client.Services.AuthHttpService AuthService
+@inject NavigationManager Navigation
+
+<PageTitle>Solodoc - Logg inn</PageTitle>
+
+<MudStack AlignItems="AlignItems.Center" Spacing="3" Class="mb-6">
+    <MudIcon Icon="@Icons.Material.Filled.Description" Size="Size.Large" Color="Color.Primary" />
+    <MudText Typo="Typo.h4" Style="font-weight:700;">SoloDoc</MudText>
+    <MudText Typo="Typo.body1" Color="Color.Secondary">Logg inn på kontoen din</MudText>
+</MudStack>
+
+@if (!string.IsNullOrEmpty(_error))
+{
+    <MudAlert Severity="Severity.Error" Class="mb-4" Dense="true">@_error</MudAlert>
+}
+
+<MudTextField @bind-Value="_email" Label="E-postadresse" Variant="Variant.Outlined"
+              InputType="InputType.Email" FullWidth="true" Class="mb-3"
+              Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Email" />
+
+<MudTextField @bind-Value="_password" Label="Passord" Variant="Variant.Outlined"
+              InputType="@(_showPassword ? InputType.Text : InputType.Password)" FullWidth="true" Class="mb-4"
+              Adornment="Adornment.End"
+              AdornmentIcon="@(_showPassword ? Icons.Material.Filled.Visibility : Icons.Material.Filled.VisibilityOff)"
+              OnAdornmentClick="() => _showPassword = !_showPassword"
+              OnKeyDown="OnPasswordKeyDown" />
+
+<MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
+           Size="Size.Large" Style="text-transform:none;border-radius:8px;font-weight:600;"
+           OnClick="HandleLogin" Disabled="_loading">
+    @if (_loading)
+    {
+        <MudProgressCircular Size="Size.Small" Indeterminate="true" Color="Color.Inherit" Class="mr-2" />
+    }
+    Logg inn
+</MudButton>
+
+<MudStack Row="true" Justify="Justify.Center" Class="mt-4">
+    <MudText Typo="Typo.body2" Color="Color.Secondary">Har du ikke en konto?</MudText>
+    <MudLink Href="/register" Typo="Typo.body2" Color="Color.Primary" Style="font-weight:500;">
+        Opprett konto
+    </MudLink>
+</MudStack>
+
+@code {
+    private string _email = "";
+    private string _password = "";
+    private string? _error;
+    private bool _loading;
+    private bool _showPassword;
+
+    private async Task OnPasswordKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+            await HandleLogin();
+    }
+
+    private async Task HandleLogin()
+    {
+        _error = null;
+        _loading = true;
+
+        var (success, error) = await AuthService.LoginAsync(new(_email, _password));
+
+        if (success)
+        {
+            var tenants = await AuthService.GetTenantsAsync();
+            if (tenants.Count > 1)
+            {
+                Navigation.NavigateTo("/select-tenant", forceLoad: false);
+            }
+            else
+            {
+                if (tenants.Count == 1)
+                    await AuthService.SelectTenantAsync(tenants[0].Id);
+                Navigation.NavigateTo("/", forceLoad: false);
+            }
+        }
+        else
+        {
+            _error = error;
+        }
+
+        _loading = false;
+    }
+}

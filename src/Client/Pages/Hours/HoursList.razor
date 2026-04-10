@@ -1,0 +1,1106 @@
+@page "/hours"
+@attribute [Authorize]
+@inject HoursService HoursService
+@inject ProjectService ProjectService
+@inject JobService JobService
+@inject ISnackbar Snackbar
+@inject ShiftService ShiftService
+
+<PageTitle>Solodoc - Timer</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4"
+          Style="flex-wrap:wrap;gap:8px;">
+    <MudText Typo="Typo.h5">Timer</MudText>
+    <MudStack Row="true" Spacing="1">
+        <MudButton Variant="Variant.Outlined" Color="Color.Secondary"
+                   StartIcon="@Icons.Material.Filled.EventBusy"
+                   OnClick="() => _absenceDialogOpen = true"
+                   Style="text-transform:none;border-radius:8px;">
+            Registrer fravaer
+        </MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.Add"
+                   OnClick="OpenRegistrationToday"
+                   Style="text-transform:none;border-radius:8px;">
+            Registrer timer
+        </MudButton>
+    </MudStack>
+</MudStack>
+
+<MudTabs Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-0 pt-4"
+         ActivePanelIndex="_activeTab" ActivePanelIndexChanged="OnTabChanged">
+
+    @* ═══ Tab 0: Ukevisning (horizontal) ═══ *@
+    <MudTabPanel Text="Ukevisning" Icon="@Icons.Material.Filled.ViewWeek">
+
+        @* Week nav *@
+        <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-3 mb-4">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.Center" Spacing="2">
+                <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft" OnClick="PreviousWeek" />
+                <MudText Typo="Typo.subtitle1" Style="font-weight:600;min-width:150px;text-align:center;">
+                    Uke @_weekNumber, @_monday.Year
+                </MudText>
+                <MudIconButton Icon="@Icons.Material.Filled.ChevronRight" OnClick="NextWeek" />
+                <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="GoToCurrentWeek"
+                           Style="text-transform:none;">I dag</MudButton>
+            </MudStack>
+        </MudPaper>
+
+        @if (_loading)
+        {
+            <MudStack AlignItems="AlignItems.Center" Class="pa-8">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+            </MudStack>
+        }
+        else
+        {
+            @* Horizontal day columns — scrollable on mobile *@
+            <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:8px;-webkit-overflow-scrolling:touch;">
+                @foreach (var day in GetWeekDays())
+                {
+                    var capturedDay = day;
+                    var dayEntries = _entries.Where(e => e.Date == day).OrderBy(e => e.StartTime).ToList();
+                    var isToday = day == DateOnly.FromDateTime(DateTime.Today);
+                    var dayTotal = dayEntries.Sum(e => e.Hours);
+                    var dayStatus = GetDayStatus(dayEntries);
+                    var (sBg, sText) = GetStatusTagColors(dayStatus);
+                    var isWeekend = day.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday;
+
+                    <div style="min-width:160px;flex:1;display:flex;flex-direction:column;">
+                        @* Day header *@
+                        <MudPaper Elevation="0" Class="pa-2 mb-0"
+                                  Style="@($"border:1px solid {(isToday ? "#4361EE" : "#E9ECEF")};border-radius:12px 12px 0 0;{(isToday ? "background:#EBF0FF;" : isWeekend ? "background:#FAFAFA;" : "")}")">
+                            <MudStack AlignItems="AlignItems.Center" Spacing="0">
+                                <MudText Typo="Typo.caption" Style="font-weight:600;text-transform:capitalize;">
+                                    @day.ToString("ddd", System.Globalization.CultureInfo.GetCultureInfo("nb-NO"))
+                                </MudText>
+                                <MudText Typo="Typo.body2" Style="@($"font-weight:700;{(isToday ? "color:#4361EE;" : "")}")">
+                                    @day.Day
+                                </MudText>
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">@dayTotal.ToString("0.#")t</MudText>
+                                    @if (!string.IsNullOrEmpty(dayStatus))
+                                    {
+                                        <span style="width:8px;height:8px;border-radius:50%;background:@sBg;display:inline-block;"></span>
+                                    }
+                                </MudStack>
+                            </MudStack>
+                        </MudPaper>
+
+                        @{
+                            var dayAbsence = _weekAbsences.FirstOrDefault(a => a.StartDate <= capturedDay && a.EndDate >= capturedDay);
+                            var dayPlan = _weekPlan.FirstOrDefault(p => p.Date == capturedDay);
+                        }
+
+                        @* Planned shift info *@
+                        @if (dayPlan?.ShiftName is not null)
+                        {
+                            <div style="padding:2px 6px;margin:0 6px;border-radius:4px;background:@(dayPlan.ShiftColor ?? "#E9ECEF");text-align:center;">
+                                <span style="font-size:0.6rem;color:#FFF;font-weight:500;">@dayPlan.ShiftName @(dayPlan.ProjectName is not null ? $"· {dayPlan.ProjectName}" : "")</span>
+                            </div>
+                        }
+
+                        @* Entry blocks stacked vertically *@
+                        <div style="border:1px solid #E9ECEF;border-top:none;border-radius:0 0 12px 12px;flex:1;padding:6px;display:flex;flex-direction:column;gap:4px;min-height:120px;@(isWeekend ? "background:#FAFAFA;" : "") @(dayAbsence is not null ? "background:#F5F3FF;" : "")">
+                            @if (dayAbsence is not null)
+                            {
+                                <div style="border-left:3px solid #8B5CF6;background:#EDE9FE;border-radius:0 6px 6px 0;padding:4px 6px;font-size:0.7rem;">
+                                    <div style="font-weight:600;color:#5B21B6;">@dayAbsence.Type</div>
+                                    <div style="color:#7C3AED;">7.5t</div>
+                                </div>
+                            }
+                            @if (dayEntries.Count > 0)
+                            {
+                                @foreach (var entry in dayEntries)
+                                {
+                                    var capturedEntry = entry;
+                                    var hasTime = entry.StartTime.HasValue && entry.EndTime.HasValue;
+                                    var blockColor = GetCategoryColor(entry.Category);
+
+                                    <div style="border-left:3px solid @blockColor;background:#FFF;border-radius:0 6px 6px 0;padding:4px 6px;font-size:0.7rem;cursor:pointer;border:1px solid #F1F3F5;border-left:3px solid @blockColor;"
+                                         @onclick="async () => await OpenEditEntry(capturedEntry)">
+                                        @if (hasTime)
+                                        {
+                                            <div style="font-weight:600;color:#374151;">
+                                                @entry.StartTime!.Value.ToLocalTime().ToString("HH:mm")–@entry.EndTime!.Value.ToLocalTime().ToString("HH:mm")
+                                            </div>
+                                        }
+                                        <div style="color:#6B7280;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px;">
+                                            @(entry.ProjectName ?? entry.JobDescription ?? "Generell")
+                                        </div>
+                                        <div style="color:#9CA3AF;">@entry.Hours.ToString("0.#")t</div>
+                                        @if (entry.Status == "Utkast")
+                                        {
+                                            <MudIconButton Icon="@Icons.Material.Filled.DeleteOutline" Size="Size.Small"
+                                                           Color="Color.Error" Style="padding:0;min-width:0;"
+                                                           OnClick="async () => await DeleteEntry(capturedEntry.Id)"
+                                                           OnClick:stopPropagation="true" />
+                                        }
+                                    </div>
+                                }
+                            }
+
+                            @* Add button *@
+                            <div style="margin-top:auto;">
+                                <MudButton Variant="Variant.Text" Color="Color.Primary" FullWidth="true"
+                                           Size="Size.Small" StartIcon="@Icons.Material.Filled.Add"
+                                           OnClick="async () => await OpenNewForDay(capturedDay)"
+                                           Style="text-transform:none;font-size:0.7rem;min-height:32px;">
+                                    Legg til
+                                </MudButton>
+                            </div>
+
+                            @* Per-day submit *@
+                            @if (dayEntries.Any(e => e.Status == "Utkast"))
+                            {
+                                <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
+                                           Size="Size.Small"
+                                           OnClick="async () => await SubmitDay(capturedDay)"
+                                           Style="text-transform:none;font-size:0.7rem;border-radius:6px;min-height:32px;">
+                                    Send inn timer
+                                </MudButton>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </MudTabPanel>
+
+    @* ═══ Tab 1: Min oversikt (heatmap) ═══ *@
+    <MudTabPanel Text="Min oversikt" Icon="@Icons.Material.Filled.CalendarMonth">
+        <div class="pt-4">
+            @* Month navigation *@
+            <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-3 mb-4">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.Center" Spacing="2">
+                    <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft" OnClick="PreviousHeatmapMonth" />
+                    <MudText Typo="Typo.subtitle1" Style="font-weight:600;min-width:150px;text-align:center;text-transform:capitalize;">
+                        @_heatmapMonth.ToString("MMMM yyyy", System.Globalization.CultureInfo.GetCultureInfo("nb-NO"))
+                    </MudText>
+                    <MudIconButton Icon="@Icons.Material.Filled.ChevronRight" OnClick="NextHeatmapMonth" />
+                    <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="GoToCurrentHeatmapMonth"
+                               Style="text-transform:none;">Denne maneden</MudButton>
+                </MudStack>
+            </MudPaper>
+
+            @if (_loadingHeatmap)
+            {
+                <MudStack AlignItems="AlignItems.Center" Class="pa-8">
+                    <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+                </MudStack>
+            }
+            else if (_myHeatmap is not null && _myHeatmap.Dates.Count > 0)
+            {
+                @* Heatmap grid with keyboard nav *@
+                <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-2">
+                    <div tabindex="0" @onkeydown="HandleHeatmapKey" @ref="_heatmapRef" style="outline:none;">
+                        <table style="border-collapse:separate;border-spacing:2px;width:100%;">
+                            <thead>
+                                <tr>
+                                    <th style="padding:6px 10px;text-align:left;font-weight:600;font-size:0.8rem;min-width:60px;"></th>
+                                    @foreach (var date in _myHeatmap.Dates)
+                                    {
+                                        var isWe = date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday;
+                                        var isTd = date == DateOnly.FromDateTime(DateTime.Today);
+                                        <th style="padding:3px;text-align:center;font-size:0.65rem;font-weight:@(isWe ? "400" : "500");color:@(isWe ? "#9CA3AF" : "#374151");@(isTd ? "background:#EBF0FF;border-radius:4px;" : "")">
+                                            @date.Day<br/>@date.ToString("ddd", System.Globalization.CultureInfo.GetCultureInfo("nb-NO")).Substring(0, 2)
+                                        </th>
+                                    }
+                                    <th style="padding:6px 4px;text-align:center;font-weight:600;font-size:0.8rem;">Sum</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td style="padding:4px 10px;font-size:0.8rem;font-weight:500;">Meg</td>
+                                    @for (var ci = 0; ci < _myHeatmap.Cells.Count; ci++)
+                                    {
+                                        var cell = _myHeatmap.Cells[ci];
+                                        var capturedCi = ci;
+                                        var bg = GetStatusBg(cell.Status);
+                                        var fg = GetStatusFg(cell.Status);
+                                        var isSel = _hmSelCol == capturedCi;
+                                        var isConfirming = _hmConfirmCol == capturedCi;
+
+                                        <td style="padding:3px;text-align:center;font-size:0.7rem;font-weight:500;background:@bg;color:@fg;border-radius:4px;border:1px solid #E5E7EB;height:30px;cursor:pointer;@(isSel ? "outline:2px solid #4361EE;outline-offset:-1px;" : "")"
+                                            title="@($"{cell.Date:dd.MM} — {cell.Hours:0.#}t — {cell.Status}")"
+                                            @onclick="() => SelectHmCell(capturedCi)"
+                                            @ondblclick="async () => await OpenNewForDay(cell.Date)">
+                                            @if (isConfirming)
+                                            {
+                                                <span style="font-size:0.55rem;color:#4361EE;">Send?</span>
+                                            }
+                                            else if (cell.AbsenceType is not null)
+                                            {
+                                                <span style="font-size:0.55rem;">@cell.AbsenceType</span>
+                                            }
+                                            else
+                                            {
+                                                @(cell.Hours > 0 ? cell.Hours.ToString("0.#") : "")
+                                            }
+                                        </td>
+                                    }
+                                    <td style="padding:4px;text-align:center;font-size:0.8rem;font-weight:600;">
+                                        @_myHeatmap.Cells.Sum(c => c.Hours).ToString("0.#")
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </MudPaper>
+
+                @* Expanded summary *@
+                <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-4 mt-3">
+                    <MudText Typo="Typo.subtitle2" Style="font-weight:600;" Class="mb-2">Oppsummering — @DateOnly.FromDateTime(DateTime.Today).ToString("MMMM yyyy", System.Globalization.CultureInfo.GetCultureInfo("nb-NO"))</MudText>
+                    @{
+                        var allCells = _myHeatmap.Cells;
+                        var totalHours = allCells.Sum(c => c.Hours);
+                        var approvedHours = allCells.Where(c => c.Status == "Godkjent").Sum(c => c.Hours);
+                        var pendingHours = allCells.Where(c => c.Status == "Registrert").Sum(c => c.Hours);
+                        var missingDays = allCells.Count(c => c.Status == "Mangler");
+                        var workedDays = allCells.Count(c => c.Hours > 0);
+                    }
+                    <MudGrid Spacing="2">
+                        <MudItem xs="6" sm="3">
+                            <MudStack Spacing="0">
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">Totalt</MudText>
+                                <MudText Typo="Typo.h6" Style="font-weight:700;">@totalHours.ToString("0.#")t</MudText>
+                            </MudStack>
+                        </MudItem>
+                        <MudItem xs="6" sm="3">
+                            <MudStack Spacing="0">
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">Godkjent</MudText>
+                                <MudText Typo="Typo.h6" Style="font-weight:700;color:#059669;">@approvedHours.ToString("0.#")t</MudText>
+                            </MudStack>
+                        </MudItem>
+                        <MudItem xs="6" sm="3">
+                            <MudStack Spacing="0">
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">Venter</MudText>
+                                <MudText Typo="Typo.h6" Style="font-weight:700;color:#D97706;">@pendingHours.ToString("0.#")t</MudText>
+                            </MudStack>
+                        </MudItem>
+                        <MudItem xs="6" sm="3">
+                            <MudStack Spacing="0">
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">Mangler</MudText>
+                                <MudText Typo="Typo.h6" Style="font-weight:700;color:#DC2626;">@missingDays dager</MudText>
+                            </MudStack>
+                        </MudItem>
+                        <MudItem xs="6" sm="3">
+                            <MudStack Spacing="0">
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">Arbeidsdager</MudText>
+                                <MudText Typo="Typo.body1" Style="font-weight:600;">@workedDays</MudText>
+                            </MudStack>
+                        </MudItem>
+                    </MudGrid>
+
+                    @* Balance section *@
+                    @if (_balance is not null)
+                    {
+                        <MudDivider Class="my-3" />
+                        <MudText Typo="Typo.subtitle2" Style="font-weight:600;" Class="mb-2">Saldo</MudText>
+                        <MudGrid Spacing="2">
+                            <MudItem xs="6" sm="3">
+                                <MudStack Spacing="0">
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Ferie</MudText>
+                                    <MudText Typo="Typo.body1" Style="font-weight:600;">
+                                        @_balance.VacationUsedHours.ToString("0.#") / @_balance.VacationAllowanceHours.ToString("0.#")t
+                                    </MudText>
+                                    <MudText Typo="Typo.caption" Style="color:#059669;">
+                                        @_balance.VacationRemainingHours.ToString("0.#")t igjen
+                                    </MudText>
+                                </MudStack>
+                            </MudItem>
+                            <MudItem xs="6" sm="3">
+                                <MudStack Spacing="0">
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Sykfravaer</MudText>
+                                    <MudText Typo="Typo.body1" Style="font-weight:600;">@_balance.SickLeaveHours.ToString("0.#")t</MudText>
+                                </MudStack>
+                            </MudItem>
+                            @if (_balance.TimebankEnabled)
+                            {
+                                <MudItem xs="6" sm="3">
+                                    <MudStack Spacing="0">
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary">Timebank</MudText>
+                                        @{
+                                            var bankColor = _balance.OvertimeBankBalance >= 0 ? "#059669" : "#DC2626";
+                                        }
+                                        <MudText Typo="Typo.body1" Style="@($"font-weight:600;color:{bankColor};")">
+                                            @_balance.OvertimeBankBalance.ToString("0.#")t
+                                        </MudText>
+                                    </MudStack>
+                                </MudItem>
+                            }
+                        </MudGrid>
+                    }
+                </MudPaper>
+
+                @* Legend *@
+                <MudStack Row="true" Spacing="3" AlignItems="AlignItems.Center" Class="mt-2">
+                    <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+                        <span style="width:12px;height:12px;background:#22C55E;border-radius:2px;display:inline-block;"></span>
+                        <MudText Typo="Typo.caption">Godkjent</MudText>
+                    </MudStack>
+                    <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+                        <span style="width:12px;height:12px;background:#F59E0B;border-radius:2px;display:inline-block;"></span>
+                        <MudText Typo="Typo.caption">Registrert</MudText>
+                    </MudStack>
+                    <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+                        <span style="width:12px;height:12px;background:#EF4444;border-radius:2px;display:inline-block;"></span>
+                        <MudText Typo="Typo.caption">Mangler</MudText>
+                    </MudStack>
+                    <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+                        <span style="width:12px;height:12px;background:#DDD6FE;border-radius:2px;display:inline-block;"></span>
+                        <MudText Typo="Typo.caption">Fravaer</MudText>
+                    </MudStack>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Piltaster: naviger | Enter: send inn | Dobbelklikk: rediger</MudText>
+                </MudStack>
+            }
+            else
+            {
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Ingen data for denne maneden.</MudText>
+            }
+        </div>
+    </MudTabPanel>
+</MudTabs>
+
+@* ═══ Registration / Edit Dialog ═══ *@
+<MudDialog @bind-Visible="_dialogOpen" Options="_dialogOptions">
+    <TitleContent>
+        <MudText Typo="Typo.h6">@(_editingEntryId.HasValue ? "Rediger periode" : "Registrer periode")</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudTextField T="string" @bind-Value="_dlgDateStr" Label="Dato"
+                          Variant="Variant.Outlined" Placeholder="dd.MM.yyyy" />
+
+            <MudGrid Spacing="2">
+                <MudItem xs="5">
+                    <MudTextField T="string" Value="@_dlgStartStr" Label="Fra"
+                                  Variant="Variant.Outlined" Placeholder="07:00"
+                                  Immediate="true" ValueChanged="OnStartTimeChanged" />
+                </MudItem>
+                <MudItem xs="2" Style="display:flex;align-items:center;justify-content:center;">
+                    <MudIcon Icon="@Icons.Material.Filled.ArrowForward" Color="Color.Secondary" />
+                </MudItem>
+                <MudItem xs="5">
+                    <MudTextField T="string" Value="@_dlgEndStr" Label="Til"
+                                  Variant="Variant.Outlined" Placeholder="15:00"
+                                  Immediate="true" ValueChanged="OnEndTimeChanged" />
+                </MudItem>
+            </MudGrid>
+
+            @{
+                var preview = CalcHoursPreview();
+                var dailyThreshold = _dlgDailyThreshold;
+                var overtime = preview > dailyThreshold ? preview - dailyThreshold : 0m;
+            }
+            @if (preview > 0)
+            {
+                <MudText Typo="Typo.caption" Color="Color.Primary" Style="font-weight:500;">
+                    @preview.ToString("0.##") timer (pause: @_dlgBreak min)
+                </MudText>
+
+                @* Overtime detected — show choice *@
+                @if (overtime > 0)
+                {
+                    <MudPaper Elevation="0" Style="border:1px solid #F59E0B;border-radius:8px;background:#FFFBEB;" Class="pa-3">
+                        <MudText Typo="Typo.body2" Style="font-weight:600;color:#92400E;">
+                            @overtime.ToString("0.##")t overtid
+                        </MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2">
+                            Hva vil du gjore med overtiden?
+                        </MudText>
+                        <MudStack Row="true" Spacing="1" Style="flex-wrap:wrap;">
+                            <MudChip T="string" Size="Size.Small"
+                                     Style="@($"height:32px;cursor:pointer;{(_dlgOvertimeChoice == "payout" ? "background:#4361EE;color:#FFF;" : "background:#E9ECEF;color:#374151;")}")"
+                                     OnClick="ChoosePayout">
+                                Utbetaling
+                            </MudChip>
+                            <MudChip T="string" Size="Size.Small"
+                                     Style="@($"height:32px;cursor:pointer;{(_dlgOvertimeChoice == "bank" ? "background:#4361EE;color:#FFF;" : "background:#E9ECEF;color:#374151;")}")"
+                                     OnClick="ChooseBank">
+                                Timebank
+                            </MudChip>
+                            <MudChip T="string" Size="Size.Small"
+                                     Style="@($"height:32px;cursor:pointer;{(_dlgOvertimeChoice == "split" ? "background:#4361EE;color:#FFF;" : "background:#E9ECEF;color:#374151;")}")"
+                                     OnClick="ChooseSplit">
+                                Del opp
+                            </MudChip>
+                        </MudStack>
+
+                        @if (_dlgOvertimeChoice == "split")
+                        {
+                            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Class="mt-2">
+                                <MudTextField T="string" Value="@_dlgBankHoursStr" Label="Timer til bank"
+                                              Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:120px;"
+                                              Immediate="true" ValueChanged="v => _dlgBankHoursStr = v" />
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                    Utbetaling: @((overtime - ParseDecimal(_dlgBankHoursStr)).ToString("0.##"))t
+                                </MudText>
+                            </MudStack>
+                        }
+                    </MudPaper>
+                }
+            }
+
+            <MudAutocomplete T="string" @bind-Value="_dlgTargetKey"
+                             Label="Prosjekt / Oppdrag" Variant="Variant.Outlined"
+                             SearchFunc="SearchProjectsJobs" Clearable="true"
+                             ToStringFunc="FormatTargetKey"
+                             MaxItems="20" Dense="true"
+                             AdornmentIcon="@Icons.Material.Filled.Search" />
+
+            <MudSelect T="string" @bind-Value="_dlgCategory" Label="Kategori" Variant="Variant.Outlined">
+                <MudSelectItem T="string" Value="@("Arbeid")">Arbeid</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Reise")">Reise</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Kontorarbeid")">Kontorarbeid</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Lagerarbeid")">Lagerarbeid</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Kurs")">Kurs</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Annet")">Annet</MudSelectItem>
+            </MudSelect>
+
+            <MudTextField T="string" @bind-Value="_dlgNotes" Label="Kommentar (valgfritt)"
+                          Variant="Variant.Outlined" Lines="2" Placeholder="Hva jobbet du med?" />
+
+            @if (_operationRules.Count > 0)
+            {
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Tillegg</MudText>
+                <MudStack Row="true" Spacing="1" Style="flex-wrap:wrap;">
+                    @foreach (var rule in _operationRules)
+                    {
+                        var rid = rule.Id;
+                        var sel = _dlgAllowanceIds.Contains(rid);
+                        <MudChip T="string" Size="Size.Small"
+                                 Style="@($"height:28px;cursor:pointer;{(sel ? "background:#4361EE;color:#FFF;" : "background:#E9ECEF;color:#374151;")}")"
+                                 OnClick="() => ToggleDlgAllowance(rid)">
+                            @rule.Name (@rule.Amount kr)
+                        </MudChip>
+                    }
+                </MudStack>
+            }
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="CloseDialog" Style="text-transform:none;">Ferdig</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                   OnClick="SaveDialogEntry" Disabled="_dlgSaving"
+                   Style="text-transform:none;border-radius:8px;">
+            @if (_dlgSaving) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> }
+            @(_editingEntryId.HasValue ? "Lagre" : "Lagre og neste")
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@* ═══ Absence Dialog ═══ *@
+<MudDialog @bind-Visible="_absenceDialogOpen" Options="_dialogOptions">
+    <TitleContent>
+        <MudText Typo="Typo.h6">Registrer fravaer</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudSelect T="string" @bind-Value="_absType" Label="Type" Variant="Variant.Outlined" Required="true">
+                <MudSelectItem T="string" Value="@("Ferie")">Ferie</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Egenmelding")">Egenmelding</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Sykmelding")">Sykmelding</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Lege")">Lege</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Tannlege")">Tannlege</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Foreldrepermisjon")">Foreldrepermisjon</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Permisjon")">Annen permisjon</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Avspasering")">Avspasering (fra timebank)</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Annet")">Annet</MudSelectItem>
+            </MudSelect>
+
+            @* Date — default single day, toggle for multi-day *@
+            <MudTextField T="string" @bind-Value="_absFromStr" Label="Dato"
+                          Variant="Variant.Outlined" Placeholder="dd.MM.yyyy" />
+
+            <MudCheckBox T="bool" @bind-Value="_absMultiDay" Label="Flere dager"
+                         Color="Color.Primary" Dense="true" />
+
+            @if (_absMultiDay)
+            {
+                <MudTextField T="string" @bind-Value="_absToStr" Label="Til dato"
+                              Variant="Variant.Outlined" Placeholder="dd.MM.yyyy" />
+            }
+
+            @{
+                var absPreview = CalcAbsenceHours();
+                var absDays = CalcAbsenceDays();
+            }
+            @if (absPreview > 0)
+            {
+                <MudText Typo="Typo.caption" Color="Color.Primary" Style="font-weight:500;">
+                    @absPreview.ToString("0.#") timer@(absDays > 1 ? $" ({absDays} virkedager)" : "")
+                </MudText>
+            }
+
+            <MudTextField T="string" @bind-Value="_absNotes" Label="Kommentar (valgfritt)"
+                          Variant="Variant.Outlined" Lines="2" />
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => _absenceDialogOpen = false" Style="text-transform:none;">Avbryt</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAbsence"
+                   Disabled="_absSaving" Style="text-transform:none;border-radius:8px;">
+            @if (_absSaving) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> }
+            Registrer
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private int _activeTab;
+    private List<TimeEntryListItemDto> _entries = [];
+    private List<AbsenceListItemDto> _weekAbsences = [];
+    private List<EmployeeCalendarDayDto> _weekPlan = [];
+    private DateOnly _monday;
+    private int _weekNumber;
+    private bool _loading = true;
+
+    // Lookups
+    private List<ProjectListItemDto> _projects = [];
+    private List<JobListItemDto> _jobs = [];
+    private List<AllowanceRuleDto> _operationRules = [];
+    private bool _lookupsLoaded;
+
+    // Dialog
+    private bool _dialogOpen;
+    private readonly DialogOptions _dialogOptions = new() { MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true };
+    private string _dlgDateStr = "";
+    private string _dlgStartStr = "07:00";
+    private string _dlgEndStr = "15:00";
+    private int _dlgBreak = 30;
+    private string? _dlgTargetKey;
+    private string _dlgCategory = "Arbeid";
+    private string? _dlgNotes;
+    private HashSet<Guid> _dlgAllowanceIds = [];
+    private decimal _dlgDailyThreshold = 7.5m;
+    private string _dlgOvertimeChoice = "payout"; // "payout", "bank", "split"
+    private string _dlgBankHoursStr = "0";
+    private bool _dlgSaving;
+    private Guid? _editingEntryId;
+
+    // Absence dialog
+    private bool _absenceDialogOpen;
+    private string _absType = "Egenmelding";
+    private string _absFromStr = DateOnly.FromDateTime(DateTime.Today.AddDays(-1)).ToString("dd.MM.yyyy");
+    private string _absToStr = DateOnly.FromDateTime(DateTime.Today.AddDays(-1)).ToString("dd.MM.yyyy");
+    private bool _absMultiDay;
+    private string? _absNotes;
+    private bool _absSaving;
+
+    // Balance
+    private BalanceSummaryDto? _balance;
+
+    // Heatmap
+    private MyHeatmapDto? _myHeatmap;
+    private bool _loadingHeatmap;
+    private bool _heatmapLoaded;
+    private int _hmSelCol = -1;
+    private int _hmConfirmCol = -1;
+    private ElementReference _heatmapRef;
+    private DateOnly _heatmapMonth = new(DateTime.Today.Year, DateTime.Today.Month, 1);
+
+    protected override async Task OnInitializedAsync()
+    {
+        SetToCurrentWeek();
+        await LoadEntriesInternal();
+        _loading = false;
+    }
+
+    // ── Auto-colon ──
+
+    private void OnStartTimeChanged(string val) { _dlgStartStr = AutoColon(val); }
+    private void OnEndTimeChanged(string val) { _dlgEndStr = AutoColon(val); }
+
+    private static string AutoColon(string v)
+    {
+        if (string.IsNullOrEmpty(v)) return v;
+        var clean = v.Replace(":", "").Replace(".", "");
+        if (clean.Length == 2 && !v.Contains(':') && !v.Contains('.')) return clean + ":";
+        if (v.Length > 5) return v[..5];
+        return v;
+    }
+
+    // ── Lookups ──
+
+    private async Task EnsureLookups()
+    {
+        if (_lookupsLoaded) return;
+        try
+        {
+            var p = HoursService.GetAllProjectsAsync();
+            var j = JobService.GetJobsAsync(1, 50, null, null, false);
+            var r = HoursService.GetAllowanceRulesAsync();
+            _projects = await p;
+            _jobs = (await j).Items.Where(x => x.Status == "Aktiv").ToList();
+            _operationRules = (await r).Where(x => x.Type == "OperationBased" && x.IsActive).ToList();
+            var sched = await HoursService.GetMyScheduleAsync();
+            if (sched is not null)
+            {
+                _dlgBreak = sched.DefaultBreakMinutes;
+                _dlgDailyThreshold = sched.WeeklyHours / 5m; // e.g. 37.5 / 5 = 7.5
+            }
+        }
+        catch { }
+        _lookupsLoaded = true;
+    }
+
+    // ── Dialog: new entry ──
+
+    private async Task OpenRegistrationToday()
+    {
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        var diff = (7 + ((int)today.DayOfWeek - 1)) % 7;
+        var todayMonday = today.AddDays(-diff);
+        if (_monday != todayMonday)
+        {
+            _monday = todayMonday;
+            _weekNumber = System.Globalization.ISOWeek.GetWeekOfYear(_monday.ToDateTime(TimeOnly.MinValue));
+            await LoadEntriesInternal();
+            StateHasChanged();
+        }
+        await OpenNewForDay(today);
+    }
+
+    private async Task OpenNewForDay(DateOnly day)
+    {
+        await EnsureLookups();
+        _editingEntryId = null;
+        _dlgDateStr = day.ToString("dd.MM.yyyy");
+        _dlgNotes = null;
+        _dlgAllowanceIds.Clear();
+
+        var lastEntry = _entries
+            .Where(e => e.Date == day && e.EndTime.HasValue)
+            .OrderByDescending(e => e.EndTime)
+            .FirstOrDefault();
+
+        if (lastEntry?.EndTime is not null)
+        {
+            var t = lastEntry.EndTime.Value.ToLocalTime().TimeOfDay;
+            _dlgStartStr = $"{t.Hours:D2}:{t.Minutes:D2}";
+            var end = t.Add(TimeSpan.FromHours(1));
+            _dlgEndStr = end.TotalHours >= 24 ? "23:59" : $"{end.Hours:D2}:{end.Minutes:D2}";
+        }
+        else
+        {
+            _dlgStartStr = "07:00";
+            _dlgEndStr = "15:00";
+        }
+        _dialogOpen = true;
+        StateHasChanged();
+    }
+
+    // ── Dialog: edit entry ──
+
+    private async Task OpenEditEntry(TimeEntryListItemDto entry)
+    {
+        await EnsureLookups();
+        _editingEntryId = entry.Id;
+        _dlgDateStr = entry.Date.ToString("dd.MM.yyyy");
+        _dlgAllowanceIds.Clear();
+
+        if (entry.StartTime.HasValue)
+        {
+            var s = entry.StartTime.Value.ToLocalTime().TimeOfDay;
+            _dlgStartStr = $"{s.Hours:D2}:{s.Minutes:D2}";
+        }
+        if (entry.EndTime.HasValue)
+        {
+            var e2 = entry.EndTime.Value.ToLocalTime().TimeOfDay;
+            _dlgEndStr = $"{e2.Hours:D2}:{e2.Minutes:D2}";
+        }
+        _dlgCategory = entry.Category;
+        _dlgNotes = entry.Notes;
+        _dlgTargetKey = entry.ProjectId.HasValue ? $"p:{entry.ProjectId}"
+            : entry.JobId.HasValue ? $"j:{entry.JobId}" : null;
+
+        _dialogOpen = true;
+        StateHasChanged();
+    }
+
+    // ── Delete ──
+
+    private async Task DeleteEntry(Guid id)
+    {
+        if (await HoursService.DeleteEntryAsync(id))
+        {
+            Snackbar.Add("Slettet", Severity.Success);
+            await LoadEntriesInternal();
+            StateHasChanged();
+        }
+        else Snackbar.Add("Kunne ikke slette", Severity.Error);
+    }
+
+    // ── Save dialog ──
+
+    private async Task SaveDialogEntry()
+    {
+        var start = ParseTime(_dlgStartStr);
+        var end = ParseTime(_dlgEndStr);
+        if (start is null || end is null) { Snackbar.Add("Ugyldig tid. Bruk HH:mm", Severity.Warning); return; }
+        if (!TryParseDate(_dlgDateStr, out var date)) { Snackbar.Add("Ugyldig dato. Bruk dd.MM.yyyy", Severity.Warning); return; }
+
+        var newHours = CalcHoursPreview();
+        var existing = _entries.Where(e => e.Date == date && (_editingEntryId == null || e.Id != _editingEntryId)).Sum(e => e.Hours);
+        if (existing + newHours > 24) { Snackbar.Add($"Maks 24t/dag. Allerede {existing:0.#}t registrert.", Severity.Warning); return; }
+
+        _dlgSaving = true; StateHasChanged();
+
+        var (projectId, jobId) = ParseTarget(_dlgTargetKey);
+        var startDto = new DateTimeOffset(date.ToDateTime(new TimeOnly(start.Value.Hours, start.Value.Minutes)), TimeSpan.Zero);
+        var endDto = new DateTimeOffset(date.ToDateTime(new TimeOnly(end.Value.Hours, end.Value.Minutes)), TimeSpan.Zero);
+        if (endDto <= startDto) endDto = endDto.AddDays(1);
+
+        var request = new ManualTimeEntryRequest(date, null, projectId, jobId, _dlgCategory, _dlgNotes, startDto, endDto, _dlgBreak);
+        bool success;
+
+        if (_editingEntryId.HasValue)
+        {
+            success = await HoursService.UpdateEntryAsync(_editingEntryId.Value, request);
+            if (success) _dialogOpen = false;
+        }
+        else
+        {
+            var id = await HoursService.CreateManualEntryAsync(request);
+            success = id.HasValue;
+            if (id.HasValue)
+            {
+                // Register allowances
+                foreach (var rid in _dlgAllowanceIds)
+                    await HoursService.AddAllowanceAsync(id.Value, new AddTimeEntryAllowanceRequest(rid, null, null));
+
+                // Handle overtime bank choice
+                var ot = newHours > _dlgDailyThreshold ? newHours - _dlgDailyThreshold : 0m;
+                if (ot > 0)
+                {
+                    decimal bankHours = _dlgOvertimeChoice switch
+                    {
+                        "bank" => ot,
+                        "split" => Math.Min(ParseDecimal(_dlgBankHoursStr), ot),
+                        _ => 0 // "payout" = nothing banked
+                    };
+                    if (bankHours > 0)
+                        await HoursService.CreditOvertimeBankAsync(id.Value, bankHours);
+                }
+
+                // Reset overtime choice for next entry
+                _dlgOvertimeChoice = "payout";
+                _dlgBankHoursStr = "0";
+
+                _dlgStartStr = _dlgEndStr;
+                var endTs = ParseTime(_dlgEndStr);
+                if (endTs.HasValue)
+                {
+                    var next = endTs.Value.Add(TimeSpan.FromHours(1));
+                    _dlgEndStr = next.TotalHours >= 24 ? "23:59" : $"{next.Hours:D2}:{next.Minutes:D2}";
+                }
+                _dlgAllowanceIds.Clear();
+            }
+        }
+
+        if (success) { Snackbar.Add(_editingEntryId.HasValue ? "Oppdatert" : "Lagret", Severity.Success); await LoadEntriesInternal(); }
+        else Snackbar.Add("Feil ved lagring", Severity.Error);
+
+        _dlgSaving = false; StateHasChanged();
+    }
+
+    private Task<IEnumerable<string>> SearchProjectsJobs(string? search, CancellationToken ct)
+    {
+        var results = new List<string>();
+        var q = search?.ToLowerInvariant() ?? "";
+
+        foreach (var p in _projects)
+            if (string.IsNullOrEmpty(q) || p.Name.Contains(q, StringComparison.OrdinalIgnoreCase))
+                results.Add($"p:{p.Id}");
+
+        foreach (var j in _jobs)
+            if (string.IsNullOrEmpty(q) || (j.Description?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false))
+                results.Add($"j:{j.Id}");
+
+        return Task.FromResult<IEnumerable<string>>(results);
+    }
+
+    private string FormatTargetKey(string? key)
+    {
+        if (string.IsNullOrEmpty(key)) return "";
+        if (key.StartsWith("p:") && Guid.TryParse(key[2..], out var pid))
+            return _projects.FirstOrDefault(p => p.Id == pid)?.Name ?? key;
+        if (key.StartsWith("j:") && Guid.TryParse(key[2..], out var jid))
+            return _jobs.FirstOrDefault(j => j.Id == jid)?.Description ?? key;
+        return key;
+    }
+
+    private void CloseDialog() => _dialogOpen = false;
+    private void ToggleDlgAllowance(Guid id) { if (!_dlgAllowanceIds.Remove(id)) _dlgAllowanceIds.Add(id); }
+    private void ChoosePayout() => _dlgOvertimeChoice = "payout";
+    private void ChooseBank() { _dlgOvertimeChoice = "bank"; _dlgBankHoursStr = ""; }
+    private void ChooseSplit() => _dlgOvertimeChoice = "split";
+
+    private static decimal ParseDecimal(string? s)
+    {
+        if (string.IsNullOrWhiteSpace(s)) return 0;
+        s = s.Replace(',', '.').Trim();
+        return decimal.TryParse(s, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out var v) ? v : 0;
+    }
+
+    // ── Submit per day ──
+
+    private async Task SubmitDay(DateOnly day)
+    {
+        var drafts = _entries.Where(e => e.Date == day && e.Status == "Utkast").ToList();
+        var ok = 0;
+        foreach (var e in drafts) if (await HoursService.SubmitAsync(e.Id)) ok++;
+        Snackbar.Add(ok == drafts.Count ? $"{ok} timer sendt inn" : $"{ok}/{drafts.Count} sendt inn",
+            ok == drafts.Count ? Severity.Success : Severity.Warning);
+        await LoadEntriesInternal();
+        StateHasChanged();
+    }
+
+    // ── Week nav ──
+
+    private void SetToCurrentWeek()
+    {
+        var today = DateTime.Today;
+        var diff = (7 + (today.DayOfWeek - DayOfWeek.Monday)) % 7;
+        _monday = DateOnly.FromDateTime(today.AddDays(-diff));
+        _weekNumber = System.Globalization.ISOWeek.GetWeekOfYear(_monday.ToDateTime(TimeOnly.MinValue));
+    }
+
+    private List<DateOnly> GetWeekDays() => Enumerable.Range(0, 7).Select(i => _monday.AddDays(i)).ToList();
+
+    private async Task LoadEntriesInternal()
+    {
+        var sunday = _monday.AddDays(6);
+        var entriesTask = HoursService.GetTimeEntriesAsync(page: 1, pageSize: 100, weekOf: _monday.ToString("yyyy-MM-dd"));
+        var absencesTask = HoursService.GetMyAbsencesForRangeAsync(_monday, sunday);
+        var planTask = ShiftService.GetMyPlanAsync(_monday, sunday);
+        var result = await entriesTask;
+        _entries = result.Items;
+        _weekAbsences = await absencesTask;
+        try { _weekPlan = await planTask; } catch { _weekPlan = []; }
+    }
+
+    private async Task LoadEntries() { _loading = true; StateHasChanged(); await LoadEntriesInternal(); _loading = false; StateHasChanged(); }
+    private async Task PreviousWeek() { _monday = _monday.AddDays(-7); _weekNumber = System.Globalization.ISOWeek.GetWeekOfYear(_monday.ToDateTime(TimeOnly.MinValue)); await LoadEntries(); }
+    private async Task NextWeek() { _monday = _monday.AddDays(7); _weekNumber = System.Globalization.ISOWeek.GetWeekOfYear(_monday.ToDateTime(TimeOnly.MinValue)); await LoadEntries(); }
+    private async Task GoToCurrentWeek() { SetToCurrentWeek(); await LoadEntries(); }
+
+    // ── Heatmap ──
+
+    private async Task OnTabChanged(int tabIndex)
+    {
+        _activeTab = tabIndex;
+        if (tabIndex == 1 && !_heatmapLoaded) await LoadMyHeatmap();
+    }
+
+    private async Task LoadMyHeatmap()
+    {
+        var last = _heatmapMonth.AddMonths(1).AddDays(-1);
+        _loadingHeatmap = true; _hmSelCol = -1; _hmConfirmCol = -1; StateHasChanged();
+        var heatmapTask = HoursService.GetMyHeatmapAsync(_heatmapMonth, last);
+        var balanceTask = HoursService.GetMyBalanceAsync();
+        _myHeatmap = await heatmapTask;
+        _balance = await balanceTask;
+        _heatmapLoaded = true; _loadingHeatmap = false; StateHasChanged();
+    }
+
+    private async Task PreviousHeatmapMonth() { _heatmapMonth = _heatmapMonth.AddMonths(-1); await LoadMyHeatmap(); }
+    private async Task NextHeatmapMonth() { _heatmapMonth = _heatmapMonth.AddMonths(1); await LoadMyHeatmap(); }
+    private async Task GoToCurrentHeatmapMonth() { _heatmapMonth = new(DateTime.Today.Year, DateTime.Today.Month, 1); await LoadMyHeatmap(); }
+
+    // ── Absence ──
+
+    private (DateOnly from, DateOnly to) GetAbsenceDates()
+    {
+        TryParseDate(_absFromStr, out var from);
+        var to = _absMultiDay && TryParseDate(_absToStr, out var t) ? t : from;
+        return (from, to);
+    }
+
+    private decimal CalcAbsenceHours() => CalcAbsenceDays() * 7.5m;
+
+    private int CalcAbsenceDays()
+    {
+        var (from, to) = GetAbsenceDates();
+        if (from == default) return 0;
+        var count = 0;
+        for (var d = from; d <= to; d = d.AddDays(1))
+            if (d.DayOfWeek is not DayOfWeek.Saturday and not DayOfWeek.Sunday) count++;
+        return count;
+    }
+
+    private async Task SaveAbsence()
+    {
+        if (!TryParseDate(_absFromStr, out var from))
+        {
+            Snackbar.Add("Ugyldig dato. Bruk dd.MM.yyyy", Severity.Warning);
+            return;
+        }
+        var to = _absMultiDay && TryParseDate(_absToStr, out var t) ? t : from;
+        if (from > to) { Snackbar.Add("Fra-dato ma vaere for til-dato", Severity.Warning); return; }
+
+        var hours = CalcAbsenceHours();
+        if (hours <= 0)
+        {
+            Snackbar.Add("Valgt periode inneholder ingen virkedager.", Severity.Warning);
+            return;
+        }
+
+        _absSaving = true; StateHasChanged();
+
+        var request = new CreateAbsenceRequest(_absType, from, to, hours, _absNotes);
+        var id = await HoursService.CreateAbsenceAsync(request);
+
+        if (id.HasValue)
+        {
+            Snackbar.Add("Fravaer registrert", Severity.Success);
+            _absenceDialogOpen = false;
+            _balance = await HoursService.GetMyBalanceAsync();
+            if (_heatmapLoaded) await LoadMyHeatmap();
+        }
+        else Snackbar.Add("Kunne ikke registrere fravaer", Severity.Error);
+
+        _absSaving = false; StateHasChanged();
+    }
+
+    // ── Heatmap interaction ──
+
+    private void SelectHmCell(int col)
+    {
+        _hmSelCol = col;
+        _hmConfirmCol = -1;
+    }
+
+    private async Task HandleHeatmapKey(KeyboardEventArgs e)
+    {
+        if (_myHeatmap is null || _myHeatmap.Cells.Count == 0) return;
+        var maxCol = _myHeatmap.Cells.Count - 1;
+
+        switch (e.Key)
+        {
+            case "ArrowRight":
+                if (_hmSelCol < maxCol) { _hmSelCol++; _hmConfirmCol = -1; }
+                break;
+            case "ArrowLeft":
+                if (_hmSelCol > 0) { _hmSelCol--; _hmConfirmCol = -1; }
+                break;
+            case "Enter":
+                await HandleHmEnter();
+                break;
+            case "Escape":
+                _hmSelCol = -1; _hmConfirmCol = -1;
+                break;
+        }
+        StateHasChanged();
+    }
+
+    private async Task HandleHmEnter()
+    {
+        if (_hmSelCol < 0 || _myHeatmap is null) return;
+        var cell = _myHeatmap.Cells[_hmSelCol];
+        if (cell.Status != "Registrert") return;
+
+        if (_hmConfirmCol != _hmSelCol)
+        {
+            _hmConfirmCol = _hmSelCol;
+            return;
+        }
+
+        // Second Enter — submit all draft entries for this day
+        _hmConfirmCol = -1;
+        var day = cell.Date;
+        var drafts = _entries.Where(e2 => e2.Date == day && e2.Status == "Utkast").ToList();
+        if (drafts.Count == 0)
+        {
+            // Try loading entries for this day from the week
+            await LoadEntriesForWeekOf(day);
+            drafts = _entries.Where(e2 => e2.Date == day && e2.Status == "Utkast").ToList();
+        }
+
+        var ok = 0;
+        foreach (var d in drafts) if (await HoursService.SubmitAsync(d.Id)) ok++;
+
+        if (ok > 0)
+        {
+            Snackbar.Add($"{ok} timer sendt inn", Severity.Success);
+            await LoadMyHeatmap();
+            // Re-focus the heatmap div so arrow keys keep working
+            await Task.Delay(50);
+            try { await _heatmapRef.FocusAsync(); } catch { }
+        }
+    }
+
+    private async Task LoadEntriesForWeekOf(DateOnly day)
+    {
+        var diff = (7 + ((int)day.DayOfWeek - 1)) % 7;
+        var monday = day.AddDays(-diff);
+        var result = await HoursService.GetTimeEntriesAsync(page: 1, pageSize: 100, weekOf: monday.ToString("yyyy-MM-dd"));
+        _entries = result.Items;
+    }
+
+    // ── Helpers ──
+
+    private static TimeSpan? ParseTime(string? s)
+    {
+        if (string.IsNullOrWhiteSpace(s)) return null;
+        s = s.Trim().Replace('.', ':');
+        if (TimeSpan.TryParseExact(s, @"hh\:mm", null, out var ts)) return ts;
+        if (TimeSpan.TryParseExact(s, @"h\:mm", null, out ts)) return ts;
+        if (int.TryParse(s, out var h) && h is >= 0 and <= 23) return new TimeSpan(h, 0, 0);
+        return null;
+    }
+
+    private static bool TryParseDate(string? s, out DateOnly result)
+    {
+        result = default;
+        if (string.IsNullOrWhiteSpace(s)) return false;
+        return DateOnly.TryParseExact(s.Trim(), "dd.MM.yyyy", null, System.Globalization.DateTimeStyles.None, out result);
+    }
+
+    private decimal CalcHoursPreview()
+    {
+        var start = ParseTime(_dlgStartStr);
+        var end = ParseTime(_dlgEndStr);
+        if (start is null || end is null) return 0;
+        var mins = (end.Value - start.Value).TotalMinutes;
+        if (mins <= 0) mins += 24 * 60;
+        return Math.Max(0, (decimal)(mins - _dlgBreak) / 60m);
+    }
+
+    private static (Guid? projectId, Guid? jobId) ParseTarget(string? key)
+    {
+        if (string.IsNullOrEmpty(key)) return (null, null);
+        if (key.StartsWith("p:") && Guid.TryParse(key[2..], out var pid)) return (pid, null);
+        if (key.StartsWith("j:") && Guid.TryParse(key[2..], out var jid)) return (null, jid);
+        return (null, null);
+    }
+
+    private static string GetDayStatus(List<TimeEntryListItemDto> entries)
+    {
+        if (entries.Count == 0) return "";
+        if (entries.All(e => e.Status == "Godkjent")) return "Godkjent";
+        if (entries.Any(e => e.Status == "Avvist")) return "Avvist";
+        if (entries.Any(e => e.Status == "Innsendt")) return "Innsendt";
+        return "Utkast";
+    }
+
+    private static (string bg, string text) GetStatusTagColors(string s) => s switch
+    {
+        "Utkast" => ("#E5E7EB", "#374151"), "Innsendt" => ("#BFDBFE", "#1E40AF"),
+        "Godkjent" => ("#86EFAC", "#166534"), "Avvist" => ("#FCA5A5", "#991B1B"), _ => ("#F3F4F6", "#6B7280")
+    };
+
+    private static string GetCategoryColor(string c) => c switch
+    {
+        "Arbeid" => "#4361EE", "Reise" => "#7C3AED", "Kontorarbeid" => "#0891B2",
+        "Lagerarbeid" => "#CA8A04", "Kurs" => "#059669", "Annet" => "#6B7280", _ => "#4361EE"
+    };
+
+    private static string GetStatusBg(string s) => s switch
+    { "Godkjent" => "#BBF7D0", "Registrert" => "#FDE68A", "Mangler" => "#FECACA",
+      "Fravaer" => "#DDD6FE", _ => "#F3F4F6" };
+    private static string GetStatusFg(string s) => s switch
+    { "Godkjent" => "#166534", "Registrert" => "#92400E", "Mangler" => "#991B1B",
+      "Fravaer" => "#5B21B6", _ => "#D1D5DB" };
+}

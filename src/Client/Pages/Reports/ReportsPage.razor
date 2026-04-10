@@ -1,0 +1,700 @@
+@page "/reports"
+@attribute [Authorize]
+@inject ReportService ReportService
+@inject ProjectService ProjectService
+@inject ISnackbar Snackbar
+
+<PageTitle>Solodoc - Rapporter</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4">Rapporter</MudText>
+
+<MudTabs Elevation="0" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-0 pt-4"
+         ActivePanelIndexChanged="OnTabChanged" Border="true"
+         Style="border:1px solid #E9ECEF;border-radius:12px;">
+
+    @* ─── Tab 1: Timer (Hours) ─── *@
+    <MudTabPanel Text="Timer" Icon="@Icons.Material.Filled.Schedule">
+        <div class="pa-4">
+            @* Filters *@
+            <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-4 mb-4">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3" Class="flex-wrap">
+                    <MudDatePicker @bind-Date="_hoursFrom" Label="Fra" DateFormat="dd.MM.yyyy"
+                                   Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:180px;" />
+                    <MudDatePicker @bind-Date="_hoursTo" Label="Til" DateFormat="dd.MM.yyyy"
+                                   Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:180px;" />
+                    <MudSelect T="Guid?" @bind-Value="_hoursProjectId" Label="Prosjekt" Clearable="true"
+                               Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:240px;">
+                        @foreach (var p in _projects)
+                        {
+                            <MudSelectItem T="Guid?" Value="@p.Id">@p.Name</MudSelectItem>
+                        }
+                    </MudSelect>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="LoadHoursReport"
+                               StartIcon="@Icons.Material.Filled.Refresh" Style="text-transform:none;border-radius:8px;">
+                        Oppdater
+                    </MudButton>
+                </MudStack>
+            </MudPaper>
+
+            @if (_hoursLoading)
+            {
+                <MudStack AlignItems="AlignItems.Center" Class="pa-8">
+                    <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+                </MudStack>
+            }
+            else if (_hoursReport is not null)
+            {
+                @* Summary cards *@
+                <MudGrid Class="mb-4">
+                    <MudItem xs="12" sm="4">
+                        <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-4">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Totalt timer</MudText>
+                            <MudText Typo="Typo.h4" Style="font-weight:700;color:#4361EE;">
+                                @_hoursReport.TotalHours.ToString("N1")
+                            </MudText>
+                        </MudPaper>
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-4">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Overtid</MudText>
+                            <MudText Typo="Typo.h4" Style="font-weight:700;color:#F59F00;">
+                                @_hoursReport.TotalOvertimeHours.ToString("N1")
+                            </MudText>
+                        </MudPaper>
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-4">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Snitt per dag</MudText>
+                            <MudText Typo="Typo.h4" Style="font-weight:700;">
+                                @_hoursReport.AveragePerDay.ToString("N1")
+                            </MudText>
+                        </MudPaper>
+                    </MudItem>
+                </MudGrid>
+
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+                    Totalt i perioden: @_hoursReport.TotalHours.ToString("N1") timer
+                    (herav @_hoursReport.TotalOvertimeHours.ToString("N1") timer overtid)
+                </MudText>
+
+                @* Chart: Hours by project *@
+                @if (_hoursReport.ByProject.Count > 0)
+                {
+                    <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-4 mb-4">
+                        <MudText Typo="Typo.subtitle1" Style="font-weight:600;" Class="mb-3">Timer per prosjekt</MudText>
+                        <MudChart ChartType="ChartType.Bar" ChartSeries="@_hoursProjectSeries"
+                                  XAxisLabels="@_hoursProjectLabels" Width="100%" Height="300px"
+                                  ChartOptions="@_chartOptions" />
+                    </MudPaper>
+                }
+
+                @* Chart: Daily trend *@
+                @if (_hoursReport.ByDay.Count > 0)
+                {
+                    <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-4 mb-4">
+                        <MudText Typo="Typo.subtitle1" Style="font-weight:600;" Class="mb-3">Daglig utvikling</MudText>
+                        <MudChart ChartType="ChartType.Line" ChartSeries="@_hoursDailySeries"
+                                  XAxisLabels="@_hoursDailyLabels" Width="100%" Height="300px"
+                                  ChartOptions="@_chartOptions" />
+                    </MudPaper>
+                }
+
+                @* Table: By employee *@
+                @if (_hoursReport.ByEmployee.Count > 0)
+                {
+                    <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-4">
+                        <MudText Typo="Typo.subtitle1" Style="font-weight:600;" Class="mb-3">Timer per ansatt</MudText>
+                        <MudSimpleTable Hover="true" Dense="true" Style="border-radius:8px;">
+                            <thead>
+                                <tr>
+                                    <th>Ansatt</th>
+                                    <th style="text-align:right;">Timer</th>
+                                    <th style="text-align:right;">Overtid</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var emp in _hoursReport.ByEmployee)
+                                {
+                                    <tr>
+                                        <td>@emp.EmployeeName</td>
+                                        <td style="text-align:right;">@emp.Hours.ToString("N1")</td>
+                                        <td style="text-align:right;color:#F59F00;">@emp.OvertimeHours.ToString("N1")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </MudSimpleTable>
+                    </MudPaper>
+                }
+            }
+        </div>
+    </MudTabPanel>
+
+    @* ─── Tab 2: Avvik (Deviations) ─── *@
+    <MudTabPanel Text="Avvik" Icon="@Icons.Material.Filled.ReportProblem">
+        <div class="pa-4">
+            <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-4 mb-4">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3" Class="flex-wrap">
+                    <MudDatePicker @bind-Date="_devFrom" Label="Fra" DateFormat="dd.MM.yyyy"
+                                   Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:180px;" />
+                    <MudDatePicker @bind-Date="_devTo" Label="Til" DateFormat="dd.MM.yyyy"
+                                   Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:180px;" />
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="LoadDeviationReport"
+                               StartIcon="@Icons.Material.Filled.Refresh" Style="text-transform:none;border-radius:8px;">
+                        Oppdater
+                    </MudButton>
+                </MudStack>
+            </MudPaper>
+
+            @if (_devLoading)
+            {
+                <MudStack AlignItems="AlignItems.Center" Class="pa-8">
+                    <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+                </MudStack>
+            }
+            else if (_devReport is not null)
+            {
+                @* Summary cards *@
+                <MudGrid Class="mb-4">
+                    <MudItem xs="6" sm="3">
+                        <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-4">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Totalt</MudText>
+                            <MudText Typo="Typo.h4" Style="font-weight:700;">@_devReport.Total</MudText>
+                        </MudPaper>
+                    </MudItem>
+                    <MudItem xs="6" sm="3">
+                        <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-4">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Apne</MudText>
+                            <MudText Typo="Typo.h4" Style="font-weight:700;color:#E03131;">@_devReport.Open</MudText>
+                        </MudPaper>
+                    </MudItem>
+                    <MudItem xs="6" sm="3">
+                        <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-4">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Under behandling</MudText>
+                            <MudText Typo="Typo.h4" Style="font-weight:700;color:#F59F00;">@_devReport.InProgress</MudText>
+                        </MudPaper>
+                    </MudItem>
+                    <MudItem xs="6" sm="3">
+                        <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-4">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Lukket</MudText>
+                            <MudText Typo="Typo.h4" Style="font-weight:700;color:#2B8A3E;">@_devReport.Closed</MudText>
+                        </MudPaper>
+                    </MudItem>
+                </MudGrid>
+
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+                    Gjennomsnittlig lukketid: @_devReport.AverageDaysToClose dager
+                </MudText>
+
+                <MudGrid Class="mb-4">
+                    @* Donut: By severity *@
+                    @if (_devReport.BySeverity.Count > 0)
+                    {
+                        <MudItem xs="12" md="6">
+                            <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-4">
+                                <MudText Typo="Typo.subtitle1" Style="font-weight:600;" Class="mb-3">Etter alvorlighetsgrad</MudText>
+                                <MudChart T="double" ChartType="ChartType.Donut" InputData="@_devSeverityData"
+                                          InputLabels="@_devSeverityLabels" Width="100%" Height="300px" />
+                            </MudPaper>
+                        </MudItem>
+                    }
+
+                    @* Bar: By project *@
+                    @if (_devReport.ByProject.Count > 0)
+                    {
+                        <MudItem xs="12" md="6">
+                            <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-4">
+                                <MudText Typo="Typo.subtitle1" Style="font-weight:600;" Class="mb-3">Etter prosjekt</MudText>
+                                <MudChart ChartType="ChartType.Bar" ChartSeries="@_devProjectSeries"
+                                          XAxisLabels="@_devProjectLabels" Width="100%" Height="300px"
+                                          ChartOptions="@_chartOptions" />
+                            </MudPaper>
+                        </MudItem>
+                    }
+                </MudGrid>
+
+                @* Line: Monthly trend *@
+                @if (_devReport.ByMonth.Count > 0)
+                {
+                    <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-4">
+                        <MudText Typo="Typo.subtitle1" Style="font-weight:600;" Class="mb-3">Avvik per maned</MudText>
+                        <MudChart ChartType="ChartType.Line" ChartSeries="@_devMonthlySeries"
+                                  XAxisLabels="@_devMonthlyLabels" Width="100%" Height="300px"
+                                  ChartOptions="@_chartOptions" />
+                    </MudPaper>
+                }
+            }
+        </div>
+    </MudTabPanel>
+
+    @* ─── Tab 3: Sertifikater (Certifications) ─── *@
+    <MudTabPanel Text="Sertifikater" Icon="@Icons.Material.Filled.CardMembership">
+        <div class="pa-4">
+            @if (_certLoading)
+            {
+                <MudStack AlignItems="AlignItems.Center" Class="pa-8">
+                    <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+                </MudStack>
+            }
+            else if (_certReport is not null)
+            {
+                @* Summary cards *@
+                <MudGrid Class="mb-4">
+                    <MudItem xs="6" sm="3">
+                        <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-4">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Totalt</MudText>
+                            <MudText Typo="Typo.h4" Style="font-weight:700;">@_certReport.TotalCertifications</MudText>
+                        </MudPaper>
+                    </MudItem>
+                    <MudItem xs="6" sm="3">
+                        <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-4">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Utlopt</MudText>
+                            <MudText Typo="Typo.h4" Style="font-weight:700;color:#E03131;">@_certReport.ExpiredCount</MudText>
+                        </MudPaper>
+                    </MudItem>
+                    <MudItem xs="6" sm="3">
+                        <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-4">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Utloper 30 dager</MudText>
+                            <MudText Typo="Typo.h4" Style="font-weight:700;color:#F59F00;">@_certReport.ExpiringSoon30</MudText>
+                        </MudPaper>
+                    </MudItem>
+                    <MudItem xs="6" sm="3">
+                        <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-4">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Utloper 90 dager</MudText>
+                            <MudText Typo="Typo.h4" Style="font-weight:700;color:#FAB005;">@_certReport.ExpiringSoon90</MudText>
+                        </MudPaper>
+                    </MudItem>
+                </MudGrid>
+
+                @* Table: Employee cert status *@
+                @if (_certReport.EmployeeStatuses.Count > 0)
+                {
+                    <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-4 mb-4">
+                        <MudText Typo="Typo.subtitle1" Style="font-weight:600;" Class="mb-3">Sertifikatstatus per ansatt</MudText>
+                        <MudSimpleTable Hover="true" Dense="true" Style="border-radius:8px;">
+                            <thead>
+                                <tr>
+                                    <th>Ansatt</th>
+                                    <th style="text-align:right;">Totalt</th>
+                                    <th style="text-align:right;">Utlopt</th>
+                                    <th style="text-align:right;">Utloper snart</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var emp in _certReport.EmployeeStatuses)
+                                {
+                                    <tr>
+                                        <td>@emp.EmployeeName</td>
+                                        <td style="text-align:right;">@emp.Total</td>
+                                        <td style="text-align:right;color:#E03131;font-weight:600;">
+                                            @(emp.Expired > 0 ? emp.Expired.ToString() : "-")
+                                        </td>
+                                        <td style="text-align:right;color:#F59F00;">
+                                            @(emp.ExpiringSoon > 0 ? emp.ExpiringSoon.ToString() : "-")
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </MudSimpleTable>
+                    </MudPaper>
+                }
+
+                @* Chart: By certification type *@
+                @if (_certReport.ByType.Count > 0)
+                {
+                    <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-4">
+                        <MudText Typo="Typo.subtitle1" Style="font-weight:600;" Class="mb-3">Etter sertifikattype</MudText>
+                        <MudChart ChartType="ChartType.Bar" ChartSeries="@_certTypeSeries"
+                                  XAxisLabels="@_certTypeLabels" Width="100%" Height="300px"
+                                  ChartOptions="@_chartOptions" />
+                    </MudPaper>
+                }
+            }
+        </div>
+    </MudTabPanel>
+
+    @* ─── Tab 4: HMS (Safety) ─── *@
+    <MudTabPanel Text="HMS" Icon="@Icons.Material.Filled.HealthAndSafety">
+        <div class="pa-4">
+            <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-4 mb-4">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3" Class="flex-wrap">
+                    <MudDatePicker @bind-Date="_safetyFrom" Label="Fra" DateFormat="dd.MM.yyyy"
+                                   Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:180px;" />
+                    <MudDatePicker @bind-Date="_safetyTo" Label="Til" DateFormat="dd.MM.yyyy"
+                                   Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:180px;" />
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="LoadSafetyReport"
+                               StartIcon="@Icons.Material.Filled.Refresh" Style="text-transform:none;border-radius:8px;">
+                        Oppdater
+                    </MudButton>
+                </MudStack>
+            </MudPaper>
+
+            @if (_safetyLoading)
+            {
+                <MudStack AlignItems="AlignItems.Center" Class="pa-8">
+                    <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+                </MudStack>
+            }
+            else if (_safetyReport is not null)
+            {
+                <MudGrid Class="mb-4">
+                    <MudItem xs="6" sm="3">
+                        <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-4">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">SJA utfort</MudText>
+                            <MudText Typo="Typo.h4" Style="font-weight:700;color:#4361EE;">@_safetyReport.SjaCount</MudText>
+                        </MudPaper>
+                    </MudItem>
+                    <MudItem xs="6" sm="3">
+                        <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-4">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Vernerunder</MudText>
+                            <MudText Typo="Typo.h4" Style="font-weight:700;">@_safetyReport.SafetyRoundsCompleted</MudText>
+                        </MudPaper>
+                    </MudItem>
+                    <MudItem xs="6" sm="3">
+                        <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-4">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">HMS-moter</MudText>
+                            <MudText Typo="Typo.h4" Style="font-weight:700;">@_safetyReport.HmsMeetingsHeld</MudText>
+                        </MudPaper>
+                    </MudItem>
+                    <MudItem xs="6" sm="3">
+                        <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-4">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Hendelsesrapporter</MudText>
+                            <MudText Typo="Typo.h4" Style="font-weight:700;color:#E03131;">@_safetyReport.IncidentReports</MudText>
+                        </MudPaper>
+                    </MudItem>
+                </MudGrid>
+
+                @* Line: Deviations by month *@
+                @if (_safetyReport.DeviationsByMonth.Count > 0)
+                {
+                    <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-4">
+                        <MudText Typo="Typo.subtitle1" Style="font-weight:600;" Class="mb-3">Avvik per maned</MudText>
+                        <MudChart ChartType="ChartType.Line" ChartSeries="@_safetyMonthlySeries"
+                                  XAxisLabels="@_safetyMonthlyLabels" Width="100%" Height="300px"
+                                  ChartOptions="@_chartOptions" />
+                    </MudPaper>
+                }
+            }
+        </div>
+    </MudTabPanel>
+
+    @* ─── Tab 5: Prosjekt (Project Summary) ─── *@
+    <MudTabPanel Text="Prosjekt" Icon="@Icons.Material.Filled.Folder">
+        <div class="pa-4">
+            <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-4 mb-4">
+                <MudSelect T="Guid?" Value="_selectedProjectId" Label="Velg prosjekt"
+                           Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:400px;"
+                           ValueChanged="OnProjectSelected">
+                    @foreach (var p in _projects)
+                    {
+                        <MudSelectItem T="Guid?" Value="@p.Id">@p.Name</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudPaper>
+
+            @if (_projectLoading)
+            {
+                <MudStack AlignItems="AlignItems.Center" Class="pa-8">
+                    <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+                </MudStack>
+            }
+            else if (_projectReport is not null)
+            {
+                <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-4 mb-4">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-2">
+                        <MudText Typo="Typo.h6" Style="font-weight:700;">@_projectReport.ProjectName</MudText>
+                        <MudChip T="string" Size="Size.Small"
+                                 Color="@(_projectReport.Status == "Aktiv" ? Color.Success : Color.Default)">
+                            @_projectReport.Status
+                        </MudChip>
+                    </MudStack>
+                    @if (_projectReport.StartDate.HasValue)
+                    {
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">
+                            Oppstart: @_projectReport.StartDate.Value.ToString("dd.MM.yyyy")
+                            @if (_projectReport.PlannedEndDate.HasValue)
+                            {
+                                <span> — Planlagt ferdig: @_projectReport.PlannedEndDate.Value.ToString("dd.MM.yyyy")</span>
+                            }
+                        </MudText>
+                    }
+                </MudPaper>
+
+                <MudGrid>
+                    <MudItem xs="6" sm="4" md="2">
+                        <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-4 text-center">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Timer</MudText>
+                            <MudText Typo="Typo.h5" Style="font-weight:700;color:#4361EE;">
+                                @_projectReport.TotalHours.ToString("N1")
+                            </MudText>
+                        </MudPaper>
+                    </MudItem>
+                    <MudItem xs="6" sm="4" md="2">
+                        <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-4 text-center">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Avvik totalt</MudText>
+                            <MudText Typo="Typo.h5" Style="font-weight:700;">@_projectReport.TotalDeviations</MudText>
+                        </MudPaper>
+                    </MudItem>
+                    <MudItem xs="6" sm="4" md="2">
+                        <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-4 text-center">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Apne avvik</MudText>
+                            <MudText Typo="Typo.h5" Style="font-weight:700;color:#E03131;">@_projectReport.OpenDeviations</MudText>
+                        </MudPaper>
+                    </MudItem>
+                    <MudItem xs="6" sm="4" md="2">
+                        <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-4 text-center">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Sjekklister</MudText>
+                            <MudText Typo="Typo.h5" Style="font-weight:700;">
+                                @_projectReport.ChecklistsCompleted / @_projectReport.ChecklistsTotal
+                            </MudText>
+                        </MudPaper>
+                    </MudItem>
+                    <MudItem xs="6" sm="4" md="2">
+                        <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-4 text-center">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Mannskap</MudText>
+                            <MudText Typo="Typo.h5" Style="font-weight:700;">@_projectReport.CrewCount</MudText>
+                        </MudPaper>
+                    </MudItem>
+                    @if (_projectReport.ChecklistsTotal > 0)
+                    {
+                        <MudItem xs="6" sm="4" md="2">
+                            <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-4 text-center">
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">Fullforingsgrad</MudText>
+                                <MudText Typo="Typo.h5" Style="font-weight:700;color:#2B8A3E;">
+                                    @((_projectReport.ChecklistsCompleted * 100 / _projectReport.ChecklistsTotal).ToString("N0"))%
+                                </MudText>
+                            </MudPaper>
+                        </MudItem>
+                    }
+                </MudGrid>
+            }
+            else if (_selectedProjectId.HasValue)
+            {
+                <MudText Typo="Typo.body1" Color="Color.Secondary" Class="pa-4">
+                    Kunne ikke laste prosjektdata.
+                </MudText>
+            }
+        </div>
+    </MudTabPanel>
+</MudTabs>
+
+@code {
+    // ─── Shared state ───
+    private List<Solodoc.Shared.Projects.ProjectListItemDto> _projects = [];
+    private ChartOptions _chartOptions = new();
+
+    // ─── Hours tab ───
+    private DateTime? _hoursFrom = DateTime.Today.AddDays(-30);
+    private DateTime? _hoursTo = DateTime.Today;
+    private Guid? _hoursProjectId;
+    private bool _hoursLoading;
+    private HoursReportDto? _hoursReport;
+    private List<ChartSeries<double>> _hoursProjectSeries = [];
+    private string[] _hoursProjectLabels = [];
+    private List<ChartSeries<double>> _hoursDailySeries = [];
+    private string[] _hoursDailyLabels = [];
+
+    // ─── Deviations tab ───
+    private DateTime? _devFrom = DateTime.Today.AddDays(-90);
+    private DateTime? _devTo = DateTime.Today;
+    private bool _devLoading;
+    private DeviationReportDto? _devReport;
+    private double[] _devSeverityData = [];
+    private string[] _devSeverityLabels = [];
+    private List<ChartSeries<double>> _devProjectSeries = [];
+    private string[] _devProjectLabels = [];
+    private List<ChartSeries<double>> _devMonthlySeries = [];
+    private string[] _devMonthlyLabels = [];
+
+    // ─── Certifications tab ───
+    private bool _certLoading;
+    private CertificationReportDto? _certReport;
+    private List<ChartSeries<double>> _certTypeSeries = [];
+    private string[] _certTypeLabels = [];
+
+    // ─── Safety tab ───
+    private DateTime? _safetyFrom = DateTime.Today.AddDays(-90);
+    private DateTime? _safetyTo = DateTime.Today;
+    private bool _safetyLoading;
+    private SafetyReportDto? _safetyReport;
+    private List<ChartSeries<double>> _safetyMonthlySeries = [];
+    private string[] _safetyMonthlyLabels = [];
+
+    // ─── Project tab ───
+    private Guid? _selectedProjectId;
+    private bool _projectLoading;
+    private ProjectReportSummaryDto? _projectReport;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Load project list for dropdowns
+        var result = await ProjectService.GetProjectsAsync(1, 100, null, null, false);
+        _projects = result.Items;
+
+        // Load the first tab by default
+        await LoadHoursReport();
+    }
+
+    private async Task OnTabChanged(int index)
+    {
+        switch (index)
+        {
+            case 0 when _hoursReport is null:
+                await LoadHoursReport();
+                break;
+            case 1 when _devReport is null:
+                await LoadDeviationReport();
+                break;
+            case 2 when _certReport is null:
+                await LoadCertificationReport();
+                break;
+            case 3 when _safetyReport is null:
+                await LoadSafetyReport();
+                break;
+        }
+    }
+
+    // ─── Hours ───
+
+    private async Task LoadHoursReport()
+    {
+        _hoursLoading = true;
+        StateHasChanged();
+
+        var from = _hoursFrom.HasValue ? DateOnly.FromDateTime(_hoursFrom.Value) : (DateOnly?)null;
+        var to = _hoursTo.HasValue ? DateOnly.FromDateTime(_hoursTo.Value) : (DateOnly?)null;
+
+        _hoursReport = await ReportService.GetHoursReportAsync(from, to, _hoursProjectId);
+
+        if (_hoursReport is not null)
+        {
+            // By project chart
+            _hoursProjectLabels = _hoursReport.ByProject.Select(p => Truncate(p.ProjectName, 15)).ToArray();
+            _hoursProjectSeries =
+            [
+                new ChartSeries<double> { Name = "Timer", Data = _hoursReport.ByProject.Select(p => (double)p.Hours).ToArray() },
+                new ChartSeries<double> { Name = "Overtid", Data = _hoursReport.ByProject.Select(p => (double)p.OvertimeHours).ToArray() }
+            ];
+
+            // Daily trend chart
+            _hoursDailyLabels = _hoursReport.ByDay.Select(d => d.Date.ToString("dd.MM")).ToArray();
+            _hoursDailySeries =
+            [
+                new ChartSeries<double> { Name = "Timer", Data = _hoursReport.ByDay.Select(d => (double)d.Hours).ToArray() }
+            ];
+        }
+
+        _hoursLoading = false;
+        StateHasChanged();
+    }
+
+    // ─── Deviations ───
+
+    private async Task LoadDeviationReport()
+    {
+        _devLoading = true;
+        StateHasChanged();
+
+        var from = _devFrom.HasValue ? DateOnly.FromDateTime(_devFrom.Value) : (DateOnly?)null;
+        var to = _devTo.HasValue ? DateOnly.FromDateTime(_devTo.Value) : (DateOnly?)null;
+
+        _devReport = await ReportService.GetDeviationReportAsync(from, to);
+
+        if (_devReport is not null)
+        {
+            // Severity donut
+            _devSeverityData = _devReport.BySeverity.Select(s => (double)s.Count).ToArray();
+            _devSeverityLabels = _devReport.BySeverity.Select(s => s.Severity).ToArray();
+
+            // By project bar
+            _devProjectLabels = _devReport.ByProject.Select(p => Truncate(p.ProjectName, 15)).ToArray();
+            _devProjectSeries =
+            [
+                new ChartSeries<double> { Name = "Apne", Data = _devReport.ByProject.Select(p => (double)p.Open).ToArray() },
+                new ChartSeries<double> { Name = "Under behandling", Data = _devReport.ByProject.Select(p => (double)p.InProgress).ToArray() },
+                new ChartSeries<double> { Name = "Lukket", Data = _devReport.ByProject.Select(p => (double)p.Closed).ToArray() }
+            ];
+
+            // Monthly trend line
+            _devMonthlyLabels = _devReport.ByMonth.Select(m => m.Month).ToArray();
+            _devMonthlySeries =
+            [
+                new ChartSeries<double> { Name = "Avvik", Data = _devReport.ByMonth.Select(m => (double)m.Count).ToArray() }
+            ];
+        }
+
+        _devLoading = false;
+        StateHasChanged();
+    }
+
+    // ─── Certifications ───
+
+    private async Task LoadCertificationReport()
+    {
+        _certLoading = true;
+        StateHasChanged();
+
+        _certReport = await ReportService.GetCertificationReportAsync();
+
+        if (_certReport is not null)
+        {
+            _certTypeLabels = _certReport.ByType.Select(t => Truncate(t.Type, 15)).ToArray();
+            _certTypeSeries =
+            [
+                new ChartSeries<double> { Name = "Totalt", Data = _certReport.ByType.Select(t => (double)t.Total).ToArray() },
+                new ChartSeries<double> { Name = "Utlopt", Data = _certReport.ByType.Select(t => (double)t.Expired).ToArray() },
+                new ChartSeries<double> { Name = "Utloper snart", Data = _certReport.ByType.Select(t => (double)t.ExpiringSoon).ToArray() }
+            ];
+        }
+
+        _certLoading = false;
+        StateHasChanged();
+    }
+
+    // ─── Safety ───
+
+    private async Task LoadSafetyReport()
+    {
+        _safetyLoading = true;
+        StateHasChanged();
+
+        var from = _safetyFrom.HasValue ? DateOnly.FromDateTime(_safetyFrom.Value) : (DateOnly?)null;
+        var to = _safetyTo.HasValue ? DateOnly.FromDateTime(_safetyTo.Value) : (DateOnly?)null;
+
+        _safetyReport = await ReportService.GetSafetyReportAsync(from, to);
+
+        if (_safetyReport is not null)
+        {
+            _safetyMonthlyLabels = _safetyReport.DeviationsByMonth.Select(m => m.Month).ToArray();
+            _safetyMonthlySeries =
+            [
+                new ChartSeries<double> { Name = "Avvik", Data = _safetyReport.DeviationsByMonth.Select(m => (double)m.Count).ToArray() }
+            ];
+        }
+
+        _safetyLoading = false;
+        StateHasChanged();
+    }
+
+    // ─── Project ───
+
+    private async Task OnProjectSelected(Guid? projectId)
+    {
+        _selectedProjectId = projectId;
+        if (!projectId.HasValue)
+        {
+            _projectReport = null;
+            return;
+        }
+
+        _projectLoading = true;
+        StateHasChanged();
+
+        _projectReport = await ReportService.GetProjectSummaryAsync(projectId.Value);
+
+        _projectLoading = false;
+        StateHasChanged();
+    }
+
+    private static string Truncate(string text, int maxLength)
+        => text.Length > maxLength ? text[..maxLength] + "..." : text;
+}

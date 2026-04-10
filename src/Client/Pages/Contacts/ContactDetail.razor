@@ -1,0 +1,364 @@
+@page "/contacts/{Id:guid}"
+@attribute [Authorize]
+@inject ContactService ContactService
+@inject ProjectService ProjectService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<PageTitle>Solodoc - Kontakt</PageTitle>
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+}
+else if (_contact is null)
+{
+    <MudStack AlignItems="AlignItems.Center" Spacing="2" Class="pa-8">
+        <MudIcon Icon="@Icons.Material.Filled.PersonOff" Size="Size.Large" Color="Color.Secondary" />
+        <MudText Typo="Typo.body1" Color="Color.Secondary">Kontakten ble ikke funnet</MudText>
+        <MudButton Variant="Variant.Text" Color="Color.Primary" Href="/contacts"
+                   StartIcon="@Icons.Material.Filled.ArrowBack" Style="text-transform:none;">
+            Tilbake til kontakter
+        </MudButton>
+    </MudStack>
+}
+else
+{
+    <MudButton Variant="Variant.Text" Color="Color.Default" Href="/contacts"
+               StartIcon="@Icons.Material.Filled.ArrowBack" Class="mb-2"
+               Style="text-transform:none;">
+        Tilbake
+    </MudButton>
+
+    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudText Typo="Typo.h5">@_contact.Name</MudText>
+            @{
+                var (color, label) = GetTypeInfo(_contact.Type);
+            }
+            <MudChip T="string" Size="Size.Small" Color="@color"
+                     Style="height:22px;">@label</MudChip>
+        </MudStack>
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.Edit"
+                   OnClick="ToggleEdit"
+                   Style="text-transform:none;border-radius:8px;">
+            @(_editing ? "Avbryt" : "Rediger")
+        </MudButton>
+    </MudStack>
+
+    @if (_editing)
+    {
+        <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;" Class="pa-4 mb-4">
+            <EditForm Model="_editModel" OnValidSubmit="SaveChanges">
+                <MudGrid Spacing="3">
+                    <MudItem xs="12" sm="6">
+                        <MudTextField @bind-Value="_editModel.Name" Label="Navn" Required="true"
+                                      Variant="Variant.Outlined" Margin="Margin.Dense" />
+                    </MudItem>
+                    <MudItem xs="12" sm="6">
+                        <MudSelect @bind-Value="_editModel.Type" Label="Type"
+                                   Variant="Variant.Outlined" Margin="Margin.Dense">
+                            <MudSelectItem Value="@("Kunde")">Kunde</MudSelectItem>
+                            <MudSelectItem Value="@("Underleverandor")">Underleverandor</MudSelectItem>
+                            <MudSelectItem Value="@("Leverandor")">Leverandor</MudSelectItem>
+                            <MudSelectItem Value="@("Inspektor")">Inspektor</MudSelectItem>
+                            <MudSelectItem Value="@("Annet")">Annet</MudSelectItem>
+                        </MudSelect>
+                    </MudItem>
+                    <MudItem xs="12" sm="6">
+                        <MudTextField @bind-Value="_editModel.OrgNumber" Label="Org.nummer"
+                                      Variant="Variant.Outlined" Margin="Margin.Dense" />
+                    </MudItem>
+                    <MudItem xs="12">
+                        <MudTextField @bind-Value="_editModel.Address" Label="Adresse"
+                                      Variant="Variant.Outlined" Margin="Margin.Dense" />
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudTextField @bind-Value="_editModel.PostalCode" Label="Postnummer"
+                                      Variant="Variant.Outlined" Margin="Margin.Dense" />
+                    </MudItem>
+                    <MudItem xs="12" sm="8">
+                        <MudTextField @bind-Value="_editModel.City" Label="Sted"
+                                      Variant="Variant.Outlined" Margin="Margin.Dense" />
+                    </MudItem>
+                    <MudItem xs="12" sm="6">
+                        <MudTextField @bind-Value="_editModel.Phone" Label="Telefon"
+                                      Variant="Variant.Outlined" Margin="Margin.Dense" />
+                    </MudItem>
+                    <MudItem xs="12" sm="6">
+                        <MudTextField @bind-Value="_editModel.Email" Label="E-post"
+                                      Variant="Variant.Outlined" Margin="Margin.Dense" />
+                    </MudItem>
+                    <MudItem xs="12" sm="6">
+                        <MudTextField @bind-Value="_editModel.Title" Label="Tittel"
+                                      Variant="Variant.Outlined" Margin="Margin.Dense" />
+                    </MudItem>
+                    <MudItem xs="12">
+                        <MudTextField @bind-Value="_editModel.Description" Label="Beskrivelse"
+                                      Variant="Variant.Outlined" Margin="Margin.Dense" Lines="3" />
+                    </MudItem>
+                    <MudItem xs="12">
+                        <MudTextField @bind-Value="_editModel.Notes" Label="Notater"
+                                      Variant="Variant.Outlined" Margin="Margin.Dense" Lines="3" />
+                    </MudItem>
+                    <MudItem xs="12">
+                        <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled"
+                                   Color="Color.Primary" Disabled="_saving"
+                                   Style="text-transform:none;border-radius:8px;">
+                            @if (_saving)
+                            {
+                                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                            }
+                            Lagre endringer
+                        </MudButton>
+                    </MudItem>
+                </MudGrid>
+            </EditForm>
+        </MudPaper>
+    }
+    else
+    {
+        <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;" Class="pa-4 mb-4">
+            <MudGrid Spacing="3">
+                @if (!string.IsNullOrWhiteSpace(_contact.OrgNumber))
+                {
+                    <MudItem xs="12" sm="6">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Org.nummer</MudText>
+                        <MudText Typo="Typo.body1">@_contact.OrgNumber</MudText>
+                    </MudItem>
+                }
+                @if (!string.IsNullOrWhiteSpace(_contact.Address))
+                {
+                    <MudItem xs="12" sm="6">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Adresse</MudText>
+                        <MudText Typo="Typo.body1">@_contact.Address</MudText>
+                    </MudItem>
+                }
+                @if (!string.IsNullOrWhiteSpace(_contact.PostalCode) || !string.IsNullOrWhiteSpace(_contact.City))
+                {
+                    <MudItem xs="12" sm="6">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Postnummer / Sted</MudText>
+                        <MudText Typo="Typo.body1">@($"{_contact.PostalCode} {_contact.City}".Trim())</MudText>
+                    </MudItem>
+                }
+                @if (!string.IsNullOrWhiteSpace(_contact.Phone))
+                {
+                    <MudItem xs="12" sm="6">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Telefon</MudText>
+                        <MudText Typo="Typo.body1">@_contact.Phone</MudText>
+                    </MudItem>
+                }
+                @if (!string.IsNullOrWhiteSpace(_contact.Email))
+                {
+                    <MudItem xs="12" sm="6">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">E-post</MudText>
+                        <MudText Typo="Typo.body1">@_contact.Email</MudText>
+                    </MudItem>
+                }
+                @if (!string.IsNullOrWhiteSpace(_contact.Title))
+                {
+                    <MudItem xs="12" sm="6">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Tittel</MudText>
+                        <MudText Typo="Typo.body1">@_contact.Title</MudText>
+                    </MudItem>
+                }
+            </MudGrid>
+        </MudPaper>
+
+        @if (!string.IsNullOrWhiteSpace(_contact.Description))
+        {
+            <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;" Class="pa-4 mb-4">
+                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-1">Beskrivelse</MudText>
+                <MudText Typo="Typo.body1">@_contact.Description</MudText>
+            </MudPaper>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(_contact.Notes))
+        {
+            <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;" Class="pa-4 mb-4">
+                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-1">Notater</MudText>
+                <MudText Typo="Typo.body1">@_contact.Notes</MudText>
+            </MudPaper>
+        }
+
+        @* Linked projects section *@
+        <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;" Class="pa-4 mb-4">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@Icons.Material.Filled.Work" Size="Size.Small" Color="Color.Primary" />
+                    <MudText Typo="Typo.subtitle1" Style="font-weight:600;">Prosjekter</MudText>
+                </MudStack>
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+                           StartIcon="@Icons.Material.Filled.Add"
+                           OnClick="NotifyContactLinkWIP"
+                           Style="text-transform:none;border-radius:8px;">
+                    Legg til prosjekt
+                </MudButton>
+            </MudStack>
+
+            @if (_loadingProjects)
+            {
+                <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+            }
+            else if (_linkedProjects.Count == 0)
+            {
+                <MudStack AlignItems="AlignItems.Center" Spacing="1" Class="pa-4">
+                    <MudIcon Icon="@Icons.Material.Filled.FolderOff" Size="Size.Medium" Color="Color.Secondary" />
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Ingen prosjekter koblet til denne kontakten</MudText>
+                </MudStack>
+            }
+            else
+            {
+                <MudStack Spacing="2">
+                    @foreach (var project in _linkedProjects)
+                    {
+                        var statusColor = project.Status switch
+                        {
+                            "Aktiv" => Color.Success,
+                            "Planlagt" => Color.Primary,
+                            "Fullfort" or "Fullført" => Color.Info,
+                            "Kansellert" => Color.Error,
+                            _ => Color.Default
+                        };
+                        <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:8px;cursor:pointer;"
+                                  Class="pa-3" @onclick="() => GoToProject(project.Id)">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                                <MudText Typo="Typo.body1" Style="font-weight:500;">@project.Name</MudText>
+                                <MudChip T="string" Size="Size.Small" Color="@statusColor" Style="height:22px;">@project.Status</MudChip>
+                            </MudStack>
+                        </MudPaper>
+                    }
+                </MudStack>
+            }
+        </MudPaper>
+    }
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private ContactDetailDto? _contact;
+    private bool _loading = true;
+    private bool _editing;
+    private bool _saving;
+    private EditModel _editModel = new();
+
+    // Linked projects
+    private List<Solodoc.Shared.Projects.ProjectListItemDto> _linkedProjects = [];
+    private bool _loadingProjects;
+
+    private void NotifyContactLinkWIP() => Snackbar.Add("Kobling av kontakt til prosjekt er under utvikling", Severity.Info);
+
+    protected override async Task OnInitializedAsync()
+    {
+        _contact = await ContactService.GetContactByIdAsync(Id);
+        _loading = false;
+
+        if (_contact is not null)
+        {
+            _ = LoadLinkedProjectsAsync();
+        }
+    }
+
+    private async Task LoadLinkedProjectsAsync()
+    {
+        _loadingProjects = true;
+        StateHasChanged();
+        try
+        {
+            // Attempt to load projects linked to this contact.
+            // The dedicated endpoint may not exist yet, so we fall back to
+            // showing projects whose ClientName matches this contact's name.
+            var allProjects = await ProjectService.GetProjectsAsync(1, 100, _contact?.Name, null, false);
+            _linkedProjects = allProjects.Items
+                .Where(p => string.Equals(p.ClientName, _contact?.Name, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+        }
+        catch
+        {
+            _linkedProjects = [];
+        }
+        _loadingProjects = false;
+        StateHasChanged();
+    }
+
+    private void GoToProject(Guid projectId) => Navigation.NavigateTo($"/projects/{projectId}");
+
+    private void ToggleEdit()
+    {
+        _editing = !_editing;
+        if (_editing && _contact is not null)
+        {
+            _editModel = new EditModel
+            {
+                Name = _contact.Name,
+                Type = _contact.Type,
+                OrgNumber = _contact.OrgNumber,
+                Address = _contact.Address,
+                PostalCode = _contact.PostalCode,
+                City = _contact.City,
+                Phone = _contact.Phone,
+                Email = _contact.Email,
+                Title = _contact.Title,
+                Description = _contact.Description,
+                Notes = _contact.Notes
+            };
+        }
+    }
+
+    private async Task SaveChanges()
+    {
+        _saving = true;
+        var request = new CreateContactRequest(
+            _editModel.Name,
+            _editModel.Type,
+            _editModel.OrgNumber,
+            _editModel.Address,
+            _editModel.PostalCode,
+            _editModel.City,
+            _editModel.Phone,
+            _editModel.Email,
+            _editModel.Title,
+            _editModel.Description,
+            _editModel.Notes);
+
+        var success = await ContactService.UpdateContactAsync(Id, request);
+        _saving = false;
+
+        if (success)
+        {
+            _contact = await ContactService.GetContactByIdAsync(Id);
+            _editing = false;
+            Snackbar.Add("Kontakt oppdatert", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add("Kunne ikke oppdatere kontakten", Severity.Error);
+        }
+    }
+
+    private static (Color color, string label) GetTypeInfo(string type) => type switch
+    {
+        "Kunde" => (Color.Primary, "Kunde"),
+        "Underleverandor" => (Color.Secondary, "Underleverandor"),
+        "Leverandor" => (Color.Info, "Leverandor"),
+        "Inspektor" => (Color.Warning, "Inspektor"),
+        _ => (Color.Default, type)
+    };
+
+    private class EditModel
+    {
+        public string Name { get; set; } = string.Empty;
+        public string Type { get; set; } = "Kunde";
+        public string? OrgNumber { get; set; }
+        public string? Address { get; set; }
+        public string? PostalCode { get; set; }
+        public string? City { get; set; }
+        public string? Phone { get; set; }
+        public string? Email { get; set; }
+        public string? Title { get; set; }
+        public string? Description { get; set; }
+        public string? Notes { get; set; }
+    }
+}

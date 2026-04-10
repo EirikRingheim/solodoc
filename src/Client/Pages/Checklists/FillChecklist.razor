@@ -1,0 +1,860 @@
+@page "/checklists/{Id:guid}/fill"
+@attribute [Authorize]
+@inject ChecklistService ChecklistService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+@inject IJSRuntime JS
+@inject IDialogService DialogService
+@inject FileUploadService FileUploadService
+
+<PageTitle>Solodoc - Fyll ut sjekkliste</PageTitle>
+
+@* Navigation guard — warn if unsaved changes *@
+<NavigationLock OnBeforeInternalNavigation="OnBeforeNavigation" ConfirmExternalNavigation="_hasUnsavedChanges" />
+
+@* Project context bar *@
+@if (_instance?.ProjectName is not null)
+{
+    <MudPaper Elevation="0" Style="border:1px solid #4361EE;border-radius:8px;background:#EBF0FF;" Class="pa-2 px-4 mb-3">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Filled.Folder" Size="Size.Small" Color="Color.Primary" />
+            <MudText Typo="Typo.body2" Style="font-weight:600;color:#4361EE;">@_instance.ProjectName</MudText>
+        </MudStack>
+    </MudPaper>
+}
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+}
+else if (_instance is null)
+{
+    <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-8">
+        <MudStack AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Filled.ErrorOutline" Size="Size.Large" Color="Color.Warning" />
+            <MudText Typo="Typo.body1" Color="Color.Secondary">Sjekkliste ikke funnet</MudText>
+            <MudButton Variant="Variant.Text" Color="Color.Primary" Href="/checklists"
+                       Style="text-transform:none;">Tilbake til sjekklister</MudButton>
+        </MudStack>
+    </MudPaper>
+}
+else if (_submitted)
+{
+    @* ── Post-submit screen — simple success ── *@
+    <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-6">
+        <MudStack AlignItems="AlignItems.Center" Spacing="3">
+            <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Large" Color="Color.Success" />
+            <MudText Typo="Typo.h5" Style="font-weight:700;">Sjekklisten er sendt inn</MudText>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                       OnClick="GoBack"
+                       Style="text-transform:none;border-radius:8px;min-width:200px;">
+                Tilbake
+            </MudButton>
+        </MudStack>
+    </MudPaper>
+}
+else if (_showSummary)
+{
+    @* ── Summary screen ── *@
+    <MudButton Variant="Variant.Text" Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.ArrowBack"
+               OnClick="() => _showSummary = false"
+               Style="text-transform:none;margin-bottom:16px;">
+        Tilbake til utfylling
+    </MudButton>
+
+    <MudText Typo="Typo.h6" Class="mb-3" Style="font-weight:600;">Oppsummering</MudText>
+
+    @foreach (var item in _items)
+    {
+        var resp = _responses[item.Id];
+        var isCompleted = IsResponseCompleted(item, resp);
+        var borderColor = item.IsRequired && !isCompleted ? "#FEE2E2" : "#E9ECEF";
+        var capturedItem = item;
+        <div style="@($"border:1px solid {borderColor};border-radius:8px;cursor:pointer;padding:12px;margin-bottom:8px;")"
+             @onclick="() => GoToItem(capturedItem)">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                @if (item.Type == "Check" && resp.CheckValue == true && !resp.IsIrrelevant)
+                {
+                    <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Size="Size.Small" />
+                }
+                else if (resp.IsIrrelevant)
+                {
+                    <MudIcon Icon="@Icons.Material.Filled.Remove" Color="Color.Default" Size="Size.Small" />
+                }
+                else if (isCompleted)
+                {
+                    <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Size="Size.Small" />
+                }
+                else if (item.IsRequired)
+                {
+                    <MudIcon Icon="@Icons.Material.Filled.Error" Color="Color.Error" Size="Size.Small" />
+                }
+                else
+                {
+                    <MudIcon Icon="@Icons.Material.Filled.RadioButtonUnchecked" Color="Color.Default" Size="Size.Small" />
+                }
+                <div style="flex:1;">
+                    <MudText Typo="Typo.body2" Style="font-weight:500;">@item.Label</MudText>
+                    @if (resp.IsIrrelevant && !string.IsNullOrWhiteSpace(resp.IrrelevantComment))
+                    {
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">@resp.IrrelevantComment</MudText>
+                    }
+                    else if (!string.IsNullOrWhiteSpace(resp.Value))
+                    {
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">@resp.Value</MudText>
+                    }
+                    else if (item.IsRequired && !isCompleted)
+                    {
+                        <MudText Typo="Typo.caption" Color="Color.Error">Ikke utfylt</MudText>
+                    }
+                </div>
+            </MudStack>
+        </div>
+    }
+
+    @if (MissingCount > 0)
+    {
+        <MudAlert Severity="Severity.Error" Class="mb-3" Style="border-radius:8px;">
+            @MissingCount obligatoriske punkt er ikke utfylt
+        </MudAlert>
+    }
+
+    <MudButton Variant="Variant.Outlined" FullWidth="true" Class="mb-3"
+               StartIcon="@Icons.Material.Filled.Draw"
+               Style="text-transform:none;min-height:56px;border-radius:12px;">
+        Signer sjekkliste
+    </MudButton>
+
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
+               Size="Size.Large" Disabled="@(MissingCount > 0 || _submitting)"
+               Style="text-transform:none;border-radius:12px;font-weight:600;"
+               OnClick="HandleSubmit">
+        @if (_submitting)
+        {
+            <MudProgressCircular Size="Size.Small" Indeterminate="true" Color="Color.Inherit" Class="mr-2" />
+        }
+        Send inn
+    </MudButton>
+}
+else
+{
+    @* ── Back button — go back to previous page ── *@
+    <MudButton Variant="Variant.Text" Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.ArrowBack"
+               OnClick="GoBack"
+               Style="text-transform:none;margin-bottom:16px;">
+        Tilbake
+    </MudButton>
+
+    @if (_isMobile)
+    {
+        @* ── Mobile: one item per screen ── *@
+        var currentItem = _items[_currentIndex];
+        var currentResp = _responses[currentItem.Id];
+
+        @* Header with progress *@
+        <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-4 mb-3">
+            <MudText Typo="Typo.subtitle1" Style="font-weight:600;">@_instance.TemplateName</MudText>
+            @if (!string.IsNullOrWhiteSpace(currentItem.SectionGroup))
+            {
+                <MudText Typo="Typo.caption" Color="Color.Secondary">@currentItem.SectionGroup</MudText>
+            }
+            <MudText Typo="Typo.body2" Color="Color.Primary" Style="font-weight:500;">
+                Punkt @(_currentIndex + 1) av @_items.Count
+            </MudText>
+            <MudProgressLinear Value="@ProgressPercent" Color="Color.Primary" Rounded="true" Size="Size.Small" Class="mt-2" />
+        </MudPaper>
+
+        @* Current item card *@
+        <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-5 mb-3">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mb-1">
+                <MudText Typo="Typo.h6">@currentItem.Label</MudText>
+                @if (currentItem.IsRequired)
+                {
+                    <MudText Typo="Typo.h6" Color="Color.Error">*</MudText>
+                }
+            </MudStack>
+            @if (!string.IsNullOrWhiteSpace(currentItem.HelpText))
+            {
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">@currentItem.HelpText</MudText>
+            }
+
+            @* Render item type input *@
+            @switch (currentItem.Type)
+            {
+                case "Check":
+                    <MudStack Row="true" Spacing="3" Class="mb-3">
+                        <MudButton Variant="@(currentResp.CheckValue == true && !currentResp.IsIrrelevant ? Variant.Filled : Variant.Outlined)"
+                                   Color="Color.Success" Size="Size.Large"
+                                   Style="flex:1;min-height:56px;border-radius:12px;text-transform:none;font-weight:600;"
+                                   OnClick="() => MarkOk(currentItem)">
+                            @if (currentResp.CheckValue == true && !currentResp.IsIrrelevant)
+                            {
+                                <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Class="mr-2" />
+                            }
+                            OK
+                        </MudButton>
+                        <MudButton Variant="@(currentResp.IsIrrelevant ? Variant.Filled : Variant.Outlined)"
+                                   Color="Color.Default" Size="Size.Large"
+                                   Style="flex:1;min-height:56px;border-radius:12px;text-transform:none;font-weight:600;"
+                                   OnClick="() => MarkIrrelevant(currentItem)">
+                            @if (currentResp.IsIrrelevant)
+                            {
+                                <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Class="mr-2" />
+                            }
+                            Irrelevant
+                        </MudButton>
+                    </MudStack>
+                    @if (currentResp.IsIrrelevant)
+                    {
+                        <MudTextField T="string" @bind-Value="currentResp.IrrelevantComment"
+                                      Label="Hvorfor er dette irrelevant?"
+                                      Variant="Variant.Outlined" Lines="2" Class="mb-3"
+                                      Required="@currentItem.RequireCommentOnIrrelevant" />
+                    }
+                    @if (currentItem.AllowPhoto)
+                    {
+                        <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.CameraAlt"
+                                   Style="text-transform:none;" Class="mb-1">
+                            @(string.IsNullOrWhiteSpace(currentItem.PhotoFileKey) ? "Legg til bilde" : "Bilde lagt til")
+                        </MudButton>
+                    }
+                    @if (currentItem.AllowComment)
+                    {
+                        <MudTextField T="string" @bind-Value="currentResp.Comment" Label="Kommentar (valgfritt)"
+                                      Variant="Variant.Outlined" Lines="2" />
+                    }
+                    break;
+
+                case "TextInput":
+                    <MudTextField T="string" @bind-Value="currentResp.Value" Label="@currentItem.Label"
+                                  Variant="Variant.Outlined" Placeholder="@currentItem.HelpText"
+                                  Lines="2" />
+                    break;
+
+                case "NumberInput":
+                    <MudNumericField T="double?" Value="@ParseDouble(currentResp.Value)"
+                                     Label="@currentItem.Label"
+                                     Variant="Variant.Outlined"
+                                     Adornment="Adornment.End"
+                                     AdornmentText="@(currentItem.UnitLabel ?? "")"
+                                     ValueChanged="(double? val) => SetNumericValue(currentResp, val)" />
+                    break;
+
+                case "DateInput":
+                    <MudDatePicker Date="@ParseDate(currentResp.Value)"
+                                   Label="@currentItem.Label"
+                                   Variant="Variant.Outlined"
+                                   DateFormat="dd.MM.yyyy"
+                                   DateChanged="(DateTime? val) => SetDateValue(currentResp, val)" />
+                    break;
+
+                case "Dropdown":
+                    <MudSelect T="string" @bind-Value="currentResp.Value" Label="@currentItem.Label"
+                               Variant="Variant.Outlined">
+                        @foreach (var option in GetDropdownOptions(currentItem))
+                        {
+                            <MudSelectItem T="string" Value="@option">@option</MudSelectItem>
+                        }
+                    </MudSelect>
+                    break;
+
+                case "Photo":
+                    @if (!string.IsNullOrWhiteSpace(currentResp.PhotoFileKey))
+                    {
+                        <MudPaper Elevation="0" Style="border:1px solid #D1FAE5;border-radius:12px;background:#F0FDF4;" Class="pa-3">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" />
+                                <MudText Typo="Typo.body2" Style="font-weight:500;color:#166534;">Bilde lastet opp</MudText>
+                            </MudStack>
+                        </MudPaper>
+                    }
+                    <MudFileUpload T="IBrowserFile" Accept=".jpg,.jpeg,.png,.heic,.webp"
+                                   FilesChanged="async f => await HandlePhotoUpload(currentItem, f)"
+                                   MaximumFileCount="1">
+                        <ActivatorContent>
+                            <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                                       StartIcon="@Icons.Material.Filled.CameraAlt"
+                                       HtmlTag="label"
+                                       Style="text-transform:none;min-height:56px;width:100%;border-radius:12px;">
+                                @(string.IsNullOrWhiteSpace(currentResp.PhotoFileKey) ? "Ta bilde" : "Bytt bilde")
+                            </MudButton>
+                        </ActivatorContent>
+                    </MudFileUpload>
+                    break;
+
+                case "Signature":
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.Draw"
+                               Style="text-transform:none;min-height:56px;width:100%;border-radius:12px;">
+                        Signer
+                    </MudButton>
+                    @if (!string.IsNullOrWhiteSpace(currentItem.SignatureFileKey))
+                    {
+                        <MudText Typo="Typo.caption" Color="Color.Success" Class="mt-1">Signert</MudText>
+                    }
+                    break;
+            }
+        </MudPaper>
+
+        @* Navigation buttons *@
+        <MudStack Row="true" Justify="Justify.SpaceBetween">
+            <MudButton OnClick="PrevItem" Disabled="@(_currentIndex == 0)"
+                       StartIcon="@Icons.Material.Filled.ArrowBack"
+                       Style="text-transform:none;min-height:48px;">Forrige</MudButton>
+            @if (_currentIndex < _items.Count - 1)
+            {
+                <MudButton OnClick="NextItem" Variant="Variant.Filled" Color="Color.Primary"
+                           EndIcon="@Icons.Material.Filled.ArrowForward"
+                           Style="text-transform:none;border-radius:8px;min-height:48px;">Neste</MudButton>
+            }
+            else
+            {
+                <MudButton OnClick="ShowSummary" Variant="Variant.Filled" Color="Color.Primary"
+                           EndIcon="@Icons.Material.Filled.Checklist"
+                           Style="text-transform:none;border-radius:8px;min-height:48px;">Se oppsummering</MudButton>
+            }
+        </MudStack>
+    }
+    else
+    {
+        @* ── Desktop: all items on one scrollable page ── *@
+        <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-4 mb-4">
+            <MudText Typo="Typo.h5" Style="font-weight:600;">@_instance.TemplateName</MudText>
+            @if (!string.IsNullOrWhiteSpace(_instance.ProjectName))
+            {
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mt-1">
+                    <MudIcon Icon="@Icons.Material.Filled.Business" Size="Size.Small" Color="Color.Secondary" />
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">@_instance.ProjectName</MudText>
+                </MudStack>
+            }
+            @if (!string.IsNullOrWhiteSpace(_instance.LocationIdentifier))
+            {
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mt-1">
+                    <MudIcon Icon="@Icons.Material.Filled.LocationOn" Size="Size.Small" Color="Color.Secondary" />
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">@_instance.LocationIdentifier</MudText>
+                </MudStack>
+            }
+            <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mt-2">
+                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                    @CompletedCount av @_items.Count elementer utfylt
+                </MudText>
+                <MudText Typo="Typo.body2" Color="Color.Primary" Style="font-weight:500;">
+                    @((int)ProgressPercent)%
+                </MudText>
+            </MudStack>
+            <MudProgressLinear Value="@ProgressPercent" Color="Color.Primary" Rounded="true" Size="Size.Small" Class="mt-1" />
+        </MudPaper>
+
+        @* All items grouped by section *@
+        @foreach (var group in _items
+            .GroupBy(i => i.SectionGroup ?? "Generelt")
+            .ToList())
+        {
+            <MudText Typo="Typo.subtitle1" Style="font-weight:600;" Class="mb-2 mt-4">@group.Key</MudText>
+
+            @foreach (var item in group)
+            {
+                var resp = _responses[item.Id];
+                var isCompleted = IsResponseCompleted(item, resp);
+                var leftBorder = isCompleted ? "border-left:4px solid #4CAF50;" : "";
+
+                <MudPaper Elevation="0" Style="@($"border:1px solid #E9ECEF;border-radius:12px;{leftBorder}")" Class="pa-5 mb-3">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mb-1">
+                        <MudIcon Icon="@GetTypeIcon(item.Type)" Size="Size.Small" Color="Color.Primary" />
+                        <MudText Typo="Typo.body1" Style="font-weight:500;">@item.Label</MudText>
+                        @if (item.IsRequired)
+                        {
+                            <MudText Typo="Typo.body1" Color="Color.Error">*</MudText>
+                        }
+                    </MudStack>
+                    @if (!string.IsNullOrWhiteSpace(item.HelpText))
+                    {
+                        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-3">@item.HelpText</MudText>
+                    }
+
+                    @switch (item.Type)
+                    {
+                        case "Check":
+                            <MudStack Row="true" Spacing="3" Class="mb-3">
+                                <MudButton Variant="@(resp.CheckValue == true && !resp.IsIrrelevant ? Variant.Filled : Variant.Outlined)"
+                                           Color="Color.Success" Size="Size.Large"
+                                           Style="flex:1;min-height:56px;border-radius:12px;text-transform:none;font-weight:600;"
+                                           OnClick="() => MarkOk(item)">
+                                    @if (resp.CheckValue == true && !resp.IsIrrelevant)
+                                    {
+                                        <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Class="mr-2" />
+                                    }
+                                    OK
+                                </MudButton>
+                                <MudButton Variant="@(resp.IsIrrelevant ? Variant.Filled : Variant.Outlined)"
+                                           Color="Color.Default" Size="Size.Large"
+                                           Style="flex:1;min-height:56px;border-radius:12px;text-transform:none;font-weight:600;"
+                                           OnClick="() => MarkIrrelevant(item)">
+                                    @if (resp.IsIrrelevant)
+                                    {
+                                        <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Class="mr-2" />
+                                    }
+                                    Irrelevant
+                                </MudButton>
+                            </MudStack>
+                            @if (resp.IsIrrelevant)
+                            {
+                                <MudTextField T="string" @bind-Value="resp.IrrelevantComment"
+                                              Label="Hvorfor er dette irrelevant?"
+                                              Variant="Variant.Outlined" Lines="2" Class="mb-3"
+                                              Required="@item.RequireCommentOnIrrelevant"
+                                              DebounceInterval="800"
+                                              OnDebounceIntervalElapsed="() => SaveItemAsync(item)" />
+                            }
+                            @if (item.AllowPhoto)
+                            {
+                                <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.CameraAlt"
+                                           Style="text-transform:none;" Class="mb-1">
+                                    @(string.IsNullOrWhiteSpace(item.PhotoFileKey) ? "Legg til bilde" : "Bilde lagt til")
+                                </MudButton>
+                            }
+                            @if (item.AllowComment)
+                            {
+                                <MudTextField T="string" @bind-Value="resp.Comment" Label="Kommentar (valgfritt)"
+                                              Variant="Variant.Outlined" Lines="2"
+                                              DebounceInterval="800"
+                                              OnDebounceIntervalElapsed="() => SaveItemAsync(item)" />
+                            }
+                            break;
+
+                        case "TextInput":
+                            <MudTextField T="string" @bind-Value="resp.Value" Label="@item.Label"
+                                          Variant="Variant.Outlined" Placeholder="@item.HelpText"
+                                          Lines="2" DebounceInterval="800"
+                                          OnDebounceIntervalElapsed="() => SaveItemAsync(item)" />
+                            break;
+
+                        case "NumberInput":
+                            <MudNumericField T="double?" Value="@ParseDouble(resp.Value)"
+                                             Label="@item.Label"
+                                             Variant="Variant.Outlined"
+                                             Adornment="Adornment.End"
+                                             AdornmentText="@(item.UnitLabel ?? "")"
+                                             ValueChanged="(double? val) => { SetNumericValue(resp, val); SaveItemAsync(item); }" />
+                            break;
+
+                        case "DateInput":
+                            <MudDatePicker Date="@ParseDate(resp.Value)"
+                                           Label="@item.Label"
+                                           Variant="Variant.Outlined"
+                                           DateFormat="dd.MM.yyyy"
+                                           DateChanged="(DateTime? val) => { SetDateValue(resp, val); SaveItemAsync(item); }" />
+                            break;
+
+                        case "Dropdown":
+                            <MudSelect T="string" Value="@(resp.Value ?? "")" Label="@item.Label"
+                                       Variant="Variant.Outlined"
+                                       ValueChanged="(string val) => { resp.Value = val; SaveItemAsync(item); }">
+                                @foreach (var option in GetDropdownOptions(item))
+                                {
+                                    <MudSelectItem T="string" Value="@option">@option</MudSelectItem>
+                                }
+                            </MudSelect>
+                            break;
+
+                        case "Photo":
+                            @if (!string.IsNullOrWhiteSpace(resp.PhotoFileKey))
+                            {
+                                <MudPaper Elevation="0" Style="border:1px solid #D1FAE5;border-radius:8px;background:#F0FDF4;" Class="pa-2">
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                        <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Size="Size.Small" />
+                                        <MudText Typo="Typo.caption" Style="color:#166534;">Bilde lastet opp</MudText>
+                                    </MudStack>
+                                </MudPaper>
+                            }
+                            <MudFileUpload T="IBrowserFile" Accept=".jpg,.jpeg,.png,.heic,.webp"
+                                           FilesChanged="async f => await HandlePhotoUpload(item, f)"
+                                           MaximumFileCount="1">
+                                <ActivatorContent>
+                                    <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                                               StartIcon="@Icons.Material.Filled.CameraAlt"
+                                               HtmlTag="label"
+                                               Style="text-transform:none;min-height:48px;width:100%;border-radius:8px;">
+                                        @(string.IsNullOrWhiteSpace(resp.PhotoFileKey) ? "Ta bilde" : "Bytt bilde")
+                                    </MudButton>
+                                </ActivatorContent>
+                            </MudFileUpload>
+                            break;
+
+                        case "Signature":
+                            <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                                       StartIcon="@Icons.Material.Filled.Draw"
+                                       Style="text-transform:none;min-height:56px;width:100%;border-radius:12px;">
+                                Signer
+                            </MudButton>
+                            @if (!string.IsNullOrWhiteSpace(item.SignatureFileKey))
+                            {
+                                <MudText Typo="Typo.caption" Color="Color.Success" Class="mt-1">Signert</MudText>
+                            }
+                            break;
+                    }
+                </MudPaper>
+            }
+        }
+
+        @* Desktop: summary button at bottom *@
+        <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-4 mt-4">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
+                       Size="Size.Large"
+                       EndIcon="@Icons.Material.Filled.Checklist"
+                       Style="text-transform:none;border-radius:12px;font-weight:600;min-height:56px;"
+                       OnClick="ShowSummaryDesktop">
+                Se oppsummering og send inn
+            </MudButton>
+        </MudPaper>
+    }
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private ChecklistInstanceDetailDto? _instance;
+    private List<ChecklistInstanceItemDto> _items = [];
+    private Dictionary<Guid, ItemResponse> _responses = new();
+
+    private bool _loading = true;
+    private bool _isMobile = true;
+    private bool _showSummary;
+    private bool _submitting;
+    private bool _submitted;
+    private int _currentIndex;
+    private string _duplicateLocation = string.Empty;
+    private bool _savingItem;
+
+    private double ProgressPercent => _items.Count > 0
+        ? (double)CompletedCount / _items.Count * 100
+        : 0;
+
+    private int CompletedCount => _items.Count(i => IsResponseCompleted(i, _responses.GetValueOrDefault(i.Id)));
+
+    private int MissingCount => _items.Count(i => i.IsRequired && !IsResponseCompleted(i, _responses.GetValueOrDefault(i.Id)));
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadInstance();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var width = await JS.InvokeAsync<int>("eval", "window.innerWidth");
+            _isMobile = width < 960;
+            StateHasChanged();
+        }
+    }
+
+    private bool _hasUnsavedChanges;
+
+    private async Task GoBack()
+    {
+        _hasUnsavedChanges = false; // Allow navigation
+        await JS.InvokeVoidAsync("history.back");
+    }
+
+    private async Task OnBeforeNavigation(LocationChangingContext context)
+    {
+        if (_hasUnsavedChanges && !_submitted)
+        {
+            var confirmed = await JS.InvokeAsync<bool>("confirm", "Du har ulagrede endringer. Er du sikker pa at du vil forlate siden?");
+            if (!confirmed)
+                context.PreventNavigation();
+        }
+    }
+
+    private async Task LoadInstance()
+    {
+        _loading = true;
+        _instance = await ChecklistService.GetInstanceDetailAsync(Id);
+        if (_instance is not null)
+        {
+            _items = _instance.Items.OrderBy(i => i.SortOrder).ToList();
+            _responses = _items.ToDictionary(i => i.Id, i => new ItemResponse
+            {
+                CheckValue = i.CheckValue,
+                IsIrrelevant = i.IsIrrelevant,
+                IrrelevantComment = i.IrrelevantComment,
+                Value = i.Value,
+                Comment = i.Comment,
+                PhotoFileKey = i.PhotoFileKey,
+                SignatureFileKey = i.SignatureFileKey
+            });
+        }
+        _loading = false;
+    }
+
+    // ── Mobile navigation ──
+
+    private async Task NextItem()
+    {
+        await SaveCurrentItem();
+        if (_currentIndex < _items.Count - 1)
+            _currentIndex++;
+    }
+
+    private async Task PrevItem()
+    {
+        await SaveCurrentItem();
+        if (_currentIndex > 0)
+            _currentIndex--;
+    }
+
+    private async Task ShowSummary()
+    {
+        await SaveCurrentItem();
+        _showSummary = true;
+    }
+
+    private async Task ShowSummaryDesktop()
+    {
+        // Save all items before showing summary
+        foreach (var item in _items)
+        {
+            await SaveItemAsync(item);
+        }
+        _showSummary = true;
+    }
+
+    private void GoToItem(ChecklistInstanceItemDto item)
+    {
+        _currentIndex = _items.IndexOf(item);
+        _showSummary = false;
+    }
+
+    // ── Check item actions ──
+
+    private async Task MarkOk(ChecklistInstanceItemDto item)
+    {
+        _hasUnsavedChanges = true;
+        var resp = _responses[item.Id];
+        resp.CheckValue = true;
+        resp.IsIrrelevant = false;
+        resp.IrrelevantComment = null;
+        await SaveItemAsync(item);
+    }
+
+    private async Task MarkIrrelevant(ChecklistInstanceItemDto item)
+    {
+        var resp = _responses[item.Id];
+        resp.CheckValue = null;
+        resp.IsIrrelevant = true;
+        await SaveItemAsync(item);
+    }
+
+    // ── Value helpers ──
+
+    private void SetNumericValue(ItemResponse resp, double? val)
+    {
+        resp.Value = val?.ToString(System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    private void SetDateValue(ItemResponse resp, DateTime? val)
+    {
+        resp.Value = val?.ToString("yyyy-MM-dd");
+    }
+
+    // ── Save ──
+
+    private async Task SaveCurrentItem()
+    {
+        if (_items.Count == 0) return;
+        var item = _items[_currentIndex];
+        await SaveItemAsync(item);
+    }
+
+    private async Task SaveItemAsync(ChecklistInstanceItemDto item)
+    {
+        if (_savingItem || _instance is null) return;
+        _savingItem = true;
+        try
+        {
+            var resp = _responses[item.Id];
+            await ChecklistService.SubmitItemAsync(_instance.Id, item.Id,
+                new SubmitChecklistItemRequest(
+                    resp.Value,
+                    resp.CheckValue,
+                    resp.IsIrrelevant,
+                    resp.IrrelevantComment,
+                    resp.Comment,
+                    resp.PhotoFileKey,
+                    resp.SignatureFileKey));
+        }
+        finally
+        {
+            _savingItem = false;
+        }
+    }
+
+    // ── Submit ──
+
+    private async Task HandleSubmit()
+    {
+        if (_instance is null) return;
+        _submitting = true;
+
+        // Save all items first
+        foreach (var item in _items)
+        {
+            var resp = _responses[item.Id];
+            await ChecklistService.SubmitItemAsync(_instance.Id, item.Id,
+                new SubmitChecklistItemRequest(
+                    resp.Value,
+                    resp.CheckValue,
+                    resp.IsIrrelevant,
+                    resp.IrrelevantComment,
+                    resp.Comment,
+                    resp.PhotoFileKey,
+                    resp.SignatureFileKey));
+        }
+
+        var success = await ChecklistService.SubmitInstanceAsync(_instance.Id);
+        if (success)
+        {
+            _submitted = true;
+            Snackbar.Add("Sjekkliste sendt inn", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add("Kunne ikke sende inn sjekklisten", Severity.Error);
+        }
+        _submitting = false;
+    }
+
+    // ── Duplicate ──
+
+    private async Task DuplicateForNewLocation()
+    {
+        if (_instance is null) return;
+        var newId = await ChecklistService.DuplicateInstanceAsync(_instance.Id,
+            new DuplicateInstanceRequest(_duplicateLocation));
+        if (newId.HasValue)
+        {
+            Snackbar.Add("Sjekkliste duplisert", Severity.Success);
+            Navigation.NavigateTo($"/checklists/{newId.Value}/fill");
+        }
+        else
+        {
+            Snackbar.Add("Kunne ikke duplisere", Severity.Error);
+        }
+    }
+
+    // ── Batch Duplicate ──
+
+    private async Task OpenBatchDuplicateDialog()
+    {
+        if (_instance is null) return;
+
+        var parameters = new DialogParameters<BatchDuplicateDialog>
+        {
+            { x => x.TemplateId, _instance.Id },
+            { x => x.ProjectId, Guid.Empty }
+        };
+        var options = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true };
+        var dialog = await DialogService.ShowAsync<BatchDuplicateDialog>("Dupliser for gjentatt arbeid", parameters, options);
+        var result = await dialog.Result;
+        if (result is not null && !result.Canceled)
+        {
+            Navigation.NavigateTo("/checklists");
+        }
+    }
+
+    // ── Helpers ──
+
+    private static bool IsResponseCompleted(ChecklistInstanceItemDto item, ItemResponse? resp)
+    {
+        if (resp is null) return false;
+        return item.Type switch
+        {
+            "Check" => resp.CheckValue == true || resp.IsIrrelevant,
+            "Photo" => !string.IsNullOrWhiteSpace(item.PhotoFileKey),
+            "Signature" => !string.IsNullOrWhiteSpace(item.SignatureFileKey),
+            _ => !string.IsNullOrWhiteSpace(resp.Value)
+        };
+    }
+
+    private static double? ParseDouble(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        return double.TryParse(value, System.Globalization.CultureInfo.InvariantCulture, out var d) ? d : null;
+    }
+
+    private static DateTime? ParseDate(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        return DateTime.TryParse(value, out var dt) ? dt : null;
+    }
+
+    private static string[] GetDropdownOptions(ChecklistInstanceItemDto item)
+    {
+        return (item.DropdownOptions ?? "").Split(',',
+            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+    }
+
+    private static string GetTypeIcon(string type) => type switch
+    {
+        "Check" => Icons.Material.Filled.CheckBox,
+        "TextInput" => Icons.Material.Filled.TextFields,
+        "NumberInput" => Icons.Material.Filled.Numbers,
+        "DateInput" => Icons.Material.Filled.CalendarMonth,
+        "Dropdown" => Icons.Material.Filled.ArrowDropDown,
+        "Photo" => Icons.Material.Filled.CameraAlt,
+        "Signature" => Icons.Material.Filled.Draw,
+        _ => Icons.Material.Filled.HelpOutline
+    };
+
+    // ── Mutable response state ──
+
+    private class ItemResponse
+    {
+        public bool? CheckValue { get; set; }
+        public bool IsIrrelevant { get; set; }
+        public string? IrrelevantComment { get; set; }
+        public string? Value { get; set; }
+        public string? Comment { get; set; }
+        public string? PhotoFileKey { get; set; }
+        public string? SignatureFileKey { get; set; }
+    }
+
+    private async Task HandlePhotoUpload(ChecklistInstanceItemDto item, IBrowserFile file)
+    {
+        if (file is null || _instance is null) return;
+
+        Snackbar.Add("Laster opp bilde...", Severity.Info);
+        _hasUnsavedChanges = true;
+
+        try
+        {
+            using var stream = file.OpenReadStream(maxAllowedSize: 25 * 1024 * 1024);
+            var key = await FileUploadService.UploadPhotoAsync(stream, file.Name, file.ContentType);
+
+            if (key is not null)
+            {
+                var resp = _responses[item.Id];
+                resp.PhotoFileKey = key;
+
+                // Save the photo key to the server
+                await ChecklistService.SubmitItemAsync(_instance.Id, item.Id,
+                    new SubmitChecklistItemRequest(resp.Value, resp.CheckValue,
+                        resp.IsIrrelevant, resp.IrrelevantComment, resp.Comment, key, null));
+
+                Snackbar.Add("Bilde lastet opp", Severity.Success);
+                StateHasChanged();
+            }
+            else
+            {
+                Snackbar.Add("Kunne ikke laste opp bilde", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Feil: {ex.Message}", Severity.Error);
+        }
+    }
+}

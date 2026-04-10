@@ -1,0 +1,61 @@
+<MudThemeProvider Theme="_theme" IsDarkMode="false" />
+<MudPopoverProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<CascadingAuthenticationState>
+    <Router AppAssembly="@typeof(App).Assembly" NotFoundPage="typeof(Pages.NotFound)">
+        <Found Context="routeData">
+            <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)">
+                <NotAuthorized>
+                    <Solodoc.Client.Pages.Auth.RedirectToLogin />
+                </NotAuthorized>
+                <Authorizing>
+                    <MudProgressLinear Color="Color.Primary" Indeterminate="true" />
+                </Authorizing>
+            </AuthorizeRouteView>
+            <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+        </Found>
+    </Router>
+</CascadingAuthenticationState>
+
+@code {
+    private readonly MudTheme _theme = new()
+    {
+        PaletteLight = new PaletteLight
+        {
+            Primary = "#4361EE",
+            Secondary = "#6C757D",
+            Info = "#4361EE",
+            Success = "#2DC653",
+            Warning = "#F4A261",
+            Error = "#E63946",
+            Background = "#F8F9FA",
+            Surface = "#FFFFFF",
+            AppbarBackground = "#FFFFFF",
+            AppbarText = "#212529",
+            DrawerBackground = "#FFFFFF",
+            DrawerText = "#495057",
+            DrawerIcon = "#6C757D",
+            TextPrimary = "#212529",
+            TextSecondary = "#6C757D",
+            ActionDefault = "#6C757D",
+            LinesDefault = "#E9ECEF"
+        },
+        Typography = new Typography
+        {
+            Default = new DefaultTypography
+            {
+                FontFamily = ["Inter", "Helvetica", "Arial", "sans-serif"]
+            },
+            H5 = new H5Typography
+            {
+                FontWeight = "600"
+            },
+            H6 = new H6Typography
+            {
+                FontWeight = "600"
+            }
+        }
+    };
+}

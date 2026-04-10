@@ -1,0 +1,98 @@
+@page "/machines"
+@attribute [Authorize]
+@inject EquipmentService EquipmentService
+@inject NavigationManager Navigation
+
+<PageTitle>Solodoc - Maskinpark</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4">
+    <MudText Typo="Typo.h5">Maskinpark</MudText>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.Add"
+               Href="/machines/new"
+               Style="text-transform:none;border-radius:8px;">
+        Nytt utstyr
+    </MudButton>
+</MudStack>
+
+<MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;overflow:hidden;">
+    <MudDataGrid T="EquipmentListItemDto"
+                 Items="_equipment"
+                 Sortable="true"
+                 Filterable="false"
+                 Hover="true"
+                 Dense="false"
+                 RowClick="OnRowClick"
+                 RowStyle="cursor:pointer;"
+                 Loading="_loading"
+                 Class="equipment-grid">
+        <ToolBarContent>
+            <MudSpacer />
+            <MudTextField T="string" @bind-Value="_search" Placeholder="Sok utstyr..."
+                          Variant="Variant.Outlined" Margin="Margin.Dense"
+                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                          Immediate="true" DebounceInterval="300"
+                          TextChanged="OnSearchChanged"
+                          Style="max-width:300px;" />
+        </ToolBarContent>
+        <Columns>
+            <PropertyColumn Property="x => x.Name" Title="Navn" />
+            <PropertyColumn Property="x => x.Type" Title="Type" />
+            <PropertyColumn Property="x => x.RegistrationNumber" Title="Reg.nummer" />
+            <TemplateColumn Title="Merke / Modell">
+                <CellTemplate>
+                    <MudText Typo="Typo.body2">
+                        @($"{context.Item.Make} {context.Item.Model}".Trim())
+                    </MudText>
+                </CellTemplate>
+            </TemplateColumn>
+            <TemplateColumn Title="Aktiv" SortLabel="isactive">
+                <CellTemplate>
+                    @if (context.Item.IsActive)
+                    {
+                        <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Size="Size.Small" />
+                    }
+                    else
+                    {
+                        <MudIcon Icon="@Icons.Material.Filled.Cancel" Color="Color.Error" Size="Size.Small" />
+                    }
+                </CellTemplate>
+            </TemplateColumn>
+        </Columns>
+        <NoRecordsContent>
+            <MudStack AlignItems="AlignItems.Center" Spacing="2" Class="pa-8">
+                <MudIcon Icon="@Icons.Material.Filled.Construction" Size="Size.Large" Color="Color.Secondary" />
+                <MudText Typo="Typo.body1" Color="Color.Secondary">Ingen utstyr funnet</MudText>
+            </MudStack>
+        </NoRecordsContent>
+    </MudDataGrid>
+</MudPaper>
+
+@code {
+    private List<EquipmentListItemDto> _equipment = [];
+    private string? _search;
+    private bool _loading;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadEquipment();
+    }
+
+    private async Task LoadEquipment()
+    {
+        _loading = true;
+        _equipment = await EquipmentService.GetEquipmentAsync(_search);
+        _loading = false;
+    }
+
+    private async Task OnSearchChanged(string value)
+    {
+        _search = value;
+        await LoadEquipment();
+    }
+
+    private void OnRowClick(DataGridRowClickEventArgs<EquipmentListItemDto> args)
+    {
+        Navigation.NavigateTo($"/machines/{args.Item.Id}");
+    }
+}

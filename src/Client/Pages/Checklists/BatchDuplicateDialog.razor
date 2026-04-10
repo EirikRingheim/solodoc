@@ -1,0 +1,71 @@
+@inject ChecklistService ChecklistService
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">Dupliser for gjentatt arbeid</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                Opprett flere kopier av samme sjekkliste for gjentatt arbeid.
+            </MudText>
+            <MudNumericField @bind-Value="_count" Label="Antall kopier" Min="1" Max="50"
+                             Variant="Variant.Outlined" />
+            <MudTextField @bind-Value="_prefix" Label="Navn/Prefiks" Variant="Variant.Outlined"
+                          Placeholder="f.eks. Fundament, Etasje, Seksjon" />
+            <MudNumericField @bind-Value="_startAt" Label="Start fra nummer" Min="1"
+                             Variant="Variant.Outlined" />
+            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                Eksempel: @_prefix @_startAt - @(_startAt + _count - 1)
+            </MudText>
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Style="text-transform:none;">Avbryt</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled" OnClick="Submit"
+                   Disabled="@(_submitting || string.IsNullOrWhiteSpace(_prefix))"
+                   Style="text-transform:none;border-radius:8px;">
+            @if (_submitting)
+            {
+                <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+            }
+            Opprett @_count kopier
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public Guid TemplateId { get; set; }
+    [Parameter] public Guid ProjectId { get; set; }
+
+    private int _count = 6;
+    private string _prefix = "Fundament";
+    private int _startAt = 1;
+    private bool _submitting;
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private async Task Submit()
+    {
+        if (string.IsNullOrWhiteSpace(_prefix)) return;
+        _submitting = true;
+
+        var request = new BatchDuplicateRequest(TemplateId, ProjectId, _prefix, _count, _startAt);
+        var result = await ChecklistService.BatchDuplicateAsync(request);
+
+        _submitting = false;
+
+        if (result is not null)
+        {
+            Snackbar.Add($"{result.Items.Count} kopier opprettet", Severity.Success);
+            MudDialog.Close(DialogResult.Ok(result));
+        }
+        else
+        {
+            Snackbar.Add("Kunne ikke opprette kopier", Severity.Error);
+        }
+    }
+}

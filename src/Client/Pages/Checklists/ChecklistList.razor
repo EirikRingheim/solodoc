@@ -1,0 +1,551 @@
+@page "/checklists"
+@attribute [Authorize]
+@inject ChecklistService ChecklistService
+@inject ProjectService ProjectService
+@inject HoursService HoursService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<PageTitle>Solodoc - Sjekklister og dokumenter</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4">Dokumenter</MudText>
+
+<MudTabs Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-0 pt-4"
+         ActivePanelIndex="_activeTab" ActivePanelIndexChanged="t => _activeTab = t">
+
+    <MudTabPanel Text="Sjekklister" Icon="@Icons.Material.Filled.CheckBox">
+        @RenderDocTypeContent("Checklist")
+    </MudTabPanel>
+
+    <MudTabPanel Text="Skjemaer" Icon="@Icons.Material.Filled.ListAlt">
+        @RenderDocTypeContent("Schema")
+    </MudTabPanel>
+
+    <MudTabPanel Text="Prosedyrer" Icon="@Icons.Material.Filled.Article">
+        @RenderDocTypeContent("Procedure")
+    </MudTabPanel>
+</MudTabs>
+
+@* ═══ Template Preview Popup ═══ *@
+<MudDialog @bind-Visible="_previewOpen" Options="_previewDlgOpts">
+    <TitleContent>
+        <MudText Typo="Typo.h6">@(_previewDetail?.Name ?? "")</MudText>
+    </TitleContent>
+    <DialogContent>
+        @if (_previewLoading)
+        {
+            <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+        }
+        else if (_previewDetail is not null)
+        {
+            <MudStack Spacing="2">
+                @if (!string.IsNullOrEmpty(_previewDetail.Description))
+                {
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">@_previewDetail.Description</MudText>
+                }
+                @if (!string.IsNullOrEmpty(_previewDetail.DocumentNumber))
+                {
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">@_previewDetail.DocumentNumber · v@(_previewDetail.CurrentVersion)</MudText>
+                }
+
+                <MudDivider />
+                <MudText Typo="Typo.subtitle2" Style="font-weight:600;">Punkter (@_previewDetail.Items.Count)</MudText>
+
+                @{ string? lastSection = null; }
+                @foreach (var item in _previewDetail.Items.OrderBy(i => i.SortOrder))
+                {
+                    @if (item.SectionGroup != lastSection && !string.IsNullOrEmpty(item.SectionGroup))
+                    {
+                        lastSection = item.SectionGroup;
+                        <MudText Typo="Typo.caption" Style="font-weight:600;color:#4361EE;margin-top:8px;">@item.SectionGroup</MudText>
+                    }
+                    <MudPaper Elevation="0" Style="border:1px solid #f1f3f5;border-radius:8px;" Class="pa-3">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudIcon Icon="@GetItemTypeIcon(item.Type)" Size="Size.Small" Color="Color.Secondary" />
+                            <MudStack Spacing="0" Style="flex:1;">
+                                <MudText Typo="Typo.body2" Style="font-weight:500;">@item.Label</MudText>
+                                @if (!string.IsNullOrEmpty(item.HelpText))
+                                {
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">@item.HelpText</MudText>
+                                }
+                            </MudStack>
+                            @if (item.IsRequired)
+                            {
+                                <MudText Typo="Typo.caption" Color="Color.Error">Pakrevd</MudText>
+                            }
+                        </MudStack>
+                    </MudPaper>
+                }
+            </MudStack>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => _previewOpen = false" Style="text-transform:none;">Lukk</MudButton>
+        <MudButton Variant="Variant.Outlined" Color="Color.Default"
+                   OnClick="GoToEditTemplate" Style="text-transform:none;border-radius:8px;">Rediger mal</MudButton>
+        <MudButton Variant="Variant.Outlined" Color="Color.Info"
+                   OnClick="OpenAssignToProject" Style="text-transform:none;border-radius:8px;">Tilordne til prosjekt</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                   OnClick="OpenStartDialog" Style="text-transform:none;border-radius:8px;">Fyll ut</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@* ═══ Fill Out Dialog ═══ *@
+<MudDialog @bind-Visible="_startOpen" Options="_startDlgOpts">
+    <TitleContent><MudText Typo="Typo.h6">Fyll ut sjekkliste</MudText></TitleContent>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudSelect T="Guid?" @bind-Value="_startProjectId" Label="Prosjekt (valgfritt)"
+                       Variant="Variant.Outlined" Clearable="true">
+                @foreach (var p in _projects)
+                {
+                    <MudSelectItem T="Guid?" Value="@((Guid?)p.Id)">@p.Name</MudSelectItem>
+                }
+            </MudSelect>
+            <MudTextField T="string" @bind-Value="_startLocation" Label="Lokasjon / seksjon (valgfritt)"
+                          Variant="Variant.Outlined" HelperText="F.eks. Etasje 3, Seksjon B" />
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => _startOpen = false" Style="text-transform:none;">Avbryt</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="ExecuteStart"
+                   Disabled="_creating" Style="text-transform:none;border-radius:8px;">
+            @if (_creating) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> }
+            Start
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@* ═══ Assign to Project Dialog (batch) ═══ *@
+<MudDialog @bind-Visible="_assignOpen" Options="_assignDlgOpts">
+    <TitleContent><MudText Typo="Typo.h6">Tilordne til prosjekt</MudText></TitleContent>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudSelect T="Guid?" @bind-Value="_assignProjectId" Label="Prosjekt" Required="true"
+                       Variant="Variant.Outlined" RequiredError="Velg et prosjekt">
+                @foreach (var p in _projects)
+                {
+                    <MudSelectItem T="Guid?" Value="@((Guid?)p.Id)">@p.Name</MudSelectItem>
+                }
+            </MudSelect>
+
+            <MudNumericField T="int" @bind-Value="_assignCount" Label="Antall sjekklister"
+                             Variant="Variant.Outlined" Min="1" Max="50" />
+
+            @if (_assignCount > 1)
+            {
+                <MudText Typo="Typo.subtitle2" Style="font-weight:600;">Navngivning</MudText>
+                <MudSelect T="string" @bind-Value="_assignNamingMode" Label="Navngivning" Variant="Variant.Outlined">
+                    <MudSelectItem T="string" Value="@("numbered")">Nummerert (1, 2, 3...)</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("range")">Nummerert fra-til</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("custom")">Egendefinerte navn</MudSelectItem>
+                </MudSelect>
+
+                @if (_assignNamingMode == "numbered")
+                {
+                    <MudTextField T="string" @bind-Value="_assignPrefix" Label="Prefiks"
+                                  Variant="Variant.Outlined" Placeholder="Etasje"
+                                  HelperText="Resultat: Etasje 1, Etasje 2, ..." />
+                }
+                else if (_assignNamingMode == "range")
+                {
+                    <MudStack Row="true" Spacing="2">
+                        <MudTextField T="string" @bind-Value="_assignPrefix" Label="Prefiks"
+                                      Variant="Variant.Outlined" Placeholder="Seksjon" />
+                        <MudNumericField T="int" @bind-Value="_assignRangeStart" Label="Fra" Variant="Variant.Outlined" Min="1" />
+                    </MudStack>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                        Resultat: @_assignPrefix @_assignRangeStart – @(_assignRangeStart + _assignCount - 1)
+                    </MudText>
+                }
+                else if (_assignNamingMode == "custom")
+                {
+                    @for (var i = 0; i < _assignCount; i++)
+                    {
+                        var idx = i;
+                        <MudTextField T="string" Value="@GetCustomName(idx)"
+                                      ValueChanged="v => SetCustomName(idx, v)"
+                                      Label="@($"Sjekkliste {idx + 1}")"
+                                      Variant="Variant.Outlined" Margin="Margin.Dense" />
+                    }
+                }
+            }
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => _assignOpen = false" Style="text-transform:none;">Avbryt</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="ExecuteAssign"
+                   Disabled="@(_creating || !_assignProjectId.HasValue)"
+                   Style="text-transform:none;border-radius:8px;">
+            @if (_creating) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> }
+            Opprett @_assignCount sjekkliste@(_assignCount > 1 ? "r" : "")
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private int _activeTab;
+    private int _subTab;
+    private List<ChecklistTemplateListItemDto> _templates = [];
+    private List<ChecklistInstanceListItemDto> _instances = [];
+    private List<ProjectListItemDto> _projects = [];
+    private bool _loadingTemplates = true;
+    private bool _loadingInstances = true;
+
+    // Template search
+    private string _templateSearch = "";
+
+    // Instance filters
+    private string _searchText = "";
+    private string? _statusFilter;
+    private Guid? _projectFilter;
+
+    // Preview
+    private bool _previewOpen;
+    private bool _previewLoading;
+    private ChecklistTemplateDetailDto? _previewDetail;
+    private readonly DialogOptions _previewDlgOpts = new() { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = true };
+
+    // Fill out dialog
+    private bool _startOpen;
+    private Guid? _startTemplateId;
+    private Guid? _startProjectId;
+    private string _startLocation = "";
+    private bool _creating;
+    private readonly DialogOptions _startDlgOpts = new() { MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true };
+
+    // Assign to project dialog
+    private bool _assignOpen;
+    private Guid? _assignTemplateId;
+    private Guid? _assignProjectId;
+    private int _assignCount = 1;
+    private string _assignNamingMode = "numbered";
+    private string _assignPrefix = "";
+    private int _assignRangeStart = 1;
+    private List<string> _assignCustomNames = [];
+    private readonly DialogOptions _assignDlgOpts = new() { MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true };
+
+    protected override async Task OnInitializedAsync()
+    {
+        var t = ChecklistService.GetTemplatesAsync();
+        var i = ChecklistService.GetInstancesAsync();
+        var p = HoursService.GetAllProjectsAsync();
+        _templates = await t;
+        _instances = await i;
+        _projects = await p;
+        _loadingTemplates = false;
+        _loadingInstances = false;
+    }
+
+    // ── Render doc type content (library + filled out sub-tabs) ──
+
+    private RenderFragment RenderDocTypeContent(string documentType) => __builder =>
+    {
+        <MudTabs ActivePanelIndex="_subTab" ActivePanelIndexChanged="async t => { _subTab = t; if (t == 1) { _instances = await ChecklistService.GetInstancesAsync(); StateHasChanged(); } }"
+                 Elevation="0" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-0 pt-4" MinimumTabWidth="120px">
+
+            <MudTabPanel Text="Malbibliotek" Icon="@Icons.Material.Filled.LibraryBooks">
+                @RenderLibrary(documentType)
+            </MudTabPanel>
+
+            <MudTabPanel Text="Utfylte" Icon="@Icons.Material.Filled.FactCheck">
+                @RenderFilledOut(documentType)
+            </MudTabPanel>
+        </MudTabs>
+    };
+
+    // ── Library: big cards, 3 per row ──
+
+    private RenderFragment RenderLibrary(string documentType) => __builder =>
+    {
+        var searchLower = _templateSearch?.ToLowerInvariant() ?? "";
+        var filtered = _templates
+            .Where(t => t.DocumentType == documentType)
+            .Where(t => string.IsNullOrEmpty(searchLower)
+                || t.Name.Contains(searchLower, StringComparison.OrdinalIgnoreCase)
+                || (t.Category?.Contains(searchLower, StringComparison.OrdinalIgnoreCase) ?? false))
+            .ToList();
+
+        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3" Style="flex-wrap:wrap;gap:8px;">
+            <MudTextField T="string" @bind-Value="_templateSearch" Placeholder="Sok i maler..."
+                          Variant="Variant.Outlined" Margin="Margin.Dense"
+                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                          Immediate="true" Style="max-width:250px;" />
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+                       Href="@($"/checklists/templates/new?type={documentType}")"
+                       Style="text-transform:none;border-radius:8px;">
+                Lag ny mal
+            </MudButton>
+        </MudStack>
+
+        @if (_loadingTemplates)
+        {
+            <MudProgressLinear Indeterminate="true" Color="Color.Primary" />;
+        }
+        else if (filtered.Count == 0)
+        {
+            <MudPaper Class="pa-8" Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;">
+                <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@Icons.Material.Filled.Description" Size="Size.Large" Color="Color.Secondary" />
+                    <MudText Typo="Typo.body1" Color="Color.Secondary">Ingen maler opprettet</MudText>
+                </MudStack>
+            </MudPaper>;
+        }
+        else
+        {
+            <MudGrid Spacing="3">
+                @foreach (var template in filtered)
+                {
+                    var capturedId = template.Id;
+                    <MudItem xs="12" sm="6" md="4">
+                        <MudPaper Elevation="0"
+                                  Style="border:1px solid #E9ECEF;border-radius:12px;cursor:pointer;height:100%;transition:box-shadow 0.2s;"
+                                  Class="pa-5 template-card"
+                                  @onclick="async () => await OpenTemplatePreview(capturedId)">
+                            <MudStack Spacing="2" Style="height:100%;">
+                                <MudText Typo="Typo.h6" Style="font-weight:600;">@template.Name</MudText>
+                                @if (!string.IsNullOrWhiteSpace(template.Category))
+                                {
+                                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Color="Color.Info"
+                                             Style="height:22px;align-self:flex-start;">@template.Category</MudChip>
+                                }
+                                <div style="flex:1;"></div>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary" Style="font-style:italic;">
+                                    Klikk for forhåndsvisning
+                                </MudText>
+                            </MudStack>
+                        </MudPaper>
+                    </MudItem>
+                }
+            </MudGrid>;
+        }
+    };
+
+    // ── Filled out instances ──
+
+    private RenderFragment RenderFilledOut(string documentType) => __builder =>
+    {
+        <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Style="flex-wrap:wrap;gap:8px;" Class="mb-3">
+            <MudTextField T="string" @bind-Value="_searchText" Placeholder="Sok..."
+                          Variant="Variant.Outlined" Margin="Margin.Dense"
+                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                          Immediate="true" Style="min-width:180px;max-width:240px;" />
+            <MudSelect T="string" @bind-Value="_statusFilter" Label="Status"
+                       Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true"
+                       Style="min-width:140px;max-width:180px;">
+                <MudSelectItem T="string" Value="@("Utkast")">Utkast</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Innsendt")">Innsendt</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Godkjent")">Godkjent</MudSelectItem>
+            </MudSelect>
+        </MudStack>
+
+        var filteredInstances = _instances
+            .Where(i => string.Equals(i.DocumentType, documentType, StringComparison.OrdinalIgnoreCase))
+            .Where(i => string.IsNullOrWhiteSpace(_statusFilter) || i.Status == _statusFilter)
+            .Where(i => string.IsNullOrWhiteSpace(_searchText)
+                || (i.TemplateName?.Contains(_searchText, StringComparison.OrdinalIgnoreCase) ?? false)
+                || (i.ProjectName?.Contains(_searchText, StringComparison.OrdinalIgnoreCase) ?? false)
+                || (i.StartedBy?.Contains(_searchText, StringComparison.OrdinalIgnoreCase) ?? false))
+            .OrderByDescending(i => i.CreatedAt)
+            .ToList();
+
+        if (_loadingInstances)
+        {
+            <MudProgressLinear Indeterminate="true" Color="Color.Primary" />;
+        }
+        else if (filteredInstances.Count == 0)
+        {
+            <MudPaper Class="pa-8" Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;">
+                <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@Icons.Material.Filled.FactCheck" Size="Size.Large" Color="Color.Secondary" />
+                    <MudText Typo="Typo.body1" Color="Color.Secondary">Ingen utfylte dokumenter</MudText>
+                </MudStack>
+            </MudPaper>;
+        }
+        else
+        {
+            @foreach (var inst in filteredInstances)
+            {
+                var capturedInst = inst;
+                var (sBg, sTxt) = GetStatusColors(inst.Status);
+                <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;cursor:pointer;"
+                          Class="pa-4 mb-2" @onclick="() => NavigateToInstance(capturedInst)">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Style="flex-wrap:wrap;gap:8px;">
+                        <MudStack Spacing="0" Style="flex:1;min-width:0;">
+                            <MudText Typo="Typo.subtitle2" Style="font-weight:600;">@inst.TemplateName</MudText>
+                            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Style="flex-wrap:wrap;">
+                                @if (!string.IsNullOrWhiteSpace(inst.ProjectName))
+                                {
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">@inst.ProjectName</MudText>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(inst.LocationIdentifier))
+                                {
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">@inst.LocationIdentifier</MudText>
+                                }
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                    @inst.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy") · @inst.StartedBy
+                                </MudText>
+                            </MudStack>
+                        </MudStack>
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            @{
+                                var pct = inst.ItemCount > 0 ? (double)inst.CompletedItemCount / inst.ItemCount * 100 : 0;
+                            }
+                            <MudStack Spacing="0" Style="min-width:50px;">
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">@inst.CompletedItemCount/@inst.ItemCount</MudText>
+                                <MudProgressLinear Value="@pct" Color="Color.Primary" Rounded="true" Style="height:4px;" />
+                            </MudStack>
+                            <span style="padding:2px 10px;border-radius:12px;font-size:0.8rem;font-weight:500;background:@sBg;color:@sTxt;">
+                                @inst.Status
+                            </span>
+                        </MudStack>
+                    </MudStack>
+                </MudPaper>;
+            }
+        }
+    };
+
+    // ── Preview ──
+
+    private async Task OpenTemplatePreview(Guid templateId)
+    {
+        _previewLoading = true; _previewOpen = true; StateHasChanged();
+        _previewDetail = await ChecklistService.GetTemplateByIdAsync(templateId);
+        _previewLoading = false; StateHasChanged();
+    }
+
+    private void GoToEditTemplate()
+    {
+        if (_previewDetail is not null) Navigation.NavigateTo($"/checklists/templates/{_previewDetail.Id}");
+    }
+
+    // ── Fill out dialog ──
+
+    private void OpenStartDialog()
+    {
+        if (_previewDetail is null) return;
+        _startTemplateId = _previewDetail.Id;
+        _startProjectId = null; _startLocation = "";
+        _previewOpen = false; _startOpen = true;
+    }
+
+    private async Task ExecuteStart()
+    {
+        if (!_startTemplateId.HasValue) return;
+        _creating = true; StateHasChanged();
+
+        var request = new CreateChecklistInstanceRequest(
+            _startTemplateId.Value, _startProjectId, null,
+            string.IsNullOrWhiteSpace(_startLocation) ? null : _startLocation);
+
+        var id = await ChecklistService.CreateInstanceAsync(request);
+        _creating = false;
+
+        if (id.HasValue)
+        {
+            _startOpen = false;
+            Navigation.NavigateTo($"/checklists/{id.Value}/fill");
+        }
+        else Snackbar.Add("Kunne ikke starte sjekkliste", Severity.Error);
+    }
+
+    // ── Assign to project dialog ──
+
+    private void OpenAssignToProject()
+    {
+        if (_previewDetail is null) return;
+        _assignTemplateId = _previewDetail.Id;
+        _assignProjectId = null; _assignCount = 1;
+        _assignNamingMode = "numbered"; _assignPrefix = ""; _assignRangeStart = 1;
+        _assignCustomNames = [];
+        _previewOpen = false; _assignOpen = true;
+    }
+
+    private string GetCustomName(int idx)
+    {
+        return idx < _assignCustomNames.Count ? _assignCustomNames[idx] : "";
+    }
+
+    private void SetCustomName(int idx, string value)
+    {
+        while (_assignCustomNames.Count <= idx) _assignCustomNames.Add("");
+        _assignCustomNames[idx] = value;
+    }
+
+    private async Task ExecuteAssign()
+    {
+        if (!_assignTemplateId.HasValue || !_assignProjectId.HasValue) return;
+        _creating = true; StateHasChanged();
+
+        var created = 0;
+        for (var i = 0; i < _assignCount; i++)
+        {
+            string? location = null;
+            if (_assignCount > 1)
+            {
+                location = _assignNamingMode switch
+                {
+                    "numbered" => $"{_assignPrefix} {i + 1}".Trim(),
+                    "range" => $"{_assignPrefix} {_assignRangeStart + i}".Trim(),
+                    "custom" => GetCustomName(i),
+                    _ => null
+                };
+            }
+
+            var request = new CreateChecklistInstanceRequest(
+                _assignTemplateId.Value, _assignProjectId, null,
+                string.IsNullOrWhiteSpace(location) ? null : location);
+
+            var id = await ChecklistService.CreateInstanceAsync(request);
+            if (id.HasValue) created++;
+        }
+
+        _creating = false;
+
+        if (created > 0)
+        {
+            Snackbar.Add($"{created} sjekkliste{(created > 1 ? "r" : "")} opprettet", Severity.Success);
+            _assignOpen = false;
+            _instances = await ChecklistService.GetInstancesAsync();
+            StateHasChanged();
+        }
+        else Snackbar.Add("Feil ved opprettelse", Severity.Error);
+    }
+
+    // ── Navigation ──
+
+    private void NavigateToInstance(ChecklistInstanceListItemDto inst)
+    {
+        if (inst.Status is "Utkast" or "Gjenåpnet" or "Gjenapnet")
+            Navigation.NavigateTo($"/checklists/{inst.Id}/fill");
+        else
+            Navigation.NavigateTo($"/checklists/{inst.Id}");
+    }
+
+    // ── Helpers ──
+
+    private static (string bg, string text) GetStatusColors(string status) => status switch
+    {
+        "Utkast" => ("#E5E7EB", "#374151"),
+        "Innsendt" => ("#BFDBFE", "#1E40AF"),
+        "Godkjent" => ("#86EFAC", "#166534"),
+        "Gjenåpnet" or "Gjenapnet" => ("#FDE68A", "#92400E"),
+        _ => ("#F3F4F6", "#6B7280")
+    };
+
+    private static string GetItemTypeIcon(string type) => type switch
+    {
+        "Check" => Icons.Material.Filled.CheckBox,
+        "TextInput" => Icons.Material.Filled.TextFields,
+        "NumberInput" => Icons.Material.Filled.Pin,
+        "DateInput" => Icons.Material.Filled.CalendarMonth,
+        "Dropdown" => Icons.Material.Filled.ArrowDropDownCircle,
+        "Photo" => Icons.Material.Filled.CameraAlt,
+        "Signature" => Icons.Material.Filled.Draw,
+        _ => Icons.Material.Filled.RadioButtonUnchecked
+    };
+}
+
+<style>
+    .template-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+</style>

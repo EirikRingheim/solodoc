@@ -1,0 +1,135 @@
+@page "/contacts/new"
+@attribute [Authorize]
+@inject ContactService ContactService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<PageTitle>Solodoc - Ny kontakt</PageTitle>
+
+<MudButton Variant="Variant.Text" Color="Color.Default" Href="/contacts"
+           StartIcon="@Icons.Material.Filled.ArrowBack" Class="mb-2"
+           Style="text-transform:none;">
+    Tilbake
+</MudButton>
+
+<MudText Typo="Typo.h5" Class="mb-4">Ny kontakt</MudText>
+
+<MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;" Class="pa-4">
+    <EditForm Model="_model" OnValidSubmit="HandleSubmit">
+        <MudGrid Spacing="3">
+            <MudItem xs="12" sm="6">
+                <MudTextField @bind-Value="_model.Name" Label="Navn" Required="true"
+                              Variant="Variant.Outlined" Margin="Margin.Dense" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudSelect @bind-Value="_model.Type" Label="Type"
+                           Variant="Variant.Outlined" Margin="Margin.Dense">
+                    <MudSelectItem Value="@("Kunde")">Kunde</MudSelectItem>
+                    <MudSelectItem Value="@("Underleverandor")">Underleverandor</MudSelectItem>
+                    <MudSelectItem Value="@("Leverandor")">Leverandor</MudSelectItem>
+                    <MudSelectItem Value="@("Inspektor")">Inspektor</MudSelectItem>
+                    <MudSelectItem Value="@("Annet")">Annet</MudSelectItem>
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudTextField @bind-Value="_model.OrgNumber" Label="Org.nummer"
+                              Variant="Variant.Outlined" Margin="Margin.Dense" />
+            </MudItem>
+            <MudItem xs="12">
+                <MudTextField @bind-Value="_model.Address" Label="Adresse"
+                              Variant="Variant.Outlined" Margin="Margin.Dense" />
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                <MudTextField @bind-Value="_model.PostalCode" Label="Postnummer"
+                              Variant="Variant.Outlined" Margin="Margin.Dense" />
+            </MudItem>
+            <MudItem xs="12" sm="8">
+                <MudTextField @bind-Value="_model.City" Label="Sted"
+                              Variant="Variant.Outlined" Margin="Margin.Dense" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudTextField @bind-Value="_model.Phone" Label="Telefon"
+                              Variant="Variant.Outlined" Margin="Margin.Dense" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudTextField @bind-Value="_model.Email" Label="E-post"
+                              Variant="Variant.Outlined" Margin="Margin.Dense" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudTextField @bind-Value="_model.Title" Label="Tittel"
+                              Variant="Variant.Outlined" Margin="Margin.Dense" />
+            </MudItem>
+            <MudItem xs="12">
+                <MudTextField @bind-Value="_model.Description" Label="Beskrivelse"
+                              Variant="Variant.Outlined" Margin="Margin.Dense" Lines="3" />
+            </MudItem>
+            <MudItem xs="12">
+                <MudTextField @bind-Value="_model.Notes" Label="Notater"
+                              Variant="Variant.Outlined" Margin="Margin.Dense" Lines="3" />
+            </MudItem>
+            <MudItem xs="12">
+                <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled"
+                           Color="Color.Primary" Disabled="_saving"
+                           Style="text-transform:none;border-radius:8px;">
+                    @if (_saving)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                    }
+                    Opprett kontakt
+                </MudButton>
+            </MudItem>
+        </MudGrid>
+    </EditForm>
+</MudPaper>
+
+@code {
+    private ContactFormModel _model = new();
+    private bool _saving;
+
+    private async Task HandleSubmit()
+    {
+        if (string.IsNullOrWhiteSpace(_model.Name)) return;
+
+        _saving = true;
+        var request = new CreateContactRequest(
+            _model.Name,
+            _model.Type,
+            _model.OrgNumber,
+            _model.Address,
+            _model.PostalCode,
+            _model.City,
+            _model.Phone,
+            _model.Email,
+            _model.Title,
+            _model.Description,
+            _model.Notes);
+
+        var id = await ContactService.CreateContactAsync(request);
+        _saving = false;
+
+        if (id.HasValue)
+        {
+            Snackbar.Add("Kontakt opprettet", Severity.Success);
+            Navigation.NavigateTo($"/contacts/{id.Value}");
+        }
+        else
+        {
+            Snackbar.Add("Kunne ikke opprette kontakten", Severity.Error);
+        }
+    }
+
+    private class ContactFormModel
+    {
+        public string Name { get; set; } = string.Empty;
+        public string Type { get; set; } = "Kunde";
+        public string? OrgNumber { get; set; }
+        public string? Address { get; set; }
+        public string? PostalCode { get; set; }
+        public string? City { get; set; }
+        public string? Phone { get; set; }
+        public string? Email { get; set; }
+        public string? Title { get; set; }
+        public string? Description { get; set; }
+        public string? Notes { get; set; }
+    }
+}

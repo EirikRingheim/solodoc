@@ -1,0 +1,62 @@
+@page "/select-tenant"
+@attribute [Authorize]
+@layout Solodoc.Client.Layout.AuthLayout
+@inject AuthHttpService AuthService
+@inject NavigationManager Navigation
+
+<PageTitle>Solodoc - Velg bedrift</PageTitle>
+
+<MudStack AlignItems="AlignItems.Center" Spacing="3" Class="mb-6">
+    <MudIcon Icon="@Icons.Material.Filled.Business" Size="Size.Large" Color="Color.Primary" />
+    <MudText Typo="Typo.h4" Style="font-weight:700;">Velg bedrift</MudText>
+    <MudText Typo="Typo.body1" Color="Color.Secondary">Du er medlem av flere bedrifter</MudText>
+</MudStack>
+
+@if (_loading)
+{
+    <MudProgressLinear Color="Color.Primary" Indeterminate="true" />
+}
+else
+{
+    <MudStack Spacing="2">
+        @foreach (var tenant in _tenants)
+        {
+            var t = tenant;
+            <MudPaper Class="pa-4" Elevation="0"
+                      Style="border:1px solid #e9ecef;border-radius:12px;cursor:pointer;transition:border-color 0.2s;"
+                      @onclick="() => OnTenantSelected(t.Id)">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
+                    <MudAvatar Style="@($"background:{t.AccentColor ?? "#4361EE"};color:white;")" Size="Size.Medium">
+                        @t.Name[0]
+                    </MudAvatar>
+                    <div style="flex:1;">
+                        <MudText Typo="Typo.subtitle1" Style="font-weight:600;">@t.Name</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">@t.Role</MudText>
+                    </div>
+                    <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Color="Color.Secondary" />
+                </MudStack>
+            </MudPaper>
+        }
+    </MudStack>
+}
+
+@code {
+    private List<Solodoc.Shared.Auth.TenantDto> _tenants = [];
+    private bool _loading = true;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _tenants = await AuthService.GetTenantsAsync();
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task OnTenantSelected(Guid tenantId)
+    {
+        await AuthService.SelectTenantAsync(tenantId);
+        Navigation.NavigateTo("/", forceLoad: false);
+    }
+}

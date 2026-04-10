@@ -1,0 +1,24 @@
+<MudDialog>
+    <DialogContent>
+        <MudText Typo="Typo.body1">@ContentText</MudText>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Style="text-transform:none;">Avbryt</MudButton>
+        <MudButton Color="@ButtonColor" Variant="Variant.Filled"
+                   Style="text-transform:none;border-radius:8px;"
+                   OnClick="Confirm">
+            @ButtonText
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;
+
+    [Parameter] public string ContentText { get; set; } = string.Empty;
+    [Parameter] public string ButtonText { get; set; } = "Bekreft";
+    [Parameter] public Color ButtonColor { get; set; } = Color.Primary;
+
+    private void Cancel() => MudDialog.Cancel();
+    private void Confirm() => MudDialog.Close(DialogResult.Ok(true));
+}

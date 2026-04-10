@@ -1,0 +1,179 @@
+@page "/machines/{Id:guid}"
+@attribute [Authorize]
+@inject EquipmentService EquipmentService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<PageTitle>Solodoc - Utstyr</PageTitle>
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+}
+else if (_equipment is null)
+{
+    <MudStack AlignItems="AlignItems.Center" Spacing="2" Class="pa-8">
+        <MudIcon Icon="@Icons.Material.Filled.Construction" Size="Size.Large" Color="Color.Secondary" />
+        <MudText Typo="Typo.body1" Color="Color.Secondary">Utstyret ble ikke funnet</MudText>
+        <MudButton Variant="Variant.Text" Color="Color.Primary" Href="/machines"
+                   StartIcon="@Icons.Material.Filled.ArrowBack" Style="text-transform:none;">
+            Tilbake til maskinpark
+        </MudButton>
+    </MudStack>
+}
+else
+{
+    <MudButton Variant="Variant.Text" Color="Color.Default" Href="/machines"
+               StartIcon="@Icons.Material.Filled.ArrowBack" Class="mb-2"
+               Style="text-transform:none;">
+        Tilbake
+    </MudButton>
+
+    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudText Typo="Typo.h5">@_equipment.Name</MudText>
+            <MudChip T="string" Size="Size.Small"
+                     Color="@(_equipment.IsActive ? Color.Success : Color.Error)"
+                     Style="height:22px;">
+                @(_equipment.IsActive ? "Aktiv" : "Inaktiv")
+            </MudChip>
+        </MudStack>
+    </MudStack>
+
+    <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;" Class="pa-4 mb-4">
+        <MudGrid Spacing="3">
+            @if (!string.IsNullOrWhiteSpace(_equipment.Type))
+            {
+                <MudItem xs="12" sm="6" md="4">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Type</MudText>
+                    <MudText Typo="Typo.body1">@_equipment.Type</MudText>
+                </MudItem>
+            }
+            @if (!string.IsNullOrWhiteSpace(_equipment.RegistrationNumber))
+            {
+                <MudItem xs="12" sm="6" md="4">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Reg.nummer</MudText>
+                    <MudText Typo="Typo.body1">@_equipment.RegistrationNumber</MudText>
+                </MudItem>
+            }
+            @if (!string.IsNullOrWhiteSpace(_equipment.SerialNumber))
+            {
+                <MudItem xs="12" sm="6" md="4">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Serienummer</MudText>
+                    <MudText Typo="Typo.body1">@_equipment.SerialNumber</MudText>
+                </MudItem>
+            }
+            @if (_equipment.Year.HasValue)
+            {
+                <MudItem xs="12" sm="6" md="4">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Arsmodell</MudText>
+                    <MudText Typo="Typo.body1">@_equipment.Year</MudText>
+                </MudItem>
+            }
+            @if (!string.IsNullOrWhiteSpace(_equipment.Make))
+            {
+                <MudItem xs="12" sm="6" md="4">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Merke</MudText>
+                    <MudText Typo="Typo.body1">@_equipment.Make</MudText>
+                </MudItem>
+            }
+            @if (!string.IsNullOrWhiteSpace(_equipment.Model))
+            {
+                <MudItem xs="12" sm="6" md="4">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Modell</MudText>
+                    <MudText Typo="Typo.body1">@_equipment.Model</MudText>
+                </MudItem>
+            }
+        </MudGrid>
+    </MudPaper>
+
+    <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;overflow:hidden;">
+        <MudTabs Rounded="false" ApplyEffectsToContainer="true" PanelClass="pa-4">
+            <MudTabPanel Text="Vedlikehold" Icon="@Icons.Material.Filled.Build">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
+                    <MudText Typo="Typo.subtitle1" Style="font-weight:600;">Vedlikeholdslogg</MudText>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.Add"
+                               OnClick="OpenAddMaintenanceDialog"
+                               Style="text-transform:none;border-radius:8px;"
+                               Size="Size.Small">
+                        Legg til vedlikehold
+                    </MudButton>
+                </MudStack>
+
+                @if (_equipment.MaintenanceLog.Count == 0)
+                {
+                    <MudStack AlignItems="AlignItems.Center" Spacing="2" Class="pa-6">
+                        <MudIcon Icon="@Icons.Material.Filled.EventNote" Size="Size.Large" Color="Color.Secondary" />
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">Ingen vedlikeholdslogg</MudText>
+                    </MudStack>
+                }
+                else
+                {
+                    <MudSimpleTable Dense="true" Hover="true" Bordered="false">
+                        <thead>
+                            <tr>
+                                <th>Dato</th>
+                                <th>Beskrivelse</th>
+                                <th>Utfort av</th>
+                                <th>Kostnad</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var log in _equipment.MaintenanceLog.OrderByDescending(m => m.Date))
+                            {
+                                <tr>
+                                    <td>@log.Date.ToString("dd.MM.yyyy")</td>
+                                    <td>@log.Description</td>
+                                    <td>@(log.PerformedBy ?? "—")</td>
+                                    <td>@(log.Cost.HasValue ? $"{log.Cost:N0} kr" : "—")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </MudSimpleTable>
+                }
+            </MudTabPanel>
+            <MudTabPanel Text="Info" Icon="@Icons.Material.Filled.Info">
+                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                    Detaljert informasjon om utstyret vises ovenfor. Bruk redigeringsfunksjonen for a oppdatere.
+                </MudText>
+            </MudTabPanel>
+        </MudTabs>
+    </MudPaper>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private EquipmentDetailDto? _equipment;
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _equipment = await EquipmentService.GetEquipmentByIdAsync(Id);
+        _loading = false;
+    }
+
+    private async Task OpenAddMaintenanceDialog()
+    {
+        var parameters = new DialogParameters<AddMaintenanceDialog>
+        {
+            { x => x.EquipmentId, Id }
+        };
+        var options = new DialogOptions
+        {
+            MaxWidth = MaxWidth.Small,
+            FullWidth = true,
+            CloseOnEscapeKey = true
+        };
+        var dialog = await DialogService.ShowAsync<AddMaintenanceDialog>("Legg til vedlikehold", parameters, options);
+        var result = await dialog.Result;
+
+        if (result is not null && !result.Canceled)
+        {
+            _equipment = await EquipmentService.GetEquipmentByIdAsync(Id);
+            StateHasChanged();
+        }
+    }
+}

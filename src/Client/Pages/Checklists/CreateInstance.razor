@@ -1,0 +1,130 @@
+@page "/checklists/instances/new"
+@attribute [Authorize]
+@inject ChecklistService ChecklistService
+@inject ProjectService ProjectService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<PageTitle>Solodoc - Ny sjekkliste</PageTitle>
+
+<MudButton Variant="Variant.Text" Color="Color.Primary"
+           StartIcon="@Icons.Material.Filled.ArrowBack"
+           Href="/checklists"
+           Style="text-transform:none;margin-bottom:16px;">
+    Tilbake til sjekklister
+</MudButton>
+
+<MudText Typo="Typo.h5" Class="mb-4">Start ny sjekkliste</MudText>
+
+<MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-5">
+    @if (_loadingTemplates)
+    {
+        <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-4" />
+    }
+    else
+    {
+        <MudForm @ref="_form">
+            <MudStack Spacing="3">
+                @* Template selection *@
+                <MudSelect T="Guid?" @bind-Value="_selectedTemplateId" Label="Velg mal" Required="true"
+                           RequiredError="Du maa velge en mal" Variant="Variant.Outlined">
+                    @foreach (var template in _templates)
+                    {
+                        <MudSelectItem T="Guid?" Value="@((Guid?)template.Id)">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                <span>@template.Name</span>
+                                @if (!string.IsNullOrWhiteSpace(template.DocumentNumber))
+                                {
+                                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                                             Color="Color.Default" Style="height:20px;">@template.DocumentNumber</MudChip>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(template.Category))
+                                {
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">@template.Category</MudText>
+                                }
+                            </MudStack>
+                        </MudSelectItem>
+                    }
+                </MudSelect>
+
+                @* Project selection (optional) *@
+                <MudSelect T="Guid?" @bind-Value="_selectedProjectId" Label="Prosjekt (valgfritt)"
+                           Variant="Variant.Outlined" Clearable="true">
+                    @foreach (var project in _projects)
+                    {
+                        <MudSelectItem T="Guid?" Value="@((Guid?)project.Id)">@project.Name</MudSelectItem>
+                    }
+                </MudSelect>
+
+                @* Location identifier *@
+                <MudTextField T="string" @bind-Value="_locationIdentifier" Label="Lokasjon (valgfritt)"
+                              Variant="Variant.Outlined"
+                              HelperText="F.eks. Etasje 3, Seksjon B" />
+
+                <MudStack Row="true" Justify="Justify.FlexEnd">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                               OnClick="Submit" Disabled="_submitting"
+                               Style="text-transform:none;border-radius:8px;min-height:48px;">
+                        @if (_submitting)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                        }
+                        Start sjekkliste
+                    </MudButton>
+                </MudStack>
+            </MudStack>
+        </MudForm>
+    }
+</MudPaper>
+
+@code {
+    private MudForm? _form;
+    private List<ChecklistTemplateListItemDto> _templates = [];
+    private List<ProjectListItemDto> _projects = [];
+    private bool _loadingTemplates = true;
+    private bool _submitting;
+
+    private Guid? _selectedTemplateId;
+    private Guid? _selectedProjectId;
+    private string _locationIdentifier = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var templatesTask = ChecklistService.GetTemplatesAsync();
+        var projectsTask = ProjectService.GetActiveProjectsAsync();
+        await Task.WhenAll(templatesTask, projectsTask);
+        _templates = (await templatesTask).Where(t => t.IsPublished).ToList();
+        _projects = await projectsTask;
+        _loadingTemplates = false;
+    }
+
+    private async Task Submit()
+    {
+        if (_form is not null)
+            await _form.ValidateAsync();
+
+        if (_form?.IsValid != true || !_selectedTemplateId.HasValue)
+            return;
+
+        _submitting = true;
+
+        var request = new CreateChecklistInstanceRequest(
+            _selectedTemplateId.Value,
+            _selectedProjectId,
+            null,
+            string.IsNullOrWhiteSpace(_locationIdentifier) ? null : _locationIdentifier);
+
+        var id = await ChecklistService.CreateInstanceAsync(request);
+        _submitting = false;
+
+        if (id.HasValue)
+        {
+            Snackbar.Add("Sjekkliste startet", Severity.Success);
+            Navigation.NavigateTo($"/checklists/{id.Value}/fill");
+        }
+        else
+        {
+            Snackbar.Add("Kunne ikke opprette sjekkliste", Severity.Error);
+        }
+    }
+}

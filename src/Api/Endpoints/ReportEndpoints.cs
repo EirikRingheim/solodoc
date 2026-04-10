@@ -1,0 +1,378 @@
+using System.Security.Claims;
+using Microsoft.EntityFrameworkCore;
+using Solodoc.Application.Common;
+using Solodoc.Domain.Enums;
+using Solodoc.Infrastructure.Persistence;
+using Solodoc.Shared.Reports;
+
+namespace Solodoc.Api.Endpoints;
+
+public static class ReportEndpoints
+{
+    public static WebApplication MapReportEndpoints(this WebApplication app)
+    {
+        app.MapGet("/api/reports/hours", GetHoursReport).RequireAuthorization();
+        app.MapGet("/api/reports/deviations", GetDeviationReport).RequireAuthorization();
+        app.MapGet("/api/reports/certifications", GetCertificationReport).RequireAuthorization();
+        app.MapGet("/api/reports/safety", GetSafetyReport).RequireAuthorization();
+        app.MapGet("/api/reports/project/{id:guid}/summary", GetProjectSummary).RequireAuthorization();
+
+        return app;
+    }
+
+    private static Guid? GetPersonId(ClaimsPrincipal user)
+    {
+        var claim = user.FindFirstValue(ClaimTypes.NameIdentifier) ?? user.FindFirstValue("sub");
+        return Guid.TryParse(claim, out var id) ? id : null;
+    }
+
+    private static string SeverityToString(DeviationSeverity s) => s switch
+    {
+        DeviationSeverity.Low => "Lav",
+        DeviationSeverity.Medium => "Middels",
+        DeviationSeverity.High => "Høy",
+        _ => "Ukjent"
+    };
+
+    private static string CategoryToString(TimeEntryCategory cat) => cat switch
+    {
+        TimeEntryCategory.Arbeid => "Arbeid",
+        TimeEntryCategory.Reise => "Reise",
+        TimeEntryCategory.Kontorarbeid => "Kontorarbeid",
+        TimeEntryCategory.Lagerarbeid => "Lagerarbeid",
+        TimeEntryCategory.Kurs => "Kurs",
+        TimeEntryCategory.Annet => "Annet",
+        _ => "Arbeid"
+    };
+
+    // ─── Hours Report ───────────────────────────────────────────────
+
+    private static async Task<IResult> GetHoursReport(
+        ClaimsPrincipal user,
+        SolodocDbContext db,
+        ITenantProvider tenantProvider,
+        CancellationToken ct,
+        string? from = null,
+        string? to = null,
+        Guid? projectId = null,
+        Guid? personId = null)
+    {
+        if (tenantProvider.TenantId is null) return Results.Unauthorized();
+        var tenantId = tenantProvider.TenantId.Value;
+
+        var fromDate = DateOnly.TryParse(from, out var fd)
+            ? fd
+            : DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-30));
+        var toDate = DateOnly.TryParse(to, out var td)
+            ? td
+            : DateOnly.FromDateTime(DateTime.UtcNow);
+
+        var query = db.TimeEntries
+            .Where(t => t.TenantId == tenantId && t.Date >= fromDate && t.Date <= toDate);
+
+        if (projectId.HasValue)
+            query = query.Where(t => t.ProjectId == projectId.Value);
+        if (personId.HasValue)
+            query = query.Where(t => t.PersonId == personId.Value);
+
+        var entries = await query.ToListAsync(ct);
+
+        var totalHours = entries.Sum(e => e.Hours);
+        var totalOvertime = entries.Sum(e => e.OvertimeHours);
+        var dayCount = (toDate.ToDateTime(TimeOnly.MinValue) - fromDate.ToDateTime(TimeOnly.MinValue)).Days + 1;
+        var avgPerDay = dayCount > 0 ? totalHours / dayCount : 0m;
+
+        var byCategory = entries
+            .GroupBy(e => CategoryToString(e.Category))
+            .Select(g => new CategoryBreakdown(g.Key, g.Sum(e => e.Hours)))
+            .OrderByDescending(c => c.Hours)
+            .ToList();
+
+        // Project breakdown — need project names
+        var projectIds = entries.Where(e => e.ProjectId.HasValue).Select(e => e.ProjectId!.Value).Distinct().ToList();
+        var projectNames = await db.Projects
+            .Where(p => projectIds.Contains(p.Id))
+            .Select(p => new { p.Id, p.Name })
+            .ToDictionaryAsync(p => p.Id, p => p.Name, ct);
+
+        var byProject = entries
+            .Where(e => e.ProjectId.HasValue)
+            .GroupBy(e => e.ProjectId!.Value)
+            .Select(g => new ProjectBreakdown(
+                projectNames.GetValueOrDefault(g.Key, "Ukjent prosjekt"),
+                g.Sum(e => e.Hours),
+                g.Sum(e => e.OvertimeHours)))
+            .OrderByDescending(p => p.Hours)
+            .ToList();
+
+        var byDay = entries
+            .GroupBy(e => e.Date)
+            .Select(g => new DailyHours(g.Key, g.Sum(e => e.Hours), g.Sum(e => e.OvertimeHours)))
+            .OrderBy(d => d.Date)
+            .ToList();
+
+        // Employee breakdown — need person names
+        var personIds = entries.Select(e => e.PersonId).Distinct().ToList();
+        var personNames = await db.Persons
+            .Where(p => personIds.Contains(p.Id))
+            .Select(p => new { p.Id, p.FullName })
+            .ToDictionaryAsync(p => p.Id, p => p.FullName, ct);
+
+        var byEmployee = entries
+            .GroupBy(e => e.PersonId)
+            .Select(g => new EmployeeHours(
+                personNames.GetValueOrDefault(g.Key, "Ukjent"),
+                g.Sum(e => e.Hours),
+                g.Sum(e => e.OvertimeHours)))
+            .OrderByDescending(e => e.Hours)
+            .ToList();
+
+        return Results.Ok(new HoursReportDto(
+            totalHours, totalOvertime, avgPerDay,
+            byCategory, byProject, byDay, byEmployee));
+    }
+
+    // ─── Deviation Report ───────────────────────────────────────────
+
+    private static async Task<IResult> GetDeviationReport(
+        ClaimsPrincipal user,
+        SolodocDbContext db,
+        ITenantProvider tenantProvider,
+        CancellationToken ct,
+        string? from = null,
+        string? to = null,
+        Guid? projectId = null)
+    {
+        if (tenantProvider.TenantId is null) return Results.Unauthorized();
+        var tenantId = tenantProvider.TenantId.Value;
+
+        var fromDate = DateTimeOffset.TryParse(from, out var fd)
+            ? fd
+            : DateTimeOffset.UtcNow.AddDays(-90);
+        var toDate = DateTimeOffset.TryParse(to, out var td)
+            ? td
+            : DateTimeOffset.UtcNow;
+
+        var query = db.Deviations
+            .Where(d => d.TenantId == tenantId && d.CreatedAt >= fromDate && d.CreatedAt <= toDate);
+
+        if (projectId.HasValue)
+            query = query.Where(d => d.ProjectId == projectId.Value);
+
+        var deviations = await query.ToListAsync(ct);
+
+        var total = deviations.Count;
+        var open = deviations.Count(d => d.Status == DeviationStatus.Open);
+        var inProgress = deviations.Count(d => d.Status == DeviationStatus.InProgress);
+        var closed = deviations.Count(d => d.Status == DeviationStatus.Closed);
+
+        var bySeverity = deviations
+            .GroupBy(d => SeverityToString(d.Severity))
+            .Select(g => new SeverityBreakdown(g.Key, g.Count()))
+            .OrderByDescending(s => s.Count)
+            .ToList();
+
+        // By project — need project names
+        var projIds = deviations.Where(d => d.ProjectId.HasValue).Select(d => d.ProjectId!.Value).Distinct().ToList();
+        var projNames = await db.Projects
+            .Where(p => projIds.Contains(p.Id))
+            .Select(p => new { p.Id, p.Name })
+            .ToDictionaryAsync(p => p.Id, p => p.Name, ct);
+
+        var byProject = deviations
+            .Where(d => d.ProjectId.HasValue)
+            .GroupBy(d => d.ProjectId!.Value)
+            .Select(g => new ProjectDeviations(
+                projNames.GetValueOrDefault(g.Key, "Ukjent prosjekt"),
+                g.Count(d => d.Status == DeviationStatus.Open),
+                g.Count(d => d.Status == DeviationStatus.InProgress),
+                g.Count(d => d.Status == DeviationStatus.Closed)))
+            .OrderByDescending(p => p.Open + p.InProgress)
+            .ToList();
+
+        var byMonth = deviations
+            .GroupBy(d => d.CreatedAt.ToString("yyyy-MM"))
+            .Select(g => new MonthlyDeviations(g.Key, g.Count()))
+            .OrderBy(m => m.Month)
+            .ToList();
+
+        var closedDeviations = deviations
+            .Where(d => d.Status == DeviationStatus.Closed && d.ClosedAt.HasValue)
+            .ToList();
+        var avgDaysToClose = closedDeviations.Count > 0
+            ? (decimal)closedDeviations.Average(d => (d.ClosedAt!.Value - d.CreatedAt).TotalDays)
+            : 0m;
+
+        return Results.Ok(new DeviationReportDto(
+            total, open, inProgress, closed,
+            bySeverity, byProject, byMonth,
+            Math.Round(avgDaysToClose, 1)));
+    }
+
+    // ─── Certification Report ───────────────────────────────────────
+
+    private static async Task<IResult> GetCertificationReport(
+        ClaimsPrincipal user,
+        SolodocDbContext db,
+        ITenantProvider tenantProvider,
+        CancellationToken ct)
+    {
+        if (tenantProvider.TenantId is null) return Results.Unauthorized();
+        var tenantId = tenantProvider.TenantId.Value;
+
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+
+        // Get all employees in this tenant
+        var memberPersonIds = await db.TenantMemberships
+            .Where(m => m.TenantId == tenantId && m.State == TenantMembershipState.Active)
+            .Select(m => m.PersonId)
+            .ToListAsync(ct);
+
+        var certs = await db.EmployeeCertifications
+            .Where(c => memberPersonIds.Contains(c.PersonId))
+            .ToListAsync(ct);
+
+        var totalCerts = certs.Count;
+        var expired = certs.Count(c => c.ExpiryDate.HasValue && c.ExpiryDate.Value < today);
+        var expiring30 = certs.Count(c =>
+            c.ExpiryDate.HasValue && c.ExpiryDate.Value >= today && c.ExpiryDate.Value <= today.AddDays(30));
+        var expiring60 = certs.Count(c =>
+            c.ExpiryDate.HasValue && c.ExpiryDate.Value >= today && c.ExpiryDate.Value <= today.AddDays(60));
+        var expiring90 = certs.Count(c =>
+            c.ExpiryDate.HasValue && c.ExpiryDate.Value >= today && c.ExpiryDate.Value <= today.AddDays(90));
+
+        var byType = certs
+            .GroupBy(c => c.Type ?? "Ukjent")
+            .Select(g => new CertTypeBreakdown(
+                g.Key,
+                g.Count(),
+                g.Count(c => c.ExpiryDate.HasValue && c.ExpiryDate.Value < today),
+                g.Count(c => c.ExpiryDate.HasValue && c.ExpiryDate.Value >= today && c.ExpiryDate.Value <= today.AddDays(90))))
+            .OrderByDescending(t => t.Expired)
+            .ToList();
+
+        // Person names
+        var personNames = await db.Persons
+            .Where(p => memberPersonIds.Contains(p.Id))
+            .Select(p => new { p.Id, p.FullName })
+            .ToDictionaryAsync(p => p.Id, p => p.FullName, ct);
+
+        var employeeStatuses = certs
+            .GroupBy(c => c.PersonId)
+            .Select(g => new EmployeeCertStatus(
+                personNames.GetValueOrDefault(g.Key, "Ukjent"),
+                g.Count(),
+                g.Count(c => c.ExpiryDate.HasValue && c.ExpiryDate.Value < today),
+                g.Count(c => c.ExpiryDate.HasValue && c.ExpiryDate.Value >= today && c.ExpiryDate.Value <= today.AddDays(90))))
+            .OrderByDescending(e => e.Expired)
+            .ThenByDescending(e => e.ExpiringSoon)
+            .ToList();
+
+        return Results.Ok(new CertificationReportDto(
+            totalCerts, expired, expiring30, expiring60, expiring90,
+            byType, employeeStatuses));
+    }
+
+    // ─── Safety Report ──────────────────────────────────────────────
+
+    private static async Task<IResult> GetSafetyReport(
+        ClaimsPrincipal user,
+        SolodocDbContext db,
+        ITenantProvider tenantProvider,
+        CancellationToken ct,
+        string? from = null,
+        string? to = null)
+    {
+        if (tenantProvider.TenantId is null) return Results.Unauthorized();
+        var tenantId = tenantProvider.TenantId.Value;
+
+        var fromDate = DateTimeOffset.TryParse(from, out var fd)
+            ? fd
+            : DateTimeOffset.UtcNow.AddDays(-90);
+        var toDate = DateTimeOffset.TryParse(to, out var td)
+            ? td
+            : DateTimeOffset.UtcNow;
+
+        var sjaCount = await db.SjaForms
+            .CountAsync(s => s.TenantId == tenantId && s.CreatedAt >= fromDate && s.CreatedAt <= toDate, ct);
+
+        var safetyRoundsCompleted = await db.SafetyRoundSchedules
+            .CountAsync(s => s.TenantId == tenantId && s.CreatedAt >= fromDate && s.CreatedAt <= toDate, ct);
+
+        var hmsMeetingsHeld = await db.HmsMeetings
+            .CountAsync(m => m.TenantId == tenantId && m.CreatedAt >= fromDate && m.CreatedAt <= toDate, ct);
+
+        // Incident reports = deviations of type Personskade or Nestenulykke
+        var incidentReports = await db.Deviations
+            .CountAsync(d => d.TenantId == tenantId
+                && d.CreatedAt >= fromDate && d.CreatedAt <= toDate
+                && d.Type.HasValue
+                && (d.Type.Value == DeviationType.Personskade || d.Type.Value == DeviationType.Nestenulykke), ct);
+
+        var deviationsByMonth = await db.Deviations
+            .Where(d => d.TenantId == tenantId && d.CreatedAt >= fromDate && d.CreatedAt <= toDate)
+            .GroupBy(d => new { d.CreatedAt.Year, d.CreatedAt.Month })
+            .Select(g => new MonthlyDeviations(
+                $"{g.Key.Year}-{g.Key.Month:D2}",
+                g.Count()))
+            .OrderBy(m => m.Month)
+            .ToListAsync(ct);
+
+        return Results.Ok(new SafetyReportDto(
+            sjaCount, safetyRoundsCompleted, hmsMeetingsHeld, incidentReports,
+            deviationsByMonth));
+    }
+
+    // ─── Project Summary ────────────────────────────────────────────
+
+    private static async Task<IResult> GetProjectSummary(
+        Guid id,
+        ClaimsPrincipal user,
+        SolodocDbContext db,
+        ITenantProvider tenantProvider,
+        CancellationToken ct)
+    {
+        if (tenantProvider.TenantId is null) return Results.Unauthorized();
+
+        var project = await db.Projects.FirstOrDefaultAsync(p => p.Id == id, ct);
+        if (project is null) return Results.NotFound();
+
+        var statusStr = project.Status switch
+        {
+            ProjectStatus.Active => "Aktiv",
+            ProjectStatus.Completed => "Fullført",
+            _ => "Arkivert"
+        };
+
+        var totalHours = await db.TimeEntries
+            .Where(t => t.ProjectId == id)
+            .SumAsync(t => t.Hours, ct);
+
+        var totalDeviations = await db.Deviations.CountAsync(d => d.ProjectId == id, ct);
+        var openDeviations = await db.Deviations
+            .CountAsync(d => d.ProjectId == id && d.Status != DeviationStatus.Closed, ct);
+
+        var checklistsTotal = await db.ChecklistInstances.CountAsync(c => c.ProjectId == id, ct);
+        var checklistsCompleted = await db.ChecklistInstances
+            .CountAsync(c => c.ProjectId == id && (c.Status == ChecklistInstanceStatus.Submitted || c.Status == ChecklistInstanceStatus.Approved), ct);
+
+        // Crew = distinct persons who have time entries on this project
+        var crewCount = await db.TimeEntries
+            .Where(t => t.ProjectId == id)
+            .Select(t => t.PersonId)
+            .Distinct()
+            .CountAsync(ct);
+
+        return Results.Ok(new ProjectReportSummaryDto(
+            project.Name,
+            statusStr,
+            totalHours,
+            totalDeviations,
+            openDeviations,
+            checklistsCompleted,
+            checklistsTotal,
+            crewCount,
+            project.StartDate,
+            project.PlannedEndDate));
+    }
+}

@@ -1,0 +1,128 @@
+@page "/projects"
+@attribute [Authorize]
+@inject ProjectService ProjectService
+@inject NavigationManager Navigation
+
+<PageTitle>Solodoc - Prosjekter</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4">
+    <MudText Typo="Typo.h5">Prosjekter</MudText>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.Add"
+               Href="/projects/new"
+               Style="text-transform:none;border-radius:8px;">
+        Nytt prosjekt
+    </MudButton>
+</MudStack>
+
+<MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;overflow:hidden;">
+    <MudDataGrid @ref="_grid" T="Solodoc.Shared.Projects.ProjectListItemDto"
+                 ServerData="LoadServerData"
+                 Sortable="true"
+                 Filterable="false"
+                 Hover="true"
+                 Dense="false"
+                 RowClick="OnRowClick"
+                 RowStyle="cursor:pointer;"
+                 Loading="_loading"
+                 Class="project-grid">
+        <ToolBarContent>
+            <MudSpacer />
+            <MudTextField T="string" Value="_search" Placeholder="Søk prosjekter..."
+                          Variant="Variant.Outlined" Margin="Margin.Dense"
+                          Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                          Immediate="true" DebounceInterval="300"
+                          ValueChanged="OnSearchChanged"
+                          Style="max-width:300px;" />
+        </ToolBarContent>
+        <Columns>
+            <PropertyColumn Property="x => x.Name" Title="Prosjektnavn" />
+            <TemplateColumn Title="Status" SortLabel="status">
+                <CellTemplate>
+                    @{
+                        var color = context.Item.Status switch
+                        {
+                            "Aktiv" => Color.Success,
+                            "Fullført" => Color.Info,
+                            _ => Color.Default
+                        };
+                    }
+                    <MudChip T="string" Size="Size.Small" Color="@color"
+                             Style="height:22px;">@context.Item.Status</MudChip>
+                </CellTemplate>
+            </TemplateColumn>
+            <PropertyColumn Property="x => x.ClientName" Title="Kunde" SortLabel="clientname" />
+            <TemplateColumn Title="Startdato" SortLabel="startdate">
+                <CellTemplate>
+                    <MudText Typo="Typo.body2">
+                        @(context.Item.StartDate?.ToString("dd.MM.yyyy") ?? "—")
+                    </MudText>
+                </CellTemplate>
+            </TemplateColumn>
+            <TemplateColumn Title="Åpne avvik" SortLabel="opendeviations">
+                <CellTemplate>
+                    @if (context.Item.OpenDeviations > 0)
+                    {
+                        <MudChip T="string" Size="Size.Small" Color="Color.Error"
+                                 Style="height:22px;min-width:28px;">@context.Item.OpenDeviations</MudChip>
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">0</MudText>
+                    }
+                </CellTemplate>
+            </TemplateColumn>
+        </Columns>
+        <PagerContent>
+            <MudDataGridPager T="Solodoc.Shared.Projects.ProjectListItemDto"
+                              PageSizeOptions="@(new[] { 10, 25, 50 })" />
+        </PagerContent>
+        <NoRecordsContent>
+            <MudStack AlignItems="AlignItems.Center" Spacing="2" Class="pa-8">
+                <MudIcon Icon="@Icons.Material.Filled.FolderOff" Size="Size.Large" Color="Color.Secondary" />
+                <MudText Typo="Typo.body1" Color="Color.Secondary">Ingen prosjekter funnet</MudText>
+            </MudStack>
+        </NoRecordsContent>
+    </MudDataGrid>
+</MudPaper>
+
+@code {
+    private string? _search;
+    private bool _loading;
+    private MudDataGrid<Solodoc.Shared.Projects.ProjectListItemDto>? _grid;
+
+    private async Task<GridData<Solodoc.Shared.Projects.ProjectListItemDto>> LoadServerData(
+        GridState<Solodoc.Shared.Projects.ProjectListItemDto> state, CancellationToken ct)
+    {
+        _loading = true;
+        StateHasChanged();
+
+        var sortDef = state.SortDefinitions.FirstOrDefault();
+        var sortBy = sortDef?.SortBy;
+        var sortDesc = sortDef?.Descending ?? false;
+
+        var page = state.Page + 1; // MudDataGrid is 0-indexed
+        var result = await ProjectService.GetProjectsAsync(
+            page, state.PageSize, _search, sortBy, sortDesc);
+
+        _loading = false;
+
+        return new GridData<Solodoc.Shared.Projects.ProjectListItemDto>
+        {
+            Items = result.Items,
+            TotalItems = result.TotalCount
+        };
+    }
+
+    private async Task OnSearchChanged(string value)
+    {
+        _search = value;
+        if (_grid is not null)
+            await _grid.ReloadServerData();
+    }
+
+    private void OnRowClick(DataGridRowClickEventArgs<Solodoc.Shared.Projects.ProjectListItemDto> args)
+    {
+        Navigation.NavigateTo($"/projects/{args.Item.Id}");
+    }
+}

@@ -1,0 +1,266 @@
+@page "/deviations/new"
+@attribute [Authorize]
+@inject DeviationService DeviationService
+@inject ProjectService ProjectService
+@inject JobService JobService
+@inject LocationService LocationService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<PageTitle>Solodoc - Nytt avvik</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-4">
+    <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Href="/deviations" />
+    <MudText Typo="Typo.h5">Rapporter avvik</MudText>
+</MudStack>
+
+@* Wizard step indicators *@
+<MudStack Row="true" Spacing="0" Class="mb-4" Style="flex-wrap:wrap;gap:4px;">
+    @for (var i = 0; i < _steps.Length; i++)
+    {
+        var stepIndex = i;
+        var stepCss = stepIndex < _currentStep
+            ? "wizard-step wizard-step--completed"
+            : stepIndex == _currentStep
+                ? "wizard-step wizard-step--active"
+                : "wizard-step";
+        var icon = stepIndex < _currentStep
+            ? Icons.Material.Filled.CheckCircle
+            : Icons.Material.Filled.RadioButtonUnchecked;
+        <div class="@stepCss" style="cursor:pointer;" @onclick="() => GoToStep(stepIndex)">
+            <MudIcon Icon="@icon" Size="Size.Small" />
+            <span>@_steps[stepIndex]</span>
+        </div>
+    }
+</MudStack>
+
+<MudPaper Class="pa-5" Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;max-width:700px;">
+    @switch (_currentStep)
+    {
+        case 0:
+            @* Step 1 — Beskriv *@
+            <MudText Typo="Typo.h6" Class="mb-3">Beskriv avviket</MudText>
+            <MudStack Spacing="3">
+                <MudTextField @bind-Value="_title" Label="Tittel" Variant="Variant.Outlined"
+                              Required="true" RequiredError="Tittel er påkrevd"
+                              Placeholder="Kort beskrivelse av avviket" />
+                <MudTextField @bind-Value="_description" Label="Beskrivelse" Variant="Variant.Outlined"
+                              Lines="5" Placeholder="Detaljert beskrivelse (valgfritt)" />
+            </MudStack>
+            break;
+
+        case 1:
+            @* Step 2 — Klassifiser *@
+            <MudText Typo="Typo.h6" Class="mb-3">Klassifiser</MudText>
+            <MudStack Spacing="3">
+                <MudSelect @bind-Value="_severity" Label="Alvorlighet" Variant="Variant.Outlined">
+                    <MudSelectItem Value="@("Lav")">Lav</MudSelectItem>
+                    <MudSelectItem Value="@("Middels")">Middels</MudSelectItem>
+                    <MudSelectItem Value="@("Høy")">Høy</MudSelectItem>
+                </MudSelect>
+                <MudSelect @bind-Value="_categoryId" Label="Kategori" Variant="Variant.Outlined"
+                           Clearable="true" AnchorOrigin="Origin.BottomCenter">
+                    @foreach (var cat in _categories)
+                    {
+                        <MudSelectItem Value="@((Guid?)cat.Id)">@cat.Name</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudStack>
+            break;
+
+        case 2:
+            @* Step 3 — Koble til sted *@
+            <MudText Typo="Typo.h6" Class="mb-3">Koble til sted</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+                Velg hvor avviket ble oppdaget.
+            </MudText>
+            <MudStack Spacing="3">
+                <MudSelect @bind-Value="_projectId" Label="Prosjekt" Variant="Variant.Outlined"
+                           Clearable="true" AnchorOrigin="Origin.BottomCenter">
+                    @foreach (var p in _projects)
+                    {
+                        <MudSelectItem Value="@((Guid?)p.Id)">@p.Name</MudSelectItem>
+                    }
+                </MudSelect>
+                <MudSelect @bind-Value="_jobId" Label="Oppdrag" Variant="Variant.Outlined"
+                           Clearable="true" AnchorOrigin="Origin.BottomCenter">
+                    @foreach (var j in _jobs)
+                    {
+                        <MudSelectItem Value="@((Guid?)j.Id)">@j.Description</MudSelectItem>
+                    }
+                </MudSelect>
+                <MudSelect @bind-Value="_locationId" Label="Lokasjon" Variant="Variant.Outlined"
+                           Clearable="true" AnchorOrigin="Origin.BottomCenter">
+                    @foreach (var l in _locations)
+                    {
+                        <MudSelectItem Value="@((Guid?)l.Id)">@l.Name</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudStack>
+            break;
+
+        case 3:
+            @* Step 4 — Send inn *@
+            <MudText Typo="Typo.h6" Class="mb-3">Oppsummering</MudText>
+            <MudStack Spacing="2">
+                <div>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Tittel</MudText>
+                    <MudText Typo="Typo.body1" Style="font-weight:500;">@_title</MudText>
+                </div>
+                @if (!string.IsNullOrWhiteSpace(_description))
+                {
+                    <div>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Beskrivelse</MudText>
+                        <MudText Typo="Typo.body2">@_description</MudText>
+                    </div>
+                }
+                <div>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Alvorlighet</MudText>
+                    @{
+                        var sevColor = _severity switch
+                        {
+                            "Høy" => Color.Error,
+                            "Middels" => Color.Warning,
+                            _ => Color.Success
+                        };
+                    }
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                             Color="@sevColor">@_severity</MudChip>
+                </div>
+                @if (_categoryId.HasValue)
+                {
+                    <div>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Kategori</MudText>
+                        <MudText Typo="Typo.body2">@(_categories.FirstOrDefault(c => c.Id == _categoryId.Value)?.Name ?? "—")</MudText>
+                    </div>
+                }
+                <div>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Prosjekt</MudText>
+                    <MudText Typo="Typo.body2" Style="font-weight:500;">
+                        @(_projectId.HasValue
+                            ? _projects.FirstOrDefault(p => p.Id == _projectId.Value)?.Name ?? "—"
+                            : "Generelt")
+                    </MudText>
+                </div>
+            </MudStack>
+            break;
+    }
+
+    @* Navigation buttons *@
+    <MudStack Row="true" Justify="Justify.SpaceBetween" Class="mt-4">
+        <div>
+            @if (_currentStep > 0)
+            {
+                <MudButton Variant="Variant.Text" OnClick="PrevStep"
+                           StartIcon="@Icons.Material.Filled.ArrowBack"
+                           Style="text-transform:none;">Tilbake</MudButton>
+            }
+            else
+            {
+                <MudButton Variant="Variant.Text" Href="/deviations"
+                           Style="text-transform:none;">Avbryt</MudButton>
+            }
+        </div>
+        <div>
+            @if (_currentStep < _steps.Length - 1)
+            {
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                           OnClick="NextStep"
+                           EndIcon="@Icons.Material.Filled.ArrowForward"
+                           Style="text-transform:none;border-radius:8px;">Neste</MudButton>
+            }
+            else
+            {
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                           OnClick="HandleSubmit" Disabled="_submitting"
+                           StartIcon="@Icons.Material.Filled.Send"
+                           Style="text-transform:none;border-radius:8px;">
+                    @if (_submitting)
+                    {
+                        <MudProgressCircular Size="Size.Small" Indeterminate="true" Color="Color.Inherit" Class="mr-2" />
+                    }
+                    Send inn
+                </MudButton>
+            }
+        </div>
+    </MudStack>
+</MudPaper>
+
+@code {
+    private readonly string[] _steps = ["Beskriv", "Klassifiser", "Sted", "Send inn"];
+    private int _currentStep;
+
+    private string _title = "";
+    private string _description = "";
+    private string _severity = "Middels";
+    private Guid? _categoryId;
+    private Guid? _projectId;
+    private Guid? _jobId;
+    private Guid? _locationId;
+    private bool _submitting;
+    private List<ProjectListItemDto> _projects = [];
+    private List<JobListItemDto> _jobs = [];
+    private List<LocationListItemDto> _locations = [];
+    private List<DeviationCategoryDto> _categories = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        var projectsTask = ProjectService.GetProjectsAsync(1, 100, null, "name", false);
+        var jobsTask = JobService.GetJobsAsync(1, 50, null, null, false);
+        var locationsTask = LocationService.GetLocationsAsync();
+        var categoriesTask = DeviationService.GetCategoriesAsync();
+        _projects = (await projectsTask).Items;
+        _jobs = (await jobsTask).Items.ToList();
+        _locations = await locationsTask;
+        _categories = (await categoriesTask).Where(c => c.IsActive).ToList();
+    }
+
+    private void NextStep()
+    {
+        if (_currentStep == 0 && string.IsNullOrWhiteSpace(_title))
+        {
+            Snackbar.Add("Tittel er påkrevd", Severity.Warning);
+            return;
+        }
+
+        if (_currentStep < _steps.Length - 1)
+            _currentStep++;
+    }
+
+    private void PrevStep()
+    {
+        if (_currentStep > 0)
+            _currentStep--;
+    }
+
+    private void GoToStep(int step)
+    {
+        // Only allow going back or to completed steps
+        if (step < _currentStep)
+            _currentStep = step;
+    }
+
+    private async Task HandleSubmit()
+    {
+        if (string.IsNullOrWhiteSpace(_title))
+        {
+            Snackbar.Add("Tittel er påkrevd", Severity.Warning);
+            return;
+        }
+
+        _submitting = true;
+        var id = await DeviationService.CreateDeviationAsync(
+            new(_title, string.IsNullOrWhiteSpace(_description) ? null : _description, _severity, _projectId, _jobId, _locationId, _categoryId));
+
+        if (id.HasValue)
+        {
+            Snackbar.Add("Avvik rapportert", Severity.Success);
+            Navigation.NavigateTo($"/deviations/{id.Value}");
+        }
+        else
+        {
+            Snackbar.Add("Kunne ikke opprette avvik", Severity.Error);
+        }
+        _submitting = false;
+    }
+}

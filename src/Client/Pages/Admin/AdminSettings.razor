@@ -1,0 +1,608 @@
+@page "/admin/settings"
+@attribute [Authorize]
+@inject DeviationService DeviationService
+@inject HoursService HoursService
+@inject ISnackbar Snackbar
+
+<PageTitle>Solodoc - Innstillinger</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4">Innstillinger</MudText>
+
+<MudExpansionPanels MultiExpansion="true">
+    @* Company profile *@
+    <MudExpansionPanel Style="border:1px solid #e9ecef;border-radius:12px;margin-bottom:12px;">
+        <TitleContent>
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudIcon Icon="@Icons.Material.Filled.Business" Color="Color.Primary" />
+                <MudText Typo="Typo.subtitle1" Style="font-weight:600;">Bedriftsprofil</MudText>
+            </MudStack>
+        </TitleContent>
+        <ChildContent>
+            <MudStack Spacing="3" Class="pa-2">
+                <MudGrid Spacing="3">
+                    <MudItem xs="12" sm="6">
+                        <MudTextField T="string" @bind-Value="_companyName" Label="Bedriftsnavn"
+                                      Variant="Variant.Outlined" />
+                    </MudItem>
+                    <MudItem xs="12" sm="6">
+                        <MudTextField T="string" Value="@_orgNumber" Label="Org.nummer"
+                                      Variant="Variant.Outlined" ReadOnly="true"
+                                      HelperText="Fra BRREG, kan ikke endres" />
+                    </MudItem>
+                    <MudItem xs="12">
+                        <MudTextField T="string" @bind-Value="_companyAddress" Label="Forretningsadresse"
+                                      Variant="Variant.Outlined" />
+                    </MudItem>
+                    <MudItem xs="12" sm="4">
+                        <MudTextField T="string" @bind-Value="_postalCode" Label="Postnummer"
+                                      Variant="Variant.Outlined" />
+                    </MudItem>
+                    <MudItem xs="12" sm="8">
+                        <MudTextField T="string" @bind-Value="_city" Label="Sted"
+                                      Variant="Variant.Outlined" />
+                    </MudItem>
+                    <MudItem xs="12" sm="6">
+                        <MudTextField T="string" @bind-Value="_companyPhone" Label="Telefon"
+                                      Variant="Variant.Outlined" />
+                    </MudItem>
+                    <MudItem xs="12" sm="6">
+                        <MudTextField T="string" @bind-Value="_companyEmail" Label="E-post"
+                                      Variant="Variant.Outlined" />
+                    </MudItem>
+                </MudGrid>
+
+                <MudStack Spacing="1">
+                    <MudText Typo="Typo.body2" Style="font-weight:500;">Logo</MudText>
+                    <MudPaper Elevation="0" Style="border:2px dashed #e9ecef;border-radius:8px;" Class="pa-6">
+                        <MudStack AlignItems="AlignItems.Center" Spacing="1">
+                            <MudIcon Icon="@Icons.Material.Filled.CloudUpload" Size="Size.Large" Color="Color.Secondary" />
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">Last opp logo (PNG eller SVG, min 200x200px)</MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Brukes i rapporter, dokumenteksport og QR-koder</MudText>
+                        </MudStack>
+                    </MudPaper>
+                </MudStack>
+
+                <MudStack Spacing="1">
+                    <MudText Typo="Typo.body2" Style="font-weight:500;">Aksentfarge</MudText>
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                        <MudTextField T="string" @bind-Value="_accentColor" Label="Fargekode"
+                                      Variant="Variant.Outlined"
+                                      Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Palette"
+                                      Style="max-width:200px;" />
+                        <MudPaper Width="40px" Height="40px" Elevation="0"
+                                  Style="@($"background:{_accentColor};border-radius:8px;border:1px solid #e9ecef;")" />
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                            Fargen brukes som visuelt tema for bedriften
+                        </MudText>
+                    </MudStack>
+                </MudStack>
+
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Save"
+                           Style="text-transform:none;border-radius:8px;align-self:flex-start;">
+                    Lagre endringer
+                </MudButton>
+            </MudStack>
+        </ChildContent>
+    </MudExpansionPanel>
+
+    @* GPS settings *@
+    <MudExpansionPanel Style="border:1px solid #e9ecef;border-radius:12px;margin-bottom:12px;">
+        <TitleContent>
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudIcon Icon="@Icons.Material.Filled.LocationOn" Color="Color.Primary" />
+                <MudText Typo="Typo.subtitle1" Style="font-weight:600;">GPS-innstillinger</MudText>
+            </MudStack>
+        </TitleContent>
+        <ChildContent>
+            <MudStack Spacing="3" Class="pa-2">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                    <MudStack Spacing="0">
+                        <MudText Typo="Typo.body1">Aktiver GPS-sporing</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                            GPS registreres kun ved spesifikke handlinger (innsjekking, stempling, avvik).
+                        </MudText>
+                    </MudStack>
+                    <MudSwitch T="bool" @bind-Value="_gpsEnabled" Color="Color.Primary" />
+                </MudStack>
+
+                @if (_gpsEnabled)
+                {
+                    <MudAlert Severity="Severity.Info" Dense="true" Style="border-radius:8px;">
+                        <MudText Typo="Typo.body2">
+                            Ansatte vil bli bedt om individuelt samtykke. Ingen ansatt kan tvinges til a godta GPS-sporing.
+                            De som avstar kan fortsatt bruke alle funksjoner -- GPS-feltene vil simpelthen vaere tomme.
+                        </MudText>
+                    </MudAlert>
+
+                    <MudTextField T="int" @bind-Value="_gpsVerificationDistance" Label="GPS-verifikasjonsavstand (meter)"
+                                  Variant="Variant.Outlined" Style="max-width:300px;"
+                                  HelperText="Standard: 500m. Advarsel vises ved innsjekk utenfor denne avstanden." />
+
+                    <MudText Typo="Typo.subtitle2" Style="font-weight:600;" Class="mt-2">Samtykkestatus ansatte</MudText>
+                    <MudSimpleTable Dense="true" Hover="true" Style="border:1px solid #e9ecef;border-radius:8px;">
+                        <thead>
+                            <tr>
+                                <th>Ansatt</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Ole Nordmann</td>
+                                <td><MudChip T="string" Size="Size.Small" Color="Color.Success" Style="height:22px;">Godtatt</MudChip></td>
+                            </tr>
+                            <tr>
+                                <td>Kari Hansen</td>
+                                <td><MudChip T="string" Size="Size.Small" Color="Color.Error" Style="height:22px;">Avslatt</MudChip></td>
+                            </tr>
+                            <tr>
+                                <td>Per Olsen</td>
+                                <td><MudChip T="string" Size="Size.Small" Color="Color.Default" Style="height:22px;">Ikke svart</MudChip></td>
+                            </tr>
+                        </tbody>
+                    </MudSimpleTable>
+                }
+            </MudStack>
+        </ChildContent>
+    </MudExpansionPanel>
+
+    @* Deviation categories *@
+    <MudExpansionPanel Style="border:1px solid #e9ecef;border-radius:12px;margin-bottom:12px;">
+        <TitleContent>
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudIcon Icon="@Icons.Material.Filled.Category" Color="Color.Primary" />
+                <MudText Typo="Typo.subtitle1" Style="font-weight:600;">Avvikskategorier</MudText>
+            </MudStack>
+        </TitleContent>
+        <ChildContent>
+            <MudStack Spacing="2" Class="pa-2">
+                @if (_loadingCategories)
+                {
+                    <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+                }
+                else
+                {
+                    @foreach (var category in _categories)
+                    {
+                        <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:8px;" Class="pa-3">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                    <MudText Typo="Typo.body1">@category.Name</MudText>
+                                    @if (!category.IsActive)
+                                    {
+                                        <MudChip T="string" Size="Size.Small" Color="Color.Default" Style="height:22px;">Deaktivert</MudChip>
+                                    }
+                                </MudStack>
+                                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
+                                               Color="Color.Error" OnClick="() => DeleteCategory(category.Id)" />
+                            </MudStack>
+                        </MudPaper>
+                    }
+
+                    @if (_showNewCategoryField)
+                    {
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudTextField T="string" @bind-Value="_newCategoryName" Label="Kategorinavn"
+                                          Variant="Variant.Outlined" Margin="Margin.Dense"
+                                          Style="flex:1;" />
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                                       OnClick="AddCategory" Disabled="string.IsNullOrWhiteSpace(_newCategoryName)"
+                                       Style="text-transform:none;border-radius:8px;">
+                                Lagre
+                            </MudButton>
+                            <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
+                                           OnClick="() => { _showNewCategoryField = false; _newCategoryName = string.Empty; }" />
+                        </MudStack>
+                    }
+                    else
+                    {
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.Add"
+                                   OnClick="() => _showNewCategoryField = true"
+                                   Style="text-transform:none;border-radius:8px;align-self:flex-start;">
+                            Legg til kategori
+                        </MudButton>
+                    }
+                }
+            </MudStack>
+        </ChildContent>
+    </MudExpansionPanel>
+
+    @* Schedule and allowances *@
+    <MudExpansionPanel Style="border:1px solid #e9ecef;border-radius:12px;margin-bottom:12px;">
+        <TitleContent>
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudIcon Icon="@Icons.Material.Filled.Schedule" Color="Color.Primary" />
+                <MudText Typo="Typo.subtitle1" Style="font-weight:600;">Turnus og tillegg</MudText>
+            </MudStack>
+        </TitleContent>
+        <ChildContent>
+            <MudStack Spacing="4" Class="pa-2">
+                @* Work schedules *@
+                <MudStack Spacing="2">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                        <MudText Typo="Typo.subtitle2" Style="font-weight:600;">Turnusordninger</MudText>
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+                                   StartIcon="@Icons.Material.Filled.Add"
+                                   Style="text-transform:none;border-radius:8px;">
+                            Ny turnus
+                        </MudButton>
+                    </MudStack>
+
+                    @if (_loadingSchedules)
+                    {
+                        <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+                    }
+                    else if (_schedules.Count == 0)
+                    {
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">Ingen turnusordninger opprettet</MudText>
+                    }
+                    else
+                    {
+                        <MudSimpleTable Dense="true" Hover="true" Style="border:1px solid #e9ecef;border-radius:8px;">
+                            <thead>
+                                <tr>
+                                    <th>Navn</th>
+                                    <th>Timer/uke</th>
+                                    <th>Pause (min)</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var schedule in _schedules)
+                                {
+                                    <tr>
+                                        <td>@schedule.Name</td>
+                                        <td>@schedule.WeeklyHours</td>
+                                        <td>@schedule.DefaultBreakMinutes</td>
+                                        <td>
+                                            @if (schedule.IsActive)
+                                            {
+                                                <MudChip T="string" Size="Size.Small" Color="Color.Success" Style="height:22px;">Aktiv</MudChip>
+                                            }
+                                            else
+                                            {
+                                                <MudChip T="string" Size="Size.Small" Color="Color.Default" Style="height:22px;">Inaktiv</MudChip>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </MudSimpleTable>
+                    }
+                </MudStack>
+
+                <MudDivider />
+
+                @* Allowance rules *@
+                <MudStack Spacing="2">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                        <MudText Typo="Typo.subtitle2" Style="font-weight:600;">Tilleggsregler</MudText>
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+                                   StartIcon="@Icons.Material.Filled.Add"
+                                   Style="text-transform:none;border-radius:8px;">
+                            Ny tilleggsregel
+                        </MudButton>
+                    </MudStack>
+
+                    @if (_loadingAllowances)
+                    {
+                        <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+                    }
+                    else if (_allowanceRules.Count == 0)
+                    {
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">Ingen tilleggsregler opprettet</MudText>
+                    }
+                    else
+                    {
+                        <MudSimpleTable Dense="true" Hover="true" Style="border:1px solid #e9ecef;border-radius:8px;">
+                            <thead>
+                                <tr>
+                                    <th>Navn</th>
+                                    <th>Type</th>
+                                    <th>Belop</th>
+                                    <th>Tidsrom</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var rule in _allowanceRules)
+                                {
+                                    <tr>
+                                        <td>@rule.Name</td>
+                                        <td>@rule.Type</td>
+                                        <td>@rule.Amount.ToString("N2") @(rule.AmountType == "Percentage" ? "%" : "kr")</td>
+                                        <td>
+                                            @if (rule.TimeRangeStart.HasValue && rule.TimeRangeEnd.HasValue)
+                                            {
+                                                @($"{rule.TimeRangeStart.Value:HH:mm} - {rule.TimeRangeEnd.Value:HH:mm}")
+                                            }
+                                            else
+                                            {
+                                                <MudText Typo="Typo.body2" Color="Color.Secondary">Hele dagen</MudText>
+                                            }
+                                        </td>
+                                        <td>
+                                            @if (rule.IsActive)
+                                            {
+                                                <MudChip T="string" Size="Size.Small" Color="Color.Success" Style="height:22px;">Aktiv</MudChip>
+                                            }
+                                            else
+                                            {
+                                                <MudChip T="string" Size="Size.Small" Color="Color.Default" Style="height:22px;">Inaktiv</MudChip>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </MudSimpleTable>
+                    }
+                </MudStack>
+            </MudStack>
+        </ChildContent>
+    </MudExpansionPanel>
+
+    @* Notifications *@
+    <MudExpansionPanel Style="border:1px solid #e9ecef;border-radius:12px;margin-bottom:12px;">
+        <TitleContent>
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudIcon Icon="@Icons.Material.Filled.Notifications" Color="Color.Primary" />
+                <MudText Typo="Typo.subtitle1" Style="font-weight:600;">Varsler</MudText>
+            </MudStack>
+        </TitleContent>
+        <ChildContent>
+            <MudStack Spacing="3" Class="pa-2">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                    <MudStack Spacing="0">
+                        <MudText Typo="Typo.body1">E-postvarsler</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                            Aktiver for a sende e-postvarsler i tillegg til varsler i appen
+                        </MudText>
+                    </MudStack>
+                    <MudSwitch T="bool" @bind-Value="_emailNotificationsEnabled" Color="Color.Primary" />
+                </MudStack>
+
+                @if (_emailNotificationsEnabled)
+                {
+                    <MudDivider />
+
+                    <MudSimpleTable Dense="true" Hover="true" Style="border:1px solid #e9ecef;border-radius:8px;">
+                        <thead>
+                            <tr>
+                                <th>Varslingstype</th>
+                                <th>I appen</th>
+                                <th>E-post</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Nye avvik rapportert</td>
+                                <td><MudIcon Icon="@Icons.Material.Filled.Check" Size="Size.Small" Color="Color.Success" /></td>
+                                <td><MudSwitch T="bool" @bind-Value="_notifyDeviationReported" Color="Color.Primary" /></td>
+                            </tr>
+                            <tr>
+                                <td>Avvik tildelt</td>
+                                <td><MudIcon Icon="@Icons.Material.Filled.Check" Size="Size.Small" Color="Color.Success" /></td>
+                                <td><MudSwitch T="bool" @bind-Value="_notifyDeviationAssigned" Color="Color.Primary" /></td>
+                            </tr>
+                            <tr>
+                                <td>Sertifikat utloper (90 dager)</td>
+                                <td><MudIcon Icon="@Icons.Material.Filled.Check" Size="Size.Small" Color="Color.Success" /></td>
+                                <td><MudSwitch T="bool" @bind-Value="_notifyCertExpiry90" Color="Color.Primary" /></td>
+                            </tr>
+                            <tr>
+                                <td>Sertifikat utloper (30 dager)</td>
+                                <td><MudIcon Icon="@Icons.Material.Filled.Check" Size="Size.Small" Color="Color.Success" /></td>
+                                <td><MudSwitch T="bool" @bind-Value="_notifyCertExpiry30" Color="Color.Primary" /></td>
+                            </tr>
+                            <tr>
+                                <td>Sertifikat utlopt</td>
+                                <td><MudIcon Icon="@Icons.Material.Filled.Check" Size="Size.Small" Color="Color.Success" /></td>
+                                <td><MudSwitch T="bool" @bind-Value="_notifyCertExpired" Color="Color.Primary" /></td>
+                            </tr>
+                            <tr>
+                                <td>Timelistegodkjenning</td>
+                                <td><MudIcon Icon="@Icons.Material.Filled.Check" Size="Size.Small" Color="Color.Success" /></td>
+                                <td><MudSwitch T="bool" @bind-Value="_notifyHoursApproval" Color="Color.Primary" /></td>
+                            </tr>
+                            <tr>
+                                <td>HMS-aktiviteter</td>
+                                <td><MudIcon Icon="@Icons.Material.Filled.Check" Size="Size.Small" Color="Color.Success" /></td>
+                                <td><MudSwitch T="bool" @bind-Value="_notifyHmsActivities" Color="Color.Primary" /></td>
+                            </tr>
+                            <tr>
+                                <td>Kunngjoring publisert</td>
+                                <td><MudIcon Icon="@Icons.Material.Filled.Check" Size="Size.Small" Color="Color.Success" /></td>
+                                <td><MudSwitch T="bool" @bind-Value="_notifyAnnouncement" Color="Color.Primary" /></td>
+                            </tr>
+                        </tbody>
+                    </MudSimpleTable>
+                }
+            </MudStack>
+        </ChildContent>
+    </MudExpansionPanel>
+
+    @* Subscription *@
+    <MudExpansionPanel Style="border:1px solid #e9ecef;border-radius:12px;margin-bottom:12px;">
+        <TitleContent>
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudIcon Icon="@Icons.Material.Filled.CreditCard" Color="Color.Primary" />
+                <MudText Typo="Typo.subtitle1" Style="font-weight:600;">Abonnement</MudText>
+            </MudStack>
+        </TitleContent>
+        <ChildContent>
+            <MudStack Spacing="3" Class="pa-2">
+                <MudPaper Elevation="0" Style="border:1px solid #4361EE;border-radius:8px;background:#f0f3ff;" Class="pa-4">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                        <MudStack Spacing="1">
+                            <MudText Typo="Typo.subtitle1" Style="font-weight:600;color:#4361EE;">Profesjonell plan</MudText>
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                Full tilgang til alle moduler
+                            </MudText>
+                        </MudStack>
+                        <MudChip T="string" Size="Size.Small" Color="Color.Primary" Style="height:22px;">Aktiv</MudChip>
+                    </MudStack>
+                </MudPaper>
+
+                <MudStack Spacing="1">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                        <MudText Typo="Typo.body2" Style="font-weight:500;">Brukere</MudText>
+                        <MudText Typo="Typo.body2">12 av 25</MudText>
+                    </MudStack>
+                    <MudProgressLinear Value="48" Color="Color.Primary" Style="border-radius:4px;" />
+                </MudStack>
+
+                <MudStack Spacing="1">
+                    <MudText Typo="Typo.body2" Style="font-weight:500;">Inkluderte moduler</MudText>
+                    <MudStack Spacing="1">
+                        @foreach (var module in _includedModules)
+                        {
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small"
+                                         Style="color:#4361EE;" />
+                                <MudText Typo="Typo.body2">@module</MudText>
+                            </MudStack>
+                        }
+                    </MudStack>
+                </MudStack>
+
+                <MudStack Spacing="1">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                        <MudText Typo="Typo.body2" Style="font-weight:500;">Underleverandorer</MudText>
+                        <MudText Typo="Typo.body2">3 (gratis, ingen grense)</MudText>
+                    </MudStack>
+                </MudStack>
+
+                <MudDivider />
+
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Upgrade"
+                           Style="text-transform:none;border-radius:8px;align-self:flex-start;">
+                    Oppgrader plan
+                </MudButton>
+                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                    Kontakt support@solodoc.no for endring av abonnement.
+                </MudText>
+            </MudStack>
+        </ChildContent>
+    </MudExpansionPanel>
+</MudExpansionPanels>
+
+@code {
+    // Company profile
+    private string _companyName = string.Empty;
+    private string _orgNumber = "912 345 678";
+    private string _companyAddress = string.Empty;
+    private string _postalCode = string.Empty;
+    private string _city = string.Empty;
+    private string _companyPhone = string.Empty;
+    private string _companyEmail = string.Empty;
+    private string _accentColor = "#4361EE";
+
+    // GPS
+    private bool _gpsEnabled;
+    private int _gpsVerificationDistance = 500;
+
+    // Deviation categories
+    private List<Solodoc.Shared.Deviations.DeviationCategoryDto> _categories = [];
+    private bool _loadingCategories = true;
+    private bool _showNewCategoryField;
+    private string _newCategoryName = string.Empty;
+
+    // Schedules & allowances
+    private List<Solodoc.Shared.Hours.WorkScheduleDto> _schedules = [];
+    private List<Solodoc.Shared.Hours.AllowanceRuleDto> _allowanceRules = [];
+    private bool _loadingSchedules = true;
+    private bool _loadingAllowances = true;
+
+    // Notifications
+    private bool _emailNotificationsEnabled = true;
+    private bool _notifyDeviationReported = true;
+    private bool _notifyDeviationAssigned = true;
+    private bool _notifyCertExpiry90 = true;
+    private bool _notifyCertExpiry30 = true;
+    private bool _notifyCertExpired = true;
+    private bool _notifyHoursApproval = true;
+    private bool _notifyHmsActivities = true;
+    private bool _notifyAnnouncement;
+
+    // Subscription
+    private readonly List<string> _includedModules =
+    [
+        "Prosjekter og oppdrag",
+        "Timelister",
+        "Avvik",
+        "Sjekklister og skjemaer",
+        "Prosedyrer",
+        "Stoffkartotek",
+        "Maskinpark",
+        "HMS-handbok",
+        "Kontakter",
+        "Ansattadministrasjon",
+        "Rapporter og eksport"
+    ];
+
+    protected override async Task OnInitializedAsync()
+    {
+        var categoriesTask = LoadCategoriesAsync();
+        var schedulesTask = LoadSchedulesAsync();
+        var allowancesTask = LoadAllowancesAsync();
+        await Task.WhenAll(categoriesTask, schedulesTask, allowancesTask);
+    }
+
+    private async Task LoadCategoriesAsync()
+    {
+        _loadingCategories = true;
+        _categories = await DeviationService.GetCategoriesAsync();
+        _loadingCategories = false;
+    }
+
+    private async Task LoadSchedulesAsync()
+    {
+        _loadingSchedules = true;
+        _schedules = await HoursService.GetSchedulesAsync();
+        _loadingSchedules = false;
+    }
+
+    private async Task LoadAllowancesAsync()
+    {
+        _loadingAllowances = true;
+        _allowanceRules = await HoursService.GetAllowanceRulesAsync();
+        _loadingAllowances = false;
+    }
+
+    private async Task AddCategory()
+    {
+        if (string.IsNullOrWhiteSpace(_newCategoryName)) return;
+
+        var success = await DeviationService.CreateCategoryAsync(
+            new Solodoc.Shared.Deviations.CreateCategoryRequest(_newCategoryName.Trim()));
+
+        if (success)
+        {
+            _newCategoryName = string.Empty;
+            _showNewCategoryField = false;
+            await LoadCategoriesAsync();
+            Snackbar.Add("Kategori lagt til", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add("Kunne ikke legge til kategori", Severity.Error);
+        }
+    }
+
+    private async Task DeleteCategory(Guid id)
+    {
+        var success = await DeviationService.DeleteCategoryAsync(id);
+        if (success)
+        {
+            await LoadCategoriesAsync();
+            Snackbar.Add("Kategori slettet", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add("Kunne ikke slette kategori", Severity.Error);
+        }
+    }
+}

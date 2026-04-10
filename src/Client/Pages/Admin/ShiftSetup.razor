@@ -1,0 +1,761 @@
+@page "/admin/shifts"
+@attribute [Authorize]
+@inject ShiftService ShiftService
+@inject HoursService HoursService
+@inject ISnackbar Snackbar
+
+<PageTitle>Solodoc - Skift og overtid</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4">Skift, overtid og tillegg</MudText>
+
+<MudTabs Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-0 pt-4"
+         ActivePanelIndex="_tab" ActivePanelIndexChanged="t => _tab = t">
+
+    @* ═══ Tab 0: Skifttyper ═══ *@
+    <MudTabPanel Text="Skifttyper" Icon="@Icons.Material.Filled.Schedule">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
+            <MudText Typo="Typo.subtitle1" Style="font-weight:600;">Skifttyper</MudText>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+                       OnClick="OpenNewShift" Style="text-transform:none;border-radius:8px;">Ny skifttype</MudButton>
+        </MudStack>
+
+        @if (_shifts.Count == 0)
+        {
+            <MudPaper Class="pa-8" Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;">
+                <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@Icons.Material.Filled.EventNote" Size="Size.Large" Color="Color.Secondary" />
+                    <MudText Typo="Typo.body1" Color="Color.Secondary">Ingen skifttyper opprettet</MudText>
+                </MudStack>
+            </MudPaper>
+        }
+        else
+        {
+            <MudGrid Spacing="2">
+                @foreach (var shift in _shifts)
+                {
+                    <MudItem xs="12" sm="6" md="4">
+                        @{
+                            var capturedShiftId = shift.Id;
+                        }
+                        <MudPaper Elevation="0" Style="@($"border:1px solid #e9ecef;border-left:4px solid {shift.Color};border-radius:12px;")" Class="pa-4">
+                            <MudStack Row="true" AlignItems="AlignItems.Start" Justify="Justify.SpaceBetween">
+                                <MudStack Spacing="1">
+                                    <MudText Typo="Typo.subtitle1" Style="font-weight:600;">@shift.Name</MudText>
+                                    @if (shift.IsWorkDay && shift.StartTime.HasValue && shift.EndTime.HasValue)
+                                    {
+                                        <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                            @shift.StartTime.Value.ToString("HH:mm") – @shift.EndTime.Value.ToString("HH:mm")
+                                        </MudText>
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                            @shift.NormalHours.ToString("0.#")t (pause: @shift.BreakMinutes min)
+                                        </MudText>
+                                    }
+                                    else
+                                    {
+                                        <MudText Typo="Typo.body2" Color="Color.Secondary">Fridag</MudText>
+                                    }
+                                </MudStack>
+                                <MudStack Row="true" Spacing="0">
+                                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                                                   Color="Color.Default" Title="Rediger"
+                                                   OnClick="() => OpenEditShift(shift)" />
+                                    <MudIconButton Icon="@Icons.Material.Filled.DeleteOutline" Size="Size.Small"
+                                                   Color="Color.Error" Title="Slett"
+                                                   OnClick="async () => await ConfirmDeleteShift(capturedShiftId, shift.Name)" />
+                                </MudStack>
+                            </MudStack>
+                        </MudPaper>
+                    </MudItem>
+                }
+            </MudGrid>
+        }
+    </MudTabPanel>
+
+    @* ═══ Tab 1: Rotasjoner ═══ *@
+    <MudTabPanel Text="Rotasjoner" Icon="@Icons.Material.Filled.Loop">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
+            <MudText Typo="Typo.subtitle1" Style="font-weight:600;">Rotasjonsmonstre</MudText>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+                       OnClick="OpenNewRotation" Style="text-transform:none;border-radius:8px;">Ny rotasjon</MudButton>
+        </MudStack>
+
+        @if (_rotations.Count == 0)
+        {
+            <MudPaper Class="pa-8" Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;">
+                <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@Icons.Material.Filled.Loop" Size="Size.Large" Color="Color.Secondary" />
+                    <MudText Typo="Typo.body1" Color="Color.Secondary">Ingen rotasjoner opprettet</MudText>
+                </MudStack>
+            </MudPaper>
+        }
+        else
+        {
+            @foreach (var rot in _rotations)
+            {
+                var capturedRotId = rot.Id;
+                <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;" Class="pa-4 mb-3">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-2">
+                        <MudText Typo="Typo.subtitle1" Style="font-weight:600;">@rot.Name</MudText>
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">@rot.CycleLengthDays dager</MudText>
+                            <MudIconButton Icon="@Icons.Material.Filled.DeleteOutline" Size="Size.Small"
+                                           Color="Color.Error" Title="Slett"
+                                           OnClick="async () => await ConfirmDeleteRotation(capturedRotId, rot.Name)" />
+                        </MudStack>
+                    </MudStack>
+                    <div style="display:flex;gap:2px;flex-wrap:wrap;">
+                        @foreach (var day in rot.Days)
+                        {
+                            <div style="width:28px;height:28px;border-radius:4px;background:@day.ShiftColor;display:flex;align-items:center;justify-content:center;font-size:0.6rem;color:#FFF;font-weight:600;"
+                                 title="Dag @day.DayInCycle: @day.ShiftName">
+                                @day.DayInCycle
+                            </div>
+                        }
+                    </div>
+                </MudPaper>
+            }
+        }
+    </MudTabPanel>
+
+    @* ═══ Tab 2: Overtidsregler ═══ *@
+    <MudTabPanel Text="Overtidsregler" Icon="@Icons.Material.Filled.Timer">
+        <MudText Typo="Typo.subtitle1" Style="font-weight:600;" Class="mb-2">Vanlige regler</MudText>
+        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-3">
+            Aktiver regler som gjelder for din bedrift. Juster satsene etter behov.
+        </MudText>
+
+        @foreach (var preset in _presetOvertimeRules)
+        {
+            var capturedPreset = preset;
+            var existing = _overtimeRules.FirstOrDefault(r => r.Name == preset.Name);
+            var isEnabled = existing is not null;
+
+            <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;" Class="pa-3 mb-2">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Style="flex-wrap:wrap;gap:4px;">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                        <MudCheckBox T="bool" Value="isEnabled"
+                                     ValueChanged="async v => await TogglePresetRule(capturedPreset, v)"
+                                     Color="Color.Primary" Dense="true" />
+                        <MudStack Spacing="0">
+                            <MudText Typo="Typo.body2" Style="font-weight:500;">@preset.Name</MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">@preset.Description</MudText>
+                        </MudStack>
+                    </MudStack>
+                    <MudText Typo="Typo.body2" Style="font-weight:600;color:#4361EE;">@preset.RatePercent%</MudText>
+                </MudStack>
+            </MudPaper>
+        }
+
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+                   OnClick="OpenNewOvertimeRule" Style="text-transform:none;border-radius:8px;" Class="mt-3 mb-3">
+            Ny egendefinert regel
+        </MudButton>
+
+        <MudDivider Class="my-3" />
+        <MudExpansionPanels Class="mt-3">
+            <MudExpansionPanel Style="border:1px solid #e9ecef;border-radius:12px;">
+                <TitleContent>
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                        <MudIcon Icon="@Icons.Material.Filled.Event" Color="Color.Error" Size="Size.Small" />
+                        <MudText Typo="Typo.subtitle2" Style="font-weight:600;">Rode dager (@_norwegianHolidays.Count helligdager)</MudText>
+                    </MudStack>
+                </TitleContent>
+                <ChildContent>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-3">
+                        Juster sats per helligdag. Klikk pa prosenten for a endre.
+                    </MudText>
+                    @for (var i = 0; i < _norwegianHolidays.Count; i++)
+                    {
+                        var idx = i;
+                        var holiday = _norwegianHolidays[i];
+                        <MudPaper Elevation="0" Style="border:1px solid #f1f3f5;border-radius:8px;" Class="pa-2 mb-1">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                                <MudStack Spacing="0">
+                                    <MudText Typo="Typo.body2" Style="font-weight:500;">@holiday.Name</MudText>
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                        @holiday.Date
+                                        @if (holiday.IsHalfDay) { <span> (halv rod, fra @(holiday.HalfDayCutoff?.ToString("HH:mm") ?? "12:00"))</span> }
+                                    </MudText>
+                                </MudStack>
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                    <MudNumericField T="decimal" Value="holiday.RatePercent"
+                                                     ValueChanged="v => UpdateHolidayRate(idx, v)"
+                                                     Variant="Variant.Outlined" Margin="Margin.Dense"
+                                                     Style="max-width:80px;" Min="0" Max="300"
+                                                     Adornment="Adornment.End" AdornmentText="%" />
+                                </MudStack>
+                            </MudStack>
+                        </MudPaper>
+                    }
+                </ChildContent>
+            </MudExpansionPanel>
+        </MudExpansionPanels>
+    </MudTabPanel>
+
+    @* ═══ Tab 3: Tillegg ═══ *@
+    <MudTabPanel Text="Tillegg" Icon="@Icons.Material.Filled.AddCircle">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
+            <MudText Typo="Typo.subtitle1" Style="font-weight:600;">Tilleggsregler</MudText>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+                       OnClick="OpenNewAllowance" Style="text-transform:none;border-radius:8px;">Nytt tillegg</MudButton>
+        </MudStack>
+
+        @foreach (var rule in _allowanceRules)
+        {
+            var capturedRuleId = rule.Id;
+            <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;" Class="pa-3 mb-2">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                    <MudStack Spacing="0">
+                        <MudText Typo="Typo.body2" Style="font-weight:500;">@rule.Name</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                            @rule.Amount @(rule.AmountType == "FixedKroner" ? "kr" : "%")
+                            per @(rule.Type switch { "TimeBased" => "time", "DayBased" => "dag", "OperationBased" => "operasjon", "FixedPerDay" => "dag", _ => "time" })
+                        </MudText>
+                    </MudStack>
+                    <MudIconButton Icon="@Icons.Material.Filled.DeleteOutline" Size="Size.Small"
+                                   Color="Color.Error" Title="Slett" />
+                </MudStack>
+            </MudPaper>
+        }
+    </MudTabPanel>
+
+    @* ═══ Tab 4: Innstillinger ═══ *@
+    <MudTabPanel Text="Innstillinger" Icon="@Icons.Material.Filled.Settings">
+        @if (_settings is not null)
+        {
+            <MudStack Spacing="3" Style="max-width:500px;">
+                <MudText Typo="Typo.subtitle1" Style="font-weight:600;">Beregningsmetode</MudText>
+                <MudCheckBox T="bool" Value="_settings.OvertimeStackingMode" Label="Satser legges sammen"
+                             ValueChanged="ToggleStacking" Color="Color.Primary" />
+                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                    @(_settings.OvertimeStackingMode ? "Alle matchende satser summeres" : "Kun hoyeste sats gjelder")
+                </MudText>
+
+                <MudDivider />
+                <MudText Typo="Typo.subtitle1" Style="font-weight:600;">Timebank</MudText>
+                <MudCheckBox T="bool" Value="_settings.TimebankEnabled" Label="Aktiver timebank"
+                             ValueChanged="ToggleTimebank" Color="Color.Primary" />
+            </MudStack>
+        }
+    </MudTabPanel>
+</MudTabs>
+
+@* ═══ New Shift Dialog ═══ *@
+<MudDialog @bind-Visible="_shiftDialogOpen" Options="_dlgOpts">
+    <TitleContent><MudText Typo="Typo.h6">@(_editingShiftId.HasValue ? "Rediger skifttype" : "Ny skifttype")</MudText></TitleContent>
+    <DialogContent>
+        <MudStack Spacing="2">
+            <MudTextField T="string" @bind-Value="_sName" Label="Navn" Variant="Variant.Outlined" Placeholder="Dagskift" />
+
+            @* Color palette instead of hex *@
+            <MudText Typo="Typo.caption" Color="Color.Secondary">Farge</MudText>
+            <MudStack Row="true" Spacing="1" Style="flex-wrap:wrap;">
+                @foreach (var c in _colorPalette)
+                {
+                    var capturedColor = c;
+                    <div style="width:32px;height:32px;border-radius:6px;background:@c;cursor:pointer;border:@(_sColor == c ? "3px solid #1F2937" : "2px solid transparent");"
+                         @onclick="() => _sColor = capturedColor"></div>
+                }
+            </MudStack>
+
+            <MudCheckBox T="bool" @bind-Value="_sIsWork" Label="Arbeidsdag" Color="Color.Primary" />
+            @if (_sIsWork)
+            {
+                <MudGrid Spacing="2">
+                    <MudItem xs="6"><MudTextField T="string" @bind-Value="_sStart" Label="Start" Variant="Variant.Outlined" Placeholder="06:00" /></MudItem>
+                    <MudItem xs="6"><MudTextField T="string" @bind-Value="_sEnd" Label="Slutt" Variant="Variant.Outlined" Placeholder="18:00" /></MudItem>
+                </MudGrid>
+                <MudNumericField T="int" @bind-Value="_sBreak" Label="Pause (min)" Variant="Variant.Outlined" Min="0" />
+            }
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => _shiftDialogOpen = false" Style="text-transform:none;">Avbryt</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveShift" Style="text-transform:none;border-radius:8px;">Lagre</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@* ═══ New Rotation Dialog ═══ *@
+<MudDialog @bind-Visible="_rotDialogOpen" Options="_dlgOptsWide">
+    <TitleContent><MudText Typo="Typo.h6">Ny rotasjon</MudText></TitleContent>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudTextField T="string" @bind-Value="_rName" Label="Navn" Variant="Variant.Outlined" Placeholder="Tunnelskift 12/16" />
+
+            <MudSelect T="string" @bind-Value="_rMode" Label="Oppsett" Variant="Variant.Outlined">
+                <MudSelectItem T="string" Value="@("days")">Dager (syklus)</MudSelectItem>
+                <MudSelectItem T="string" Value="@("weeks")">Uker</MudSelectItem>
+            </MudSelect>
+
+            @if (_rMode == "weeks")
+            {
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Definer ukene i rotasjonen:</MudText>
+                @for (var wi = 0; wi < _rWeeks.Count; wi++)
+                {
+                    var weekIdx = wi;
+                    <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:8px;" Class="pa-2">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudText Typo="Typo.caption" Style="font-weight:600;min-width:50px;">Uke @(weekIdx + 1)</MudText>
+                            <MudSelect T="Guid" Value="_rWeeks[weekIdx]" Label="Skifttype" Variant="Variant.Outlined"
+                                       Margin="Margin.Dense" Style="flex:1;"
+                                       ValueChanged="v => { _rWeeks[weekIdx] = v; StateHasChanged(); }">
+                                @foreach (var s in _shifts)
+                                {
+                                    <MudSelectItem T="Guid" Value="s.Id">@s.Name</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudStack>
+                    </MudPaper>
+                }
+                <MudButton Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+                           OnClick="() => _rWeeks.Add(_shifts.Count > 0 ? _shifts[0].Id : Guid.Empty)"
+                           Style="text-transform:none;">Legg til uke</MudButton>
+            }
+            else
+            {
+                <MudNumericField T="int" @bind-Value="_rCycleLength" Label="Sykluslengde (dager)" Variant="Variant.Outlined" Min="1" Max="90" />
+
+                @if (_rCycleLength > 0 && _shifts.Count > 0)
+                {
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Klikk pa dager for a bytte skift:</MudText>
+                    <div style="display:flex;gap:3px;flex-wrap:wrap;">
+                        @for (var i = 1; i <= _rCycleLength; i++)
+                        {
+                            var dayNum = i;
+                            _rDayShifts.TryGetValue(dayNum, out var assignedId);
+                            var shift = assignedId != Guid.Empty ? _shifts.FirstOrDefault(s => s.Id == assignedId) : null;
+                            var bg = shift?.Color ?? "#E5E7EB";
+
+                            <div style="width:30px;height:30px;border-radius:4px;background:@bg;display:flex;align-items:center;justify-content:center;font-size:0.6rem;color:#FFF;font-weight:600;cursor:pointer;border:1px solid #D1D5DB;"
+                                 title="Dag @dayNum: @(shift?.Name ?? "Ikke tildelt")"
+                                 @onclick="() => CycleShiftForDay(dayNum)">
+                                @dayNum
+                            </div>
+                        }
+                    </div>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                        Klikk for a bytte: @string.Join(" → ", _shifts.Select(s => s.Name))
+                    </MudText>
+                }
+            }
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => _rotDialogOpen = false" Style="text-transform:none;">Avbryt</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveRotation" Style="text-transform:none;border-radius:8px;">Lagre</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@* ═══ New Allowance Dialog ═══ *@
+<MudDialog @bind-Visible="_alDialogOpen" Options="_dlgOpts">
+    <TitleContent><MudText Typo="Typo.h6">Nytt tillegg</MudText></TitleContent>
+    <DialogContent>
+        <MudStack Spacing="2">
+            <MudTextField T="string" @bind-Value="_alName" Label="Navn" Variant="Variant.Outlined" />
+            <MudSelect T="string" @bind-Value="_alType" Label="Type" Variant="Variant.Outlined">
+                <MudSelectItem T="string" Value="@("TimeBased")">Per time</MudSelectItem>
+                <MudSelectItem T="string" Value="@("DayBased")">Per dag</MudSelectItem>
+                <MudSelectItem T="string" Value="@("OperationBased")">Per operasjon</MudSelectItem>
+                <MudSelectItem T="string" Value="@("FixedPerDay")">Fast per dag</MudSelectItem>
+            </MudSelect>
+            <MudSelect T="string" @bind-Value="_alAmountType" Label="Belopstype" Variant="Variant.Outlined">
+                <MudSelectItem T="string" Value="@("FixedKroner")">Kroner (kr)</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Percentage")">Prosent (%)</MudSelectItem>
+            </MudSelect>
+            <MudNumericField T="decimal" @bind-Value="_alAmount" Label="Belop" Variant="Variant.Outlined" Min="0" />
+
+            @if (_shifts.Count > 0)
+            {
+                <MudSelect T="Guid?" @bind-Value="_alShiftId" Label="Knyttet til skift (valgfritt)" Variant="Variant.Outlined" Clearable="true">
+                    @foreach (var s in _shifts)
+                    {
+                        <MudSelectItem T="Guid?" Value="@((Guid?)s.Id)">@s.Name</MudSelectItem>
+                    }
+                </MudSelect>
+            }
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => _alDialogOpen = false" Style="text-transform:none;">Avbryt</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAllowance" Style="text-transform:none;border-radius:8px;">Lagre</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@* ═══ Delete Confirmation Dialog ═══ *@
+<MudDialog @bind-Visible="_confirmDialogOpen" Options="_dlgOpts">
+    <TitleContent><MudText Typo="Typo.h6">Bekreft sletting</MudText></TitleContent>
+    <DialogContent>
+        <MudStack Spacing="2">
+            <MudText Typo="Typo.body1">
+                Er du sikker pa at du vil slette <strong>@_confirmDeleteName</strong>?
+            </MudText>
+            <MudAlert Severity="Severity.Warning" Dense="true">
+                Eksisterende planoppforinger og historikk beholdes, men denne typen vil ikke lenger vaere tilgjengelig for nye tildelinger.
+            </MudAlert>
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => _confirmDialogOpen = false" Style="text-transform:none;">Avbryt</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Error" OnClick="ExecuteDelete"
+                   Style="text-transform:none;border-radius:8px;">Slett</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@* ═══ Custom Overtime Rule Dialog ═══ *@
+<MudDialog @bind-Visible="_otDialogOpen" Options="_dlgOpts">
+    <TitleContent><MudText Typo="Typo.h6">Ny overtidsregel</MudText></TitleContent>
+    <DialogContent>
+        <MudStack Spacing="2">
+            <MudTextField T="string" @bind-Value="_otName" Label="Navn" Variant="Variant.Outlined" />
+            <MudNumericField T="decimal" @bind-Value="_otRate" Label="Sats (%)" Variant="Variant.Outlined" Min="0" Step="10m" />
+            <MudNumericField T="int" @bind-Value="_otPriority" Label="Prioritet (lavere = hoyere)" Variant="Variant.Outlined" Min="1" />
+            <MudText Typo="Typo.caption" Style="font-weight:600;">Gjelder for:</MudText>
+            <MudStack Row="true" Spacing="2" Style="flex-wrap:wrap;">
+                <MudCheckBox T="bool" @bind-Value="_otWeekdays" Label="Ukedager" Dense="true" />
+                <MudCheckBox T="bool" @bind-Value="_otSaturday" Label="Lordag" Dense="true" />
+                <MudCheckBox T="bool" @bind-Value="_otSunday" Label="Sondag" Dense="true" />
+                <MudCheckBox T="bool" @bind-Value="_otRedDays" Label="Rode dager" Dense="true" />
+            </MudStack>
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => _otDialogOpen = false" Style="text-transform:none;">Avbryt</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveOvertimeRule" Style="text-transform:none;border-radius:8px;">Lagre</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private int _tab;
+    private readonly DialogOptions _dlgOpts = new() { MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true };
+    private readonly DialogOptions _dlgOptsWide = new() { MaxWidth = MaxWidth.Medium, FullWidth = true, CloseOnEscapeKey = true };
+
+    private List<ShiftDefinitionDto> _shifts = [];
+    private List<RotationPatternDto> _rotations = [];
+    private List<OvertimeRuleDto> _overtimeRules = [];
+    private List<AllowanceRuleDto> _allowanceRules = [];
+    private HoursSettingsDto? _settings;
+
+    // Color palette
+    private readonly string[] _colorPalette = [
+        "#4361EE", "#3A86FF", "#0891B2", "#059669", "#16A34A",
+        "#CA8A04", "#EA580C", "#DC2626", "#9333EA", "#7C3AED",
+        "#6B7280", "#1F2937", "#7C2D12", "#155E75"
+    ];
+
+    // Shift dialog
+    private bool _shiftDialogOpen;
+    private string _sName = "", _sColor = "#4361EE", _sStart = "07:00", _sEnd = "15:00";
+    private bool _sIsWork = true;
+    private int _sBreak = 30;
+
+    // Rotation dialog
+    private bool _rotDialogOpen;
+    private string _rName = "", _rMode = "days";
+    private int _rCycleLength = 28;
+    private Dictionary<int, Guid> _rDayShifts = [];
+    private List<Guid> _rWeeks = [];
+
+    // Overtime rule dialog
+    private bool _otDialogOpen;
+    private string _otName = "";
+    private decimal _otRate = 50;
+    private int _otPriority = 1;
+    private bool _otWeekdays = true, _otSaturday, _otSunday, _otRedDays;
+
+    // Allowance dialog
+    private bool _alDialogOpen;
+    private string _alName = "", _alType = "TimeBased", _alAmountType = "FixedKroner";
+    private decimal _alAmount;
+    private Guid? _alShiftId;
+
+    // Pre-built overtime rules
+    private record PresetRule(string Name, string Description, decimal RatePercent, int Priority,
+        bool Weekdays, bool Saturday, bool Sunday, bool RedDays);
+
+    private readonly List<PresetRule> _presetOvertimeRules =
+    [
+        new("Vanlig overtid", "Ukedager, utover normal arbeidstid", 50, 5, true, false, false, false),
+        new("Lordag overtid", "Alt arbeid pa lordag", 100, 3, false, true, false, false),
+        new("Sondag overtid", "Alt arbeid pa sondag", 100, 2, false, false, true, false),
+        new("Rode dager", "Alt arbeid pa offentlige helligdager", 100, 1, false, false, false, true),
+        new("Kveldstillegg", "Arbeid mellom 17:00-21:00", 0, 10, true, false, false, false),
+        new("Nattillegg", "Arbeid mellom 21:00-06:00", 0, 10, true, false, false, false),
+    ];
+
+    // Norwegian holidays (current year, system-maintained)
+    private class HolidayInfo
+    {
+        public string Name { get; set; } = "";
+        public string Date { get; set; } = "";
+        public bool IsHalfDay { get; set; }
+        public TimeOnly? HalfDayCutoff { get; set; }
+        public decimal RatePercent { get; set; } = 100;
+    }
+
+    private List<HolidayInfo> _norwegianHolidays =
+    [
+        new() { Name = "Nyttarsdag", Date = "1. januar", RatePercent = 100 },
+        new() { Name = "Skjaertorsdag", Date = "Variabel (paskebasert)", RatePercent = 100 },
+        new() { Name = "Langfredag", Date = "Variabel (paskebasert)", RatePercent = 100 },
+        new() { Name = "1. paskedag", Date = "Variabel (paskebasert)", RatePercent = 100 },
+        new() { Name = "2. paskedag", Date = "Variabel (paskebasert)", RatePercent = 100 },
+        new() { Name = "Arbeidernes dag", Date = "1. mai", RatePercent = 100 },
+        new() { Name = "Grunnlovsdag", Date = "17. mai", RatePercent = 100 },
+        new() { Name = "Kristi himmelfartsdag", Date = "Variabel (paskebasert)", RatePercent = 100 },
+        new() { Name = "1. pinsedag", Date = "Variabel (paskebasert)", RatePercent = 100 },
+        new() { Name = "2. pinsedag", Date = "Variabel (paskebasert)", RatePercent = 100 },
+        new() { Name = "1. juledag", Date = "25. desember", RatePercent = 100 },
+        new() { Name = "2. juledag", Date = "26. desember", RatePercent = 100 },
+        new() { Name = "Julaften", Date = "24. desember", IsHalfDay = true, HalfDayCutoff = new TimeOnly(12, 0), RatePercent = 100 },
+        new() { Name = "Nyttarsaften", Date = "31. desember", IsHalfDay = true, HalfDayCutoff = new TimeOnly(12, 0), RatePercent = 100 },
+    ];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAll();
+    }
+
+    private async Task LoadAll()
+    {
+        var s = ShiftService.GetShiftsAsync();
+        var r = ShiftService.GetRotationsAsync();
+        var o = ShiftService.GetOvertimeRulesAsync();
+        var a = HoursService.GetAllowanceRulesAsync();
+        var st = ShiftService.GetHoursSettingsAsync();
+        _shifts = await s; _rotations = await r; _overtimeRules = await o;
+        _allowanceRules = await a; _settings = await st;
+    }
+
+    // ── Shift ──
+    private void OpenNewShift()
+    {
+        _editingShiftId = null;
+        _sName = ""; _sColor = "#4361EE"; _sStart = "07:00"; _sEnd = "15:00"; _sIsWork = true; _sBreak = 30;
+        _shiftDialogOpen = true;
+    }
+
+    private async Task SaveShift()
+    {
+        var req = new CreateShiftDefinitionRequest(
+            _sName, _sColor, _sIsWork, _sIsWork ? _sStart : null, _sIsWork ? _sEnd : null, _sBreak);
+
+        bool ok;
+        if (_editingShiftId.HasValue)
+        {
+            ok = await ShiftService.UpdateShiftAsync(_editingShiftId.Value, req);
+            if (ok) Snackbar.Add("Skifttype oppdatert", Severity.Success);
+        }
+        else
+        {
+            var id = await ShiftService.CreateShiftAsync(req);
+            ok = id.HasValue;
+            if (ok) Snackbar.Add("Skifttype opprettet", Severity.Success);
+        }
+
+        if (ok)
+        {
+            _shiftDialogOpen = false;
+            _shifts = await ShiftService.GetShiftsAsync();
+        }
+        else Snackbar.Add("Feil", Severity.Error);
+    }
+
+    // ── Rotation ──
+    private void OpenNewRotation()
+    {
+        _rName = ""; _rCycleLength = 28; _rDayShifts = []; _rMode = "days";
+        _rWeeks = [_shifts.Count > 0 ? _shifts[0].Id : Guid.Empty];
+        _rotDialogOpen = true;
+    }
+
+    private void CycleShiftForDay(int dayNum)
+    {
+        _rDayShifts.TryGetValue(dayNum, out var current);
+        var idx = _shifts.FindIndex(s => s.Id == current);
+        _rDayShifts[dayNum] = _shifts[(idx + 1) % _shifts.Count].Id;
+    }
+
+    private async Task SaveRotation()
+    {
+        List<RotationDayInput> days;
+        int cycleLen;
+
+        if (_rMode == "weeks")
+        {
+            cycleLen = _rWeeks.Count * 7;
+            days = [];
+            for (var wi = 0; wi < _rWeeks.Count; wi++)
+            {
+                var shiftId = _rWeeks[wi];
+                for (var d = 0; d < 7; d++)
+                {
+                    var dayInCycle = wi * 7 + d + 1;
+                    // Weekdays = shift, weekend = first "off" shift or same shift
+                    var isWeekend = d >= 5;
+                    var offShift = _shifts.FirstOrDefault(s => !s.IsWorkDay);
+                    days.Add(new RotationDayInput(dayInCycle, isWeekend && offShift is not null ? offShift.Id : shiftId));
+                }
+            }
+        }
+        else
+        {
+            cycleLen = _rCycleLength;
+            days = [];
+            for (var i = 1; i <= cycleLen; i++)
+            {
+                _rDayShifts.TryGetValue(i, out var sid);
+                if (sid == Guid.Empty && _shifts.Count > 0) sid = _shifts[0].Id;
+                days.Add(new RotationDayInput(i, sid));
+            }
+        }
+
+        var id = await ShiftService.CreateRotationAsync(new CreateRotationPatternRequest(_rName, cycleLen, days));
+        if (id.HasValue)
+        {
+            Snackbar.Add("Rotasjon opprettet", Severity.Success);
+            _rotDialogOpen = false;
+            _rotations = await ShiftService.GetRotationsAsync();
+        }
+        else Snackbar.Add("Feil", Severity.Error);
+    }
+
+    // ── Edit shift ──
+    private Guid? _editingShiftId;
+
+    private void OpenEditShift(ShiftDefinitionDto shift)
+    {
+        _editingShiftId = shift.Id;
+        _sName = shift.Name;
+        _sColor = shift.Color;
+        _sIsWork = shift.IsWorkDay;
+        _sStart = shift.StartTime?.ToString("HH:mm") ?? "07:00";
+        _sEnd = shift.EndTime?.ToString("HH:mm") ?? "15:00";
+        _sBreak = shift.BreakMinutes;
+        _shiftDialogOpen = true;
+    }
+
+    // ── Confirmed deletes ──
+    private Guid? _confirmDeleteId;
+    private string _confirmDeleteName = "";
+    private string _confirmDeleteType = "";
+    private bool _confirmDialogOpen;
+
+    private void RequestDelete(Guid id, string name, string type)
+    {
+        _confirmDeleteId = id;
+        _confirmDeleteName = name;
+        _confirmDeleteType = type;
+        _confirmDialogOpen = true;
+    }
+
+    private async Task ConfirmDeleteShift(Guid id, string name) => RequestDelete(id, name, "shift");
+    private async Task ConfirmDeleteRotation(Guid id, string name) => RequestDelete(id, name, "rotation");
+
+    private async Task ExecuteDelete()
+    {
+        if (_confirmDeleteId is null) return;
+        _confirmDialogOpen = false;
+
+        bool ok = _confirmDeleteType switch
+        {
+            "shift" => await ShiftService.DeleteShiftAsync(_confirmDeleteId.Value),
+            "rotation" => await ShiftService.DeleteRotationAsync(_confirmDeleteId.Value),
+            _ => false
+        };
+
+        if (ok)
+        {
+            Snackbar.Add($"{_confirmDeleteName} slettet. Eksisterende planlagte skift beholdes i historikken.", Severity.Success);
+            if (_confirmDeleteType == "shift") _shifts = await ShiftService.GetShiftsAsync();
+            if (_confirmDeleteType == "rotation") _rotations = await ShiftService.GetRotationsAsync();
+        }
+        else Snackbar.Add("Kunne ikke slette", Severity.Error);
+
+        _confirmDeleteId = null;
+    }
+
+    // ── Holiday rate ──
+    private void UpdateHolidayRate(int idx, decimal newRate)
+    {
+        if (idx >= 0 && idx < _norwegianHolidays.Count)
+            _norwegianHolidays[idx].RatePercent = newRate;
+        // TODO: persist to database when save button is added
+    }
+
+    // ── Custom overtime rule ──
+    private void OpenNewOvertimeRule()
+    {
+        _otName = ""; _otRate = 50; _otPriority = _overtimeRules.Count + 1;
+        _otWeekdays = true; _otSaturday = false; _otSunday = false; _otRedDays = false;
+        _otDialogOpen = true;
+    }
+
+    private async Task SaveOvertimeRule()
+    {
+        var id = await ShiftService.CreateOvertimeRuleAsync(new CreateOvertimeRuleRequest(
+            _otName, _otPriority, _otRate, _otWeekdays, _otSaturday, _otSunday, _otRedDays, null, null, null));
+        if (id.HasValue)
+        { Snackbar.Add("Regel opprettet", Severity.Success); _otDialogOpen = false; _overtimeRules = await ShiftService.GetOvertimeRulesAsync(); }
+        else Snackbar.Add("Feil", Severity.Error);
+    }
+
+    // ── Overtime preset rules ──
+    private async Task TogglePresetRule(PresetRule preset, bool enable)
+    {
+        if (enable)
+        {
+            await ShiftService.CreateOvertimeRuleAsync(new CreateOvertimeRuleRequest(
+                preset.Name, preset.Priority, preset.RatePercent,
+                preset.Weekdays, preset.Saturday, preset.Sunday, preset.RedDays,
+                null, null, null));
+            Snackbar.Add($"{preset.Name} aktivert", Severity.Success);
+        }
+        else
+        {
+            var existing = _overtimeRules.FirstOrDefault(r => r.Name == preset.Name);
+            if (existing is not null)
+            {
+                await ShiftService.DeleteOvertimeRuleAsync(existing.Id);
+                Snackbar.Add($"{preset.Name} deaktivert", Severity.Success);
+            }
+        }
+        _overtimeRules = await ShiftService.GetOvertimeRulesAsync();
+    }
+
+    // ── Allowance ──
+    private void OpenNewAllowance()
+    {
+        _alName = ""; _alType = "TimeBased"; _alAmountType = "FixedKroner"; _alAmount = 0; _alShiftId = null;
+        _alDialogOpen = true;
+    }
+
+    private async Task SaveAllowance()
+    {
+        var dto = new AllowanceRuleDto(Guid.Empty, _alName, _alType, _alAmountType, _alAmount, null, null, true);
+        var ok = await HoursService.CreateAllowanceRuleAsync(dto);
+        if (ok)
+        {
+            Snackbar.Add("Tillegg opprettet", Severity.Success);
+            _alDialogOpen = false;
+            _allowanceRules = await HoursService.GetAllowanceRulesAsync();
+        }
+        else Snackbar.Add("Feil", Severity.Error);
+    }
+
+    // ── Settings ──
+    private async Task ToggleStacking(bool val)
+    {
+        if (_settings is null) return;
+        _settings = _settings with { OvertimeStackingMode = val };
+        await ShiftService.UpdateHoursSettingsAsync(new UpdateHoursSettingsRequest(_settings.TimebankEnabled, val));
+        Snackbar.Add("Oppdatert", Severity.Success);
+    }
+
+    private async Task ToggleTimebank(bool val)
+    {
+        if (_settings is null) return;
+        _settings = _settings with { TimebankEnabled = val };
+        await ShiftService.UpdateHoursSettingsAsync(new UpdateHoursSettingsRequest(val, _settings.OvertimeStackingMode));
+        Snackbar.Add("Oppdatert", Severity.Success);
+    }
+}

@@ -1,0 +1,618 @@
+@page "/employees/{PersonId:guid}"
+@attribute [Authorize]
+@inject EmployeeService EmployeeService
+@inject NavigationManager Navigation
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@inject HoursService HoursService
+
+<PageTitle>Solodoc - @(_employee?.FullName ?? "Ansatt")</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-4">
+    <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Href="/employees" />
+    <MudText Typo="Typo.h5">@(_employee?.FullName ?? "Laster...")</MudText>
+    @if (_employee is not null)
+    {
+        <MudChip T="string" Size="Size.Small" Color="Color.Default">@_employee.Role</MudChip>
+    }
+</MudStack>
+
+@if (_loading)
+{
+    <MudProgressLinear Color="Color.Primary" Indeterminate="true" />
+}
+else if (_employee is null)
+{
+    <MudAlert Severity="Severity.Warning">Ansatt ble ikke funnet.</MudAlert>
+}
+else
+{
+    <MudPaper Class="pa-5 mb-4" Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;">
+        <MudGrid Spacing="3">
+            <MudItem xs="6" sm="3">
+                <MudText Typo="Typo.caption" Color="Color.Secondary">E-post</MudText>
+                <MudText Typo="Typo.body2" Style="font-weight:500;">@_employee.Email</MudText>
+            </MudItem>
+            <MudItem xs="6" sm="3">
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Telefon</MudText>
+                <MudText Typo="Typo.body2" Style="font-weight:500;">@(_employee.Phone ?? "—")</MudText>
+            </MudItem>
+            <MudItem xs="6" sm="3">
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Rolle</MudText>
+                <MudText Typo="Typo.body2" Style="font-weight:500;">@_employee.Role</MudText>
+            </MudItem>
+            <MudItem xs="6" sm="3">
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Tidssone</MudText>
+                <MudText Typo="Typo.body2" Style="font-weight:500;">@(_employee.TimeZoneId ?? "Europe/Oslo")</MudText>
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+
+    <MudTabs Elevation="0" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-0 pt-4">
+        <MudTabPanel Text="Sertifikater" Icon="@Icons.Material.Filled.Verified">
+            @* Certifications tab *@
+            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
+                <MudText Typo="Typo.subtitle1" Style="font-weight:600;">Sertifikater</MudText>
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Add"
+                           Style="text-transform:none;border-radius:8px;"
+                           OnClick="OpenAddCertDialog">
+                    Legg til sertifikat
+                </MudButton>
+            </MudStack>
+
+            @if (_certifications.Count == 0)
+            {
+                <MudPaper Class="pa-8" Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;">
+                    <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                        <MudIcon Icon="@Icons.Material.Filled.CardMembership" Size="Size.Large" Color="Color.Secondary" />
+                        <MudText Typo="Typo.body1" Color="Color.Secondary">Ingen sertifikater registrert</MudText>
+                    </MudStack>
+                </MudPaper>
+            }
+            else
+            {
+                <MudStack Spacing="2">
+                    @foreach (var cert in _certifications)
+                    {
+                        var statusIcon = cert.IsExpired
+                            ? Icons.Material.Filled.Cancel
+                            : cert.IsExpiringSoon
+                                ? Icons.Material.Filled.Warning
+                                : Icons.Material.Filled.CheckCircle;
+                        var statusColor = cert.IsExpired
+                            ? Color.Error
+                            : cert.IsExpiringSoon
+                                ? Color.Warning
+                                : Color.Success;
+                        var statusText = cert.IsExpired
+                            ? "Utlopt"
+                            : cert.IsExpiringSoon
+                                ? "Utloper snart"
+                                : "Gyldig";
+
+                        <MudPaper Class="pa-4" Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                                <MudStack Spacing="0">
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                        <MudIcon Icon="@statusIcon" Color="@statusColor" Size="Size.Small" />
+                                        <MudText Typo="Typo.body1" Style="font-weight:500;">@cert.Name</MudText>
+                                    </MudStack>
+                                    <MudStack Row="true" Spacing="2">
+                                        @if (!string.IsNullOrEmpty(cert.Type))
+                                        {
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary">@cert.Type</MudText>
+                                        }
+                                        @if (!string.IsNullOrEmpty(cert.IssuedBy))
+                                        {
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary">Utstedt av: @cert.IssuedBy</MudText>
+                                        }
+                                    </MudStack>
+                                </MudStack>
+                                <MudStack Spacing="0" AlignItems="AlignItems.End">
+                                    <MudText Typo="Typo.body2">
+                                        @(cert.ExpiryDate?.ToString("dd.MM.yyyy") ?? "Ingen utlopsdato")
+                                    </MudText>
+                                    <MudText Typo="Typo.caption" Color="@statusColor">@statusText</MudText>
+                                </MudStack>
+                            </MudStack>
+                        </MudPaper>
+                    }
+                </MudStack>
+            }
+        </MudTabPanel>
+
+        <MudTabPanel Text="Opplaering" Icon="@Icons.Material.Filled.School">
+            @* Training tab *@
+            <MudText Typo="Typo.subtitle1" Style="font-weight:600;" Class="mb-3">Opplaering</MudText>
+
+            @if (_trainings.Count == 0)
+            {
+                <MudPaper Class="pa-8" Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;">
+                    <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                        <MudIcon Icon="@Icons.Material.Filled.School" Size="Size.Large" Color="Color.Secondary" />
+                        <MudText Typo="Typo.body1" Color="Color.Secondary">Ingen opplaering registrert</MudText>
+                    </MudStack>
+                </MudPaper>
+            }
+            else
+            {
+                <MudStack Spacing="2">
+                    @foreach (var training in _trainings)
+                    {
+                        <MudPaper Class="pa-4" Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;">
+                            <MudGrid Spacing="2">
+                                <MudItem xs="12" sm="4">
+                                    <MudText Typo="Typo.body1" Style="font-weight:500;">@training.Topic</MudText>
+                                </MudItem>
+                                <MudItem xs="6" sm="3">
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Instruktor</MudText>
+                                    <MudText Typo="Typo.body2">@training.TrainerName</MudText>
+                                </MudItem>
+                                <MudItem xs="6" sm="3">
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Dato</MudText>
+                                    <MudText Typo="Typo.body2">@training.Date.ToString("dd.MM.yyyy")</MudText>
+                                </MudItem>
+                                <MudItem xs="6" sm="2">
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Varighet</MudText>
+                                    <MudText Typo="Typo.body2">@(training.DurationHours.HasValue ? $"{training.DurationHours:0.#} t" : "—")</MudText>
+                                </MudItem>
+                            </MudGrid>
+                        </MudPaper>
+                    }
+                </MudStack>
+            }
+        </MudTabPanel>
+
+        <MudTabPanel Text="Timer og fravaer" Icon="@Icons.Material.Filled.AccessTime">
+            @if (_empBalance is not null)
+            {
+                @* Balance cards *@
+                <MudPaper Class="pa-4 mb-3" Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;">
+                    <MudText Typo="Typo.subtitle2" Style="font-weight:600;" Class="mb-2">Saldo @DateTime.Today.Year</MudText>
+                    <MudGrid Spacing="2">
+                        <MudItem xs="6" sm="3">
+                            <MudStack Spacing="0">
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">Ferie</MudText>
+                                <MudText Typo="Typo.body1" Style="font-weight:600;">
+                                    @_empBalance.VacationUsedHours.ToString("0.#") / @_empBalance.VacationAllowanceHours.ToString("0.#")t
+                                </MudText>
+                                <MudText Typo="Typo.caption" Style="color:#059669;">
+                                    @_empBalance.VacationRemainingHours.ToString("0.#")t igjen
+                                </MudText>
+                            </MudStack>
+                        </MudItem>
+                        <MudItem xs="6" sm="3">
+                            <MudStack Spacing="0">
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">Sykfravaer</MudText>
+                                <MudText Typo="Typo.body1" Style="font-weight:600;">@_empBalance.SickLeaveHours.ToString("0.#")t</MudText>
+                            </MudStack>
+                        </MudItem>
+                        @if (_empBalance.TimebankEnabled)
+                        {
+                            <MudItem xs="6" sm="3">
+                                <MudStack Spacing="0">
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Timebank</MudText>
+                                    <MudText Typo="Typo.body1" Style="@($"font-weight:600;color:{(_empBalance.OvertimeBankBalance >= 0 ? "#059669" : "#DC2626")};")">
+                                        @_empBalance.OvertimeBankBalance.ToString("0.#")t
+                                    </MudText>
+                                </MudStack>
+                            </MudItem>
+                        }
+                    </MudGrid>
+                </MudPaper>
+
+                @* Heatmap with month nav *@
+                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.Center" Spacing="2" Class="mb-3">
+                    <MudIconButton Icon="@Icons.Material.Filled.ChevronLeft" Size="Size.Small"
+                                   OnClick="PrevEmpMonth" />
+                    <MudText Typo="Typo.body2" Style="font-weight:600;min-width:120px;text-align:center;text-transform:capitalize;">
+                        @_empHeatmapMonth.ToString("MMMM yyyy", System.Globalization.CultureInfo.GetCultureInfo("nb-NO"))
+                    </MudText>
+                    <MudIconButton Icon="@Icons.Material.Filled.ChevronRight" Size="Size.Small"
+                                   OnClick="NextEmpMonth" />
+                </MudStack>
+
+                @if (_empHeatmap is not null && _empHeatmap.Dates.Count > 0)
+                {
+                    <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-2 mb-3">
+                        <table style="border-collapse:separate;border-spacing:2px;width:100%;">
+                            <thead>
+                                <tr>
+                                    <th style="padding:4px 8px;font-size:0.75rem;font-weight:600;">@(_employee?.FullName ?? "")</th>
+                                    @foreach (var date in _empHeatmap.Dates)
+                                    {
+                                        var isWe = date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday;
+                                        var isTd = date == DateOnly.FromDateTime(DateTime.Today);
+                                        <th style="padding:2px;text-align:center;font-size:0.6rem;color:@(isWe ? "#9CA3AF" : "#374151");@(isTd ? "background:#EBF0FF;border-radius:3px;" : "")">
+                                            @date.Day
+                                        </th>
+                                    }
+                                    <th style="padding:4px;text-align:center;font-weight:600;font-size:0.75rem;">Sum</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td></td>
+                                    @foreach (var cell in _empHeatmap.Rows[0].Cells)
+                                    {
+                                        var bg = cell.Status switch { "Godkjent" => "#BBF7D0", "Registrert" => "#FDE68A", "Mangler" => "#FECACA", "Fravaer" => "#DDD6FE", _ => "#F3F4F6" };
+                                        var fg = cell.Status switch { "Godkjent" => "#166534", "Registrert" => "#92400E", "Mangler" => "#991B1B", "Fravaer" => "#5B21B6", _ => "#D1D5DB" };
+                                        <td style="padding:2px;text-align:center;font-size:0.65rem;font-weight:500;background:@bg;color:@fg;border-radius:3px;border:1px solid #E5E7EB;height:24px;"
+                                            title="@($"{cell.Date:dd.MM} — {cell.Hours:0.#}t — {cell.Status}")">
+                                            @if (cell.AbsenceType is not null)
+                                            {
+                                                <span style="font-size:0.5rem;">@cell.AbsenceType[..Math.Min(3, cell.AbsenceType.Length)]</span>
+                                            }
+                                            else
+                                            {
+                                                @(cell.Hours > 0 ? cell.Hours.ToString("0.#") : "")
+                                            }
+                                        </td>
+                                    }
+                                    <td style="padding:4px;text-align:center;font-size:0.75rem;font-weight:600;">
+                                        @_empHeatmap.Rows[0].Cells.Where(c => c.Status != "Fravaer").Sum(c => c.Hours).ToString("0.#")
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </MudPaper>
+
+                    <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Class="mb-3">
+                        <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+                            <span style="width:10px;height:10px;background:#BBF7D0;border-radius:2px;display:inline-block;"></span>
+                            <MudText Typo="Typo.caption">Godkjent</MudText>
+                        </MudStack>
+                        <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+                            <span style="width:10px;height:10px;background:#FDE68A;border-radius:2px;display:inline-block;"></span>
+                            <MudText Typo="Typo.caption">Registrert</MudText>
+                        </MudStack>
+                        <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+                            <span style="width:10px;height:10px;background:#FECACA;border-radius:2px;display:inline-block;"></span>
+                            <MudText Typo="Typo.caption">Mangler</MudText>
+                        </MudStack>
+                        <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
+                            <span style="width:10px;height:10px;background:#DDD6FE;border-radius:2px;display:inline-block;"></span>
+                            <MudText Typo="Typo.caption">Fravaer</MudText>
+                        </MudStack>
+                    </MudStack>
+                }
+
+                @* Pending absence applications *@
+                @if (_empAbsences.Any(a => a.Status == "Sokt"))
+                {
+                    <MudText Typo="Typo.subtitle2" Style="font-weight:600;" Class="mb-2">Soknader</MudText>
+                    <MudStack Spacing="2" Class="mb-3">
+                        @foreach (var abs in _empAbsences.Where(a => a.Status == "Sokt"))
+                        {
+                            var capturedId = abs.Id;
+                            <MudPaper Class="pa-3" Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;">
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Style="flex-wrap:wrap;gap:4px;">
+                                    <MudStack Spacing="0">
+                                        <MudText Typo="Typo.body2" Style="font-weight:500;">@abs.Type</MudText>
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                            @abs.StartDate.ToString("dd.MM.yyyy")@(abs.StartDate != abs.EndDate ? $" — {abs.EndDate:dd.MM.yyyy}" : "") — @abs.Hours.ToString("0.#")t
+                                        </MudText>
+                                    </MudStack>
+                                    <MudStack Row="true" Spacing="1">
+                                        <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Success"
+                                                   Style="text-transform:none;border-radius:6px;"
+                                                   OnClick="async () => await ApproveAbsenceApplication(capturedId)">
+                                            Godkjenn
+                                        </MudButton>
+                                        <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Error"
+                                                   Style="text-transform:none;border-radius:6px;"
+                                                   OnClick="async () => await RejectAbsenceApplication(capturedId)">
+                                            Avvis
+                                        </MudButton>
+                                    </MudStack>
+                                </MudStack>
+                            </MudPaper>
+                        }
+                    </MudStack>
+                }
+
+                @* Absence history *@
+                @if (_empAbsences.Count > 0)
+                {
+                    <MudText Typo="Typo.subtitle2" Style="font-weight:600;" Class="mb-2">Fravaershistorikk</MudText>
+                    <MudStack Spacing="1">
+                        @foreach (var abs in _empAbsences.Where(a => a.Status != "Sokt"))
+                        {
+                            var absColor = abs.Status switch { "Godkjent" => Color.Success, "Avvist" => Color.Error, _ => Color.Default };
+                            <MudPaper Class="pa-3" Elevation="0" Style="border:1px solid #e9ecef;border-radius:8px;">
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                                    <MudStack Spacing="0">
+                                        <MudText Typo="Typo.body2" Style="font-weight:500;">@abs.Type</MudText>
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                            @abs.StartDate.ToString("dd.MM.yyyy")@(abs.StartDate != abs.EndDate ? $" — {abs.EndDate:dd.MM.yyyy}" : "") — @abs.Hours.ToString("0.#")t
+                                        </MudText>
+                                    </MudStack>
+                                    <MudChip T="string" Size="Size.Small" Color="@absColor" Style="height:22px;">@abs.Status</MudChip>
+                                </MudStack>
+                            </MudPaper>
+                        }
+                    </MudStack>
+                }
+            }
+            else
+            {
+                <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+            }
+        </MudTabPanel>
+
+        <MudTabPanel Text="Handlinger" Icon="@Icons.Material.Filled.Settings">
+            @* Actions tab *@
+            <MudText Typo="Typo.subtitle1" Style="font-weight:600;" Class="mb-3">Handlinger</MudText>
+
+            <MudStack Spacing="2" Style="max-width:400px;">
+                <MudButton Variant="Variant.Outlined" Color="Color.Warning"
+                           StartIcon="@Icons.Material.Filled.PauseCircle"
+                           Style="text-transform:none;border-radius:8px;"
+                           FullWidth="true"
+                           OnClick="ConfirmSuspend">
+                    Suspender ansatt
+                </MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Success"
+                           StartIcon="@Icons.Material.Filled.PlayCircle"
+                           Style="text-transform:none;border-radius:8px;"
+                           FullWidth="true"
+                           OnClick="ConfirmActivate">
+                    Aktiver ansatt
+                </MudButton>
+                <MudButton Variant="Variant.Outlined" Color="Color.Error"
+                           StartIcon="@Icons.Material.Filled.PersonRemove"
+                           Style="text-transform:none;border-radius:8px;"
+                           FullWidth="true"
+                           OnClick="ConfirmRemove">
+                    Fjern ansatt
+                </MudButton>
+            </MudStack>
+        </MudTabPanel>
+    </MudTabs>
+}
+
+@code {
+    [Parameter] public Guid PersonId { get; set; }
+
+    private EmployeeDetailDto? _employee;
+    private List<CertificationDto> _certifications = [];
+    private List<TrainingDto> _trainings = [];
+    private VacationOverviewDto? _vacation;
+    private BalanceSummaryDto? _empBalance;
+    private HoursHeatmapDto? _empHeatmap;
+    private DateOnly _empHeatmapMonth = new(DateTime.Today.Year, DateTime.Today.Month, 1);
+    private List<AbsenceListItemDto> _empAbsences = [];
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+        _loading = false;
+    }
+
+    private async Task LoadData()
+    {
+        var employeeTask = EmployeeService.GetEmployeeAsync(PersonId);
+        var certsTask = EmployeeService.GetCertificationsAsync(PersonId);
+        var trainingsTask = EmployeeService.GetTrainingAsync(PersonId);
+        var vacationTask = EmployeeService.GetVacationAsync(PersonId);
+        var balanceTask = HoursService.GetEmployeeBalanceAsync(PersonId);
+        var lastOfMonth = _empHeatmapMonth.AddMonths(1).AddDays(-1);
+        var heatmapTask = HoursService.GetHeatmapAsync(_empHeatmapMonth, lastOfMonth);
+
+        await Task.WhenAll(employeeTask, certsTask, trainingsTask, vacationTask, balanceTask);
+
+        _employee = employeeTask.Result;
+        _certifications = certsTask.Result;
+        _trainings = trainingsTask.Result;
+        _vacation = vacationTask.Result;
+        _empBalance = balanceTask.Result;
+
+        // Load heatmap — filter to just this employee
+        var fullHeatmap = await heatmapTask;
+        if (fullHeatmap is not null)
+        {
+            var empRow = fullHeatmap.Rows.FirstOrDefault(r => r.PersonId == PersonId);
+            if (empRow is not null)
+                _empHeatmap = new HoursHeatmapDto([empRow], fullHeatmap.Dates);
+        }
+
+        // Load absences
+        try { _empAbsences = await HoursService.GetMyAbsencesAsync(DateTime.Today.Year); } catch { }
+    }
+
+    private async Task OpenAddCertDialog()
+    {
+        var parameters = new DialogParameters<AddCertificationDialog>();
+        var options = new DialogOptions
+        {
+            CloseButton = true,
+            MaxWidth = MaxWidth.Small,
+            FullWidth = true
+        };
+        var dialog = await DialogService.ShowAsync<AddCertificationDialog>("Legg til sertifikat", parameters, options);
+        var result = await dialog.Result;
+        if (result is not null && !result.Canceled && result.Data is CreateCertificationRequest request)
+        {
+            var success = await EmployeeService.AddCertificationAsync(PersonId, request);
+            if (success)
+            {
+                Snackbar.Add("Sertifikat lagt til", Severity.Success);
+                _certifications = await EmployeeService.GetCertificationsAsync(PersonId);
+            }
+            else
+            {
+                Snackbar.Add("Kunne ikke legge til sertifikat", Severity.Error);
+            }
+        }
+    }
+
+    private async Task OpenVacationDialog()
+    {
+        var parameters = new DialogParameters<RegisterVacationDialog>();
+        var options = new DialogOptions
+        {
+            CloseButton = true,
+            MaxWidth = MaxWidth.Small,
+            FullWidth = true
+        };
+        var dialog = await DialogService.ShowAsync<RegisterVacationDialog>("Registrer ferie", parameters, options);
+        var result = await dialog.Result;
+        if (result is not null && !result.Canceled && result.Data is CreateVacationEntryRequest request)
+        {
+            var success = await EmployeeService.CreateVacationEntryAsync(PersonId, request);
+            if (success)
+            {
+                Snackbar.Add("Ferie registrert", Severity.Success);
+                _vacation = await EmployeeService.GetVacationAsync(PersonId);
+            }
+            else
+            {
+                Snackbar.Add("Kunne ikke registrere ferie", Severity.Error);
+            }
+        }
+    }
+
+    private async Task ApproveVacation(Guid entryId)
+    {
+        var success = await EmployeeService.ApproveVacationAsync(PersonId, entryId);
+        if (success)
+        {
+            Snackbar.Add("Ferie godkjent", Severity.Success);
+            _vacation = await EmployeeService.GetVacationAsync(PersonId);
+        }
+        else
+        {
+            Snackbar.Add("Kunne ikke godkjenne ferie", Severity.Error);
+        }
+    }
+
+    private async Task PrevEmpMonth()
+    {
+        _empHeatmapMonth = _empHeatmapMonth.AddMonths(-1);
+        await ReloadEmpHeatmap();
+    }
+
+    private async Task NextEmpMonth()
+    {
+        _empHeatmapMonth = _empHeatmapMonth.AddMonths(1);
+        await ReloadEmpHeatmap();
+    }
+
+    private async Task ReloadEmpHeatmap()
+    {
+        var lastOfMonth = _empHeatmapMonth.AddMonths(1).AddDays(-1);
+        var fullHeatmap = await HoursService.GetHeatmapAsync(_empHeatmapMonth, lastOfMonth);
+        if (fullHeatmap is not null)
+        {
+            var empRow = fullHeatmap.Rows.FirstOrDefault(r => r.PersonId == PersonId);
+            _empHeatmap = empRow is not null ? new HoursHeatmapDto([empRow], fullHeatmap.Dates) : null;
+        }
+        else _empHeatmap = null;
+        StateHasChanged();
+    }
+
+    private async Task ApproveAbsenceApplication(Guid absenceId)
+    {
+        var success = await HoursService.ApproveAbsenceAsync(absenceId);
+        if (success)
+        {
+            Snackbar.Add("Soknad godkjent", Severity.Success);
+            _empBalance = await HoursService.GetEmployeeBalanceAsync(PersonId);
+            _empAbsences = await HoursService.GetMyAbsencesAsync(DateTime.Today.Year);
+            StateHasChanged();
+        }
+        else Snackbar.Add("Kunne ikke godkjenne", Severity.Error);
+    }
+
+    private async Task RejectAbsenceApplication(Guid absenceId)
+    {
+        var success = await HoursService.RejectAbsenceAsync(absenceId);
+        if (success)
+        {
+            Snackbar.Add("Soknad avvist", Severity.Success);
+            _empAbsences = await HoursService.GetMyAbsencesAsync(DateTime.Today.Year);
+            StateHasChanged();
+        }
+        else Snackbar.Add("Kunne ikke avvise", Severity.Error);
+    }
+
+    private async Task ConfirmSuspend()
+    {
+        var parameters = new DialogParameters<ConfirmDialog>
+        {
+            { x => x.ContentText, $"Er du sikker pa at du vil suspendere {_employee?.FullName}?" },
+            { x => x.ButtonText, "Suspender" },
+            { x => x.ButtonColor, Color.Warning }
+        };
+        var dialog = await DialogService.ShowAsync<ConfirmDialog>("Suspender ansatt", parameters,
+            new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.ExtraSmall });
+        var result = await dialog.Result;
+        if (result is not null && !result.Canceled)
+        {
+            var success = await EmployeeService.SuspendAsync(PersonId);
+            if (success)
+            {
+                Snackbar.Add("Ansatt suspendert", Severity.Success);
+                await LoadData();
+            }
+            else
+            {
+                Snackbar.Add("Kunne ikke suspendere ansatt", Severity.Error);
+            }
+        }
+    }
+
+    private async Task ConfirmActivate()
+    {
+        var parameters = new DialogParameters<ConfirmDialog>
+        {
+            { x => x.ContentText, $"Er du sikker pa at du vil aktivere {_employee?.FullName}?" },
+            { x => x.ButtonText, "Aktiver" },
+            { x => x.ButtonColor, Color.Success }
+        };
+        var dialog = await DialogService.ShowAsync<ConfirmDialog>("Aktiver ansatt", parameters,
+            new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.ExtraSmall });
+        var result = await dialog.Result;
+        if (result is not null && !result.Canceled)
+        {
+            var success = await EmployeeService.ActivateAsync(PersonId);
+            if (success)
+            {
+                Snackbar.Add("Ansatt aktivert", Severity.Success);
+                await LoadData();
+            }
+            else
+            {
+                Snackbar.Add("Kunne ikke aktivere ansatt", Severity.Error);
+            }
+        }
+    }
+
+    private async Task ConfirmRemove()
+    {
+        var parameters = new DialogParameters<ConfirmDialog>
+        {
+            { x => x.ContentText, $"Er du sikker pa at du vil fjerne {_employee?.FullName}? Denne handlingen kan ikke angres." },
+            { x => x.ButtonText, "Fjern" },
+            { x => x.ButtonColor, Color.Error }
+        };
+        var dialog = await DialogService.ShowAsync<ConfirmDialog>("Fjern ansatt", parameters,
+            new DialogOptions { CloseButton = true, MaxWidth = MaxWidth.ExtraSmall });
+        var result = await dialog.Result;
+        if (result is not null && !result.Canceled)
+        {
+            var success = await EmployeeService.RemoveAsync(PersonId);
+            if (success)
+            {
+                Snackbar.Add("Ansatt fjernet", Severity.Success);
+                Navigation.NavigateTo("/employees");
+            }
+            else
+            {
+                Snackbar.Add("Kunne ikke fjerne ansatt", Severity.Error);
+            }
+        }
+    }
+}

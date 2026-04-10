@@ -1,0 +1,129 @@
+@page "/chemicals/{Id:guid}"
+@attribute [Authorize]
+@inject ChemicalService ChemicalService
+@inject NavigationManager Navigation
+
+<PageTitle>Solodoc - Kjemikalie</PageTitle>
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+}
+else if (_chemical is null)
+{
+    <MudStack AlignItems="AlignItems.Center" Spacing="2" Class="pa-8">
+        <MudIcon Icon="@Icons.Material.Filled.Science" Size="Size.Large" Color="Color.Secondary" />
+        <MudText Typo="Typo.body1" Color="Color.Secondary">Kjemikaliet ble ikke funnet</MudText>
+        <MudButton Variant="Variant.Text" Color="Color.Primary" Href="/chemicals"
+                   StartIcon="@Icons.Material.Filled.ArrowBack" Style="text-transform:none;">
+            Tilbake til kjemikalier
+        </MudButton>
+    </MudStack>
+}
+else
+{
+    <MudButton Variant="Variant.Text" Color="Color.Default" Href="/chemicals"
+               StartIcon="@Icons.Material.Filled.ArrowBack" Class="mb-2"
+               Style="text-transform:none;">
+        Tilbake
+    </MudButton>
+
+    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-4">
+        <MudText Typo="Typo.h5">@_chemical.Name</MudText>
+        <MudChip T="string" Size="Size.Small"
+                 Color="@(_chemical.IsActive ? Color.Success : Color.Error)"
+                 Style="height:22px;">
+            @(_chemical.IsActive ? "Aktiv" : "Inaktiv")
+        </MudChip>
+    </MudStack>
+
+    <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;" Class="pa-4 mb-4">
+        <MudGrid Spacing="3">
+            @if (!string.IsNullOrWhiteSpace(_chemical.Manufacturer))
+            {
+                <MudItem xs="12" sm="6">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Produsent</MudText>
+                    <MudText Typo="Typo.body1">@_chemical.Manufacturer</MudText>
+                </MudItem>
+            }
+            @if (!string.IsNullOrWhiteSpace(_chemical.ProductNumber))
+            {
+                <MudItem xs="12" sm="6">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Produktnummer</MudText>
+                    <MudText Typo="Typo.body1">@_chemical.ProductNumber</MudText>
+                </MudItem>
+            }
+        </MudGrid>
+    </MudPaper>
+
+    @if (_chemical.GhsPictograms.Count > 0)
+    {
+        <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;" Class="pa-4 mb-4">
+            <MudText Typo="Typo.subtitle1" Style="font-weight:600;" Class="mb-3">
+                <MudIcon Icon="@Icons.Material.Filled.Warning" Size="Size.Small" Class="mr-1" />
+                GHS-farepiktogrammer
+            </MudText>
+            <MudStack Row="true" Wrap="Wrap.Wrap" Spacing="2">
+                @foreach (var pictogram in _chemical.GhsPictograms)
+                {
+                    <MudChip T="string" Size="Size.Medium"
+                             Color="@GetGhsColor(pictogram.Code)"
+                             Style="border-radius:8px;">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                            <MudText Typo="Typo.body2" Style="font-weight:600;">@pictogram.Code</MudText>
+                            @if (!string.IsNullOrWhiteSpace(pictogram.Description))
+                            {
+                                <MudText Typo="Typo.caption"> - @pictogram.Description</MudText>
+                            }
+                        </MudStack>
+                    </MudChip>
+                }
+            </MudStack>
+        </MudPaper>
+    }
+
+    @if (_chemical.PpeRequirements.Count > 0)
+    {
+        <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;" Class="pa-4 mb-4">
+            <MudText Typo="Typo.subtitle1" Style="font-weight:600;" Class="mb-3">
+                <MudIcon Icon="@Icons.Material.Filled.HealthAndSafety" Size="Size.Small" Class="mr-1" />
+                Verneutstyr (PPE)
+            </MudText>
+            <MudList T="string" Dense="true">
+                @foreach (var ppe in _chemical.PpeRequirements)
+                {
+                    <MudListItem Icon="@Icons.Material.Filled.Shield">
+                        @ppe.Requirement
+                    </MudListItem>
+                }
+            </MudList>
+        </MudPaper>
+    }
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private ChemicalDetailDto? _chemical;
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _chemical = await ChemicalService.GetChemicalByIdAsync(Id);
+        _loading = false;
+    }
+
+    private static Color GetGhsColor(string code) => code switch
+    {
+        "GHS01" => Color.Error,
+        "GHS02" => Color.Error,
+        "GHS03" => Color.Warning,
+        "GHS04" => Color.Info,
+        "GHS05" => Color.Error,
+        "GHS06" => Color.Error,
+        "GHS07" => Color.Warning,
+        "GHS08" => Color.Error,
+        "GHS09" => Color.Info,
+        _ => Color.Default
+    };
+}

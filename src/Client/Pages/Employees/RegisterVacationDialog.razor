@@ -1,0 +1,51 @@
+<MudDialog>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudDatePicker @bind-Date="_startDate" Label="Fra dato"
+                           Variant="Variant.Outlined"
+                           DateFormat="dd.MM.yyyy"
+                           Required="true" RequiredError="Fra dato er pakrevd"
+                           Placeholder="Velg startdato" />
+            <MudDatePicker @bind-Date="_endDate" Label="Til dato"
+                           Variant="Variant.Outlined"
+                           DateFormat="dd.MM.yyyy"
+                           Required="true" RequiredError="Til dato er pakrevd"
+                           Placeholder="Velg sluttdato" />
+            <MudNumericField @bind-Value="_days" Label="Antall dager"
+                             Variant="Variant.Outlined"
+                             Min="0.5m" Step="0.5m"
+                             Required="true" RequiredError="Antall dager er pakrevd" />
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Style="text-transform:none;">Avbryt</MudButton>
+        <MudButton Color="Color.Primary" Variant="Variant.Filled"
+                   Style="text-transform:none;border-radius:8px;"
+                   OnClick="Submit">
+            Registrer
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;
+
+    private DateTime? _startDate;
+    private DateTime? _endDate;
+    private decimal _days = 1;
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private void Submit()
+    {
+        if (!_startDate.HasValue || !_endDate.HasValue || _days <= 0)
+            return;
+
+        var request = new CreateVacationEntryRequest(
+            DateOnly.FromDateTime(_startDate.Value),
+            DateOnly.FromDateTime(_endDate.Value),
+            _days);
+
+        MudDialog.Close(DialogResult.Ok(request));
+    }
+}
