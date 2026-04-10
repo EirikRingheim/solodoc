@@ -217,7 +217,7 @@ else
                     {
                         <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.CameraAlt"
                                    Style="text-transform:none;" Class="mb-1">
-                            @(string.IsNullOrWhiteSpace(currentItem.PhotoFileKey) ? "Legg til bilde" : "Bilde lagt til")
+                            @(string.IsNullOrWhiteSpace(currentResp.PhotoFileKey) ? "Legg til bilde" : "Bilde lagt til")
                         </MudButton>
                     }
                     @if (currentItem.AllowComment)
@@ -290,7 +290,7 @@ else
                                Style="text-transform:none;min-height:56px;width:100%;border-radius:12px;">
                         Signer
                     </MudButton>
-                    @if (!string.IsNullOrWhiteSpace(currentItem.SignatureFileKey))
+                    @if (!string.IsNullOrWhiteSpace(currentResp.SignatureFileKey))
                     {
                         <MudText Typo="Typo.caption" Color="Color.Success" Class="mt-1">Signert</MudText>
                     }
@@ -412,7 +412,7 @@ else
                             {
                                 <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.CameraAlt"
                                            Style="text-transform:none;" Class="mb-1">
-                                    @(string.IsNullOrWhiteSpace(item.PhotoFileKey) ? "Legg til bilde" : "Bilde lagt til")
+                                    @(string.IsNullOrWhiteSpace(resp.PhotoFileKey) ? "Legg til bilde" : "Bilde lagt til")
                                 </MudButton>
                             }
                             @if (item.AllowComment)
@@ -489,7 +489,7 @@ else
                                        Style="text-transform:none;min-height:56px;width:100%;border-radius:12px;">
                                 Signer
                             </MudButton>
-                            @if (!string.IsNullOrWhiteSpace(item.SignatureFileKey))
+                            @if (!string.IsNullOrWhiteSpace(resp.SignatureFileKey))
                             {
                                 <MudText Typo="Typo.caption" Color="Color.Success" Class="mt-1">Signert</MudText>
                             }
@@ -642,6 +642,7 @@ else
 
     private async Task MarkIrrelevant(ChecklistInstanceItemDto item)
     {
+        _hasUnsavedChanges = true;
         var resp = _responses[item.Id];
         resp.CheckValue = null;
         resp.IsIrrelevant = true;
@@ -773,8 +774,8 @@ else
         return item.Type switch
         {
             "Check" => resp.CheckValue == true || resp.IsIrrelevant,
-            "Photo" => !string.IsNullOrWhiteSpace(item.PhotoFileKey),
-            "Signature" => !string.IsNullOrWhiteSpace(item.SignatureFileKey),
+            "Photo" => !string.IsNullOrWhiteSpace(resp.PhotoFileKey),
+            "Signature" => !string.IsNullOrWhiteSpace(resp.SignatureFileKey),
             _ => !string.IsNullOrWhiteSpace(resp.Value)
         };
     }

@@ -115,18 +115,21 @@ public static class ChecklistEndpoints
             SignatureRoles = request.SignatureRoles,
             Tags = tags,
             CurrentVersion = 1,
-            IsPublished = false
+            IsPublished = true
         };
 
         db.ChecklistTemplates.Add(template);
 
-        // Create the initial version (draft)
+        // Create the initial version (immediately usable)
+        var personIdClaim = user.FindFirstValue(ClaimTypes.NameIdentifier) ?? user.FindFirstValue("sub");
+        Guid.TryParse(personIdClaim, out var creatorId);
+
         var version = new ChecklistTemplateVersion
         {
             ChecklistTemplateId = template.Id,
             VersionNumber = 1,
-            PublishedAt = default,
-            PublishedById = Guid.Empty
+            PublishedAt = DateTimeOffset.UtcNow,
+            PublishedById = creatorId
         };
 
         db.ChecklistTemplateVersions.Add(version);
@@ -471,17 +474,20 @@ public static class ChecklistEndpoints
             SignatureRoles = original.SignatureRoles,
             Tags = original.Tags,
             CurrentVersion = 1,
-            IsPublished = false
+            IsPublished = true
         };
 
         db.ChecklistTemplates.Add(duplicate);
+
+        var dupPersonId = user.FindFirstValue(ClaimTypes.NameIdentifier) ?? user.FindFirstValue("sub");
+        Guid.TryParse(dupPersonId, out var dupCreatorId);
 
         var newVersion = new ChecklistTemplateVersion
         {
             ChecklistTemplateId = duplicate.Id,
             VersionNumber = 1,
-            PublishedAt = default,
-            PublishedById = Guid.Empty
+            PublishedAt = DateTimeOffset.UtcNow,
+            PublishedById = dupCreatorId
         };
         db.ChecklistTemplateVersions.Add(newVersion);
 
@@ -731,14 +737,15 @@ public static class ChecklistEndpoints
         if (personId is null || tenantProvider.TenantId is null)
             return Results.Unauthorized();
 
-        // Find the latest published version for the template
+        // Find the latest version for the template (published preferred, then any)
         var templateVersion = await db.ChecklistTemplateVersions
-            .Where(v => v.ChecklistTemplateId == request.TemplateId && v.PublishedAt != default)
-            .OrderByDescending(v => v.VersionNumber)
+            .Where(v => v.ChecklistTemplateId == request.TemplateId)
+            .OrderByDescending(v => v.PublishedAt != default ? 1 : 0)
+            .ThenByDescending(v => v.VersionNumber)
             .FirstOrDefaultAsync(ct);
 
         if (templateVersion is null)
-            return Results.BadRequest(new { error = "Ingen publisert versjon funnet for denne malen." });
+            return Results.BadRequest(new { error = "Ingen versjon funnet for denne malen." });
 
         var instance = new ChecklistInstance
         {
@@ -994,14 +1001,15 @@ public static class ChecklistEndpoints
         if (string.IsNullOrWhiteSpace(request.Prefix))
             return Results.BadRequest(new { error = "Prefiks er påkrevd." });
 
-        // Find the latest published version for the template
+        // Find the latest version for the template (published preferred, then any)
         var templateVersion = await db.ChecklistTemplateVersions
-            .Where(v => v.ChecklistTemplateId == request.TemplateId && v.PublishedAt != default)
-            .OrderByDescending(v => v.VersionNumber)
+            .Where(v => v.ChecklistTemplateId == request.TemplateId)
+            .OrderByDescending(v => v.PublishedAt != default ? 1 : 0)
+            .ThenByDescending(v => v.VersionNumber)
             .FirstOrDefaultAsync(ct);
 
         if (templateVersion is null)
-            return Results.BadRequest(new { error = "Ingen publisert versjon funnet for denne malen." });
+            return Results.BadRequest(new { error = "Ingen versjon funnet for denne malen." });
 
         var templateName = await db.ChecklistTemplates
             .Where(t => t.Id == request.TemplateId)

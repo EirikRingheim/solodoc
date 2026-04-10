@@ -70,13 +70,13 @@
             var tenants = await AuthService.GetTenantsAsync();
             if (tenants.Count > 1)
             {
-                Navigation.NavigateTo("/select-tenant", forceLoad: false);
+                Navigation.NavigateTo("/select-tenant", forceLoad: true);
             }
             else
             {
                 if (tenants.Count == 1)
                     await AuthService.SelectTenantAsync(tenants[0].Id);
-                Navigation.NavigateTo("/", forceLoad: false);
+                Navigation.NavigateTo("/", forceLoad: true);
             }
         }
         else
