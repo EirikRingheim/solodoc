@@ -4,8 +4,51 @@
 @inject NotificationService NotificationService
 @inject NavigationManager Navigation
 @inject AuthenticationStateProvider AuthStateProvider
+@inject Blazored.LocalStorage.ILocalStorageService LocalStorage
+@using Solodoc.Shared.Auth
 
 <MudLayout>
+    @* ── Super Admin Bar ── *@
+    @if (_isSuperAdmin)
+    {
+        <div style="background:#1B2A4A;color:#fff;padding:4px 16px;display:flex;align-items:center;gap:12px;font-size:0.75rem;z-index:200;position:relative;">
+            <MudIcon Icon="@Icons.Material.Filled.AdminPanelSettings" Size="Size.Small" Style="color:#F59E0B;" />
+            <span style="font-weight:600;color:#F59E0B;">SUPER ADMIN</span>
+
+            @* Tenant switcher *@
+            <div style="display:flex;align-items:center;gap:6px;margin-left:8px;">
+                <span style="color:#9CA3AF;">Bedrift:</span>
+                <select style="background:#2D3B55;color:#fff;border:1px solid #4B5563;border-radius:6px;padding:2px 8px;font-size:0.75rem;cursor:pointer;"
+                        value="@_selectedTenantId"
+                        @onchange="OnTenantChanged">
+                    @foreach (var t in _tenants)
+                    {
+                        <option value="@t.Id">@t.Name (@t.Role)</option>
+                    }
+                </select>
+            </div>
+
+            @* Role impersonation *@
+            <div style="display:flex;align-items:center;gap:6px;margin-left:8px;">
+                <span style="color:#9CA3AF;">Vis som:</span>
+                <select style="background:#2D3B55;color:#fff;border:1px solid #4B5563;border-radius:6px;padding:2px 8px;font-size:0.75rem;cursor:pointer;"
+                        value="@_viewAsRole"
+                        @onchange="OnRoleChanged">
+                    <option value="admin">Admin</option>
+                    <option value="project-leader">Prosjektleder</option>
+                    <option value="field-worker">Feltarbeider</option>
+                </select>
+            </div>
+
+            <MudSpacer />
+
+            <MudButton Variant="Variant.Text" Size="Size.Small" Href="/admin/tenants"
+                       Style="color:#60A5FA;text-transform:none;font-size:0.75rem;">
+                Alle bedrifter
+            </MudButton>
+        </div>
+    }
+
     @* Desktop: sidebar *@
     <MudDrawer @bind-Open="_drawerOpen" Elevation="0" Variant="DrawerVariant.Responsive"
                Breakpoint="Breakpoint.Md" Class="sidebar-drawer">
@@ -19,6 +62,20 @@
                 </div>
             </MudStack>
         </div>
+
+        @* Tenant switcher for non-super-admin with multiple tenants *@
+        @if (!_isSuperAdmin && _tenants.Count > 1)
+        {
+            <div class="px-4 pb-2">
+                <MudSelect T="string" Value="@_selectedTenantId" Label="Bedrift" Variant="Variant.Outlined"
+                           Margin="Margin.Dense" Dense="true" ValueChanged="SwitchTenant">
+                    @foreach (var t in _tenants)
+                    {
+                        <MudSelectItem T="string" Value="@t.Id.ToString()">@t.Name</MudSelectItem>
+                    }
+                </MudSelect>
+            </div>
+        }
 
         <MudDivider Class="mb-2" />
 
@@ -85,6 +142,13 @@
                         Icon="@Icons.Material.Filled.CalendarViewMonth">Skiftplanlegger</MudNavLink>
             <MudNavLink Href="/admin/settings" Match="NavLinkMatch.Prefix"
                         Icon="@Icons.Material.Filled.Settings">Innstillinger</MudNavLink>
+            @if (_isSuperAdmin)
+            {
+                <MudNavLink Href="/admin/tenants" Match="NavLinkMatch.Prefix"
+                            Icon="@Icons.Material.Filled.Business" Style="color:#F59E0B;">
+                    Alle bedrifter
+                </MudNavLink>
+            }
         </MudNavMenu>
 
         <MudSpacer />
@@ -197,6 +261,10 @@
     private string _userEmail = "";
     private string _userInitials = "";
     private string _tenantName = "Bedrift";
+    private bool _isSuperAdmin;
+    private string _viewAsRole = "admin";
+    private string _selectedTenantId = "";
+    private List<TenantDto> _tenants = [];
     private List<Solodoc.Shared.Notifications.NotificationDto> _notifications = [];
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -212,7 +280,25 @@
                     _userName = user.FindFirst("fullName")?.Value ?? "";
                     _userEmail = user.FindFirst("email")?.Value ?? "";
                     _userInitials = GetInitials(_userName);
-                    _tenantName = user.FindFirst("tenantName")?.Value ?? "Bedrift";
+
+                    var roleClaim = user.FindFirst("role")?.Value
+                                    ?? user.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
+                    _isSuperAdmin = roleClaim is "super-admin" or "tenant-admin";
+
+                    // Load tenants
+                    _tenants = await AuthService.GetTenantsAsync();
+                    var storedTenantId = await LocalStorage.GetItemAsStringAsync("selectedTenantId");
+                    if (!string.IsNullOrWhiteSpace(storedTenantId))
+                        _selectedTenantId = storedTenantId.Trim('"');
+                    else if (_tenants.Count > 0)
+                        _selectedTenantId = _tenants[0].Id.ToString();
+
+                    _tenantName = _tenants.FirstOrDefault(t => t.Id.ToString() == _selectedTenantId)?.Name ?? "Bedrift";
+
+                    // Load view-as role from storage
+                    var storedRole = await LocalStorage.GetItemAsStringAsync("viewAsRole");
+                    if (!string.IsNullOrWhiteSpace(storedRole))
+                        _viewAsRole = storedRole.Trim('"');
 
                     _openDeviationCount = await DeviationService.GetOpenCountAsync();
                     _notifications = await NotificationService.GetNotificationsAsync();
@@ -220,11 +306,32 @@
                 }
                 StateHasChanged();
             }
-            catch
-            {
-                // Not authenticated yet or API unavailable
-            }
+            catch { }
         }
+    }
+
+    private async Task OnTenantChanged(ChangeEventArgs e)
+    {
+        var tenantId = e.Value?.ToString();
+        if (string.IsNullOrEmpty(tenantId)) return;
+        await SwitchTenant(tenantId);
+    }
+
+    private async Task SwitchTenant(string tenantId)
+    {
+        _selectedTenantId = tenantId;
+        _tenantName = _tenants.FirstOrDefault(t => t.Id.ToString() == tenantId)?.Name ?? "Bedrift";
+
+        await LocalStorage.SetItemAsStringAsync("selectedTenantId", tenantId);
+        // Reload the page to pick up new tenant context
+        Navigation.NavigateTo("/", forceLoad: true);
+    }
+
+    private async Task OnRoleChanged(ChangeEventArgs e)
+    {
+        _viewAsRole = e.Value?.ToString() ?? "admin";
+        await LocalStorage.SetItemAsStringAsync("viewAsRole", _viewAsRole);
+        StateHasChanged();
     }
 
     private static string GetInitials(string name)

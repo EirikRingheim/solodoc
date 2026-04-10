@@ -1,0 +1,73 @@
+@page "/admin/tenants"
+@attribute [Authorize]
+@inject AuthHttpService AuthService
+@inject NavigationManager Navigation
+@inject Blazored.LocalStorage.ILocalStorageService LocalStorage
+@using Solodoc.Shared.Auth
+
+<PageTitle>Solodoc - Alle bedrifter</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4" Style="font-weight:700;">Alle bedrifter</MudText>
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+}
+else if (_tenants.Count == 0)
+{
+    <MudAlert Severity="Severity.Info">Ingen bedrifter funnet.</MudAlert>
+}
+else
+{
+    <MudGrid Spacing="3">
+        @foreach (var tenant in _tenants)
+        {
+            var isActive = tenant.Id.ToString() == _currentTenantId;
+            <MudItem xs="12" sm="6" md="4">
+                <MudPaper Elevation="0" Class="pa-5"
+                          Style="@($"border:2px solid {(isActive ? "#4361EE" : "#e9ecef")};border-radius:12px;cursor:pointer;height:100%;{(isActive ? "background:#F0F4FF;" : "")}")"
+                          @onclick="() => SwitchToTenant(tenant)">
+                    <MudStack Spacing="2">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudAvatar Style="@($"background:{(tenant.AccentColor ?? "#4361EE")};color:#fff;")"
+                                       Size="Size.Medium" Rounded="true">
+                                @tenant.Name[0]
+                            </MudAvatar>
+                            <div>
+                                <MudText Typo="Typo.h6" Style="font-weight:600;">@tenant.Name</MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">Org: @tenant.OrgNumber</MudText>
+                            </div>
+                        </MudStack>
+                        <MudStack Row="true" Spacing="2">
+                            <MudChip T="string" Size="Size.Small" Style="height:22px;">@tenant.Role</MudChip>
+                            @if (isActive)
+                            {
+                                <MudChip T="string" Size="Size.Small" Color="Color.Primary" Style="height:22px;">Aktiv</MudChip>
+                            }
+                        </MudStack>
+                    </MudStack>
+                </MudPaper>
+            </MudItem>
+        }
+    </MudGrid>
+}
+
+@code {
+    private List<TenantDto> _tenants = [];
+    private string _currentTenantId = "";
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _tenants = await AuthService.GetTenantsAsync();
+        var stored = await LocalStorage.GetItemAsStringAsync("selectedTenantId");
+        _currentTenantId = stored?.Trim('"') ?? (_tenants.FirstOrDefault()?.Id.ToString() ?? "");
+        _loading = false;
+    }
+
+    private async Task SwitchToTenant(TenantDto tenant)
+    {
+        await LocalStorage.SetItemAsStringAsync("selectedTenantId", tenant.Id.ToString());
+        Navigation.NavigateTo("/", forceLoad: true);
+    }
+}
