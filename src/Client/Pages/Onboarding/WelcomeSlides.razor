@@ -1,0 +1,244 @@
+@page "/welcome"
+@attribute [Authorize]
+@layout Solodoc.Client.Layout.AuthLayout
+@inject OnboardingService OnboardingService
+@inject NavigationManager Navigation
+@using Solodoc.Shared.Onboarding
+
+<PageTitle>Solodoc - Velkommen</PageTitle>
+
+<div style="max-width:700px;margin:0 auto;padding:24px;">
+    @* Slide indicators *@
+    <div style="display:flex;justify-content:center;gap:6px;margin-bottom:24px;">
+        @for (var i = 0; i < _slides.Count; i++)
+        {
+            var bg = i == _current ? "#4361EE" : "#E5E7EB";
+            <div style="@($"width:{(i == _current ? "24px" : "8px")};height:8px;border-radius:4px;background:{bg};transition:all 0.3s;")"></div>
+        }
+    </div>
+
+    @if (_current < _slides.Count)
+    {
+        var slide = _slides[_current];
+
+        <div style="text-align:center;margin-bottom:24px;">
+            @* Device mockup with feature screenshot *@
+            <div style="@($"width:280px;height:400px;margin:0 auto 24px;background:{slide.MockBg};border-radius:20px;padding:16px;display:flex;flex-direction:column;")">
+                <div style="background:#fff;border-radius:12px;flex:1;padding:16px;overflow:hidden;display:flex;flex-direction:column;">
+                    @((MarkupString)slide.MockContent)
+                </div>
+            </div>
+
+            <h2 style="font-size:1.5rem;font-weight:700;color:#1B2A4A;margin:0 0 8px;">@slide.Title</h2>
+            <p style="color:#6B7280;max-width:480px;margin:0 auto;line-height:1.6;">@slide.Description</p>
+        </div>
+    }
+
+    @* Navigation *@
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+        <MudButton Variant="Variant.Text" OnClick="Skip"
+                   Style="text-transform:none;color:#9CA3AF;">Hopp over</MudButton>
+
+        <MudStack Row="true" Spacing="2">
+            @if (_current > 0)
+            {
+                <MudButton Variant="Variant.Text" OnClick="Prev"
+                           StartIcon="@Icons.Material.Filled.ArrowBack"
+                           Style="text-transform:none;">Tilbake</MudButton>
+            }
+            @if (_current < _slides.Count - 1)
+            {
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                           OnClick="Next"
+                           EndIcon="@Icons.Material.Filled.ArrowForward"
+                           Style="text-transform:none;border-radius:10px;">Neste</MudButton>
+            }
+            else
+            {
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                           OnClick="Finish"
+                           StartIcon="@Icons.Material.Filled.Rocket"
+                           Style="text-transform:none;border-radius:10px;min-width:160px;">
+                    Kom i gang!
+                </MudButton>
+            }
+        </MudStack>
+    </div>
+</div>
+
+@code {
+    private int _current;
+    private List<SlideData> _slides = [];
+    private string _industry = "bygg";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var status = await OnboardingService.GetStatusAsync();
+        _industry = status?.IndustryType ?? "bygg";
+        _slides = GetSlidesForIndustry(_industry);
+    }
+
+    private void Next() { if (_current < _slides.Count - 1) _current++; }
+    private void Prev() { if (_current > 0) _current--; }
+    private void Skip() => Navigation.NavigateTo("/", forceLoad: true);
+    private void Finish() => Navigation.NavigateTo("/", forceLoad: true);
+
+    private static List<SlideData> GetSlidesForIndustry(string industry) => industry switch
+    {
+        "bygg" => GetConstructionSlides(),
+        "elektro" or "rorlegger" => GetTradesSlides(),
+        "landbruk" => GetFarmingSlides(),
+        _ => GetGenericSlides()
+    };
+
+    private static List<SlideData> GetConstructionSlides() =>
+    [
+        new("Ditt dashboard", "Oversikt over alt — timer, prosjekter, avvik og hvem som er pa jobb. Alt pa ett sted.", "#EBF0FF",
+            @"<div style='font-weight:700;font-size:0.9rem;margin-bottom:8px;'>Dashboard</div>
+              <div style='display:flex;gap:6px;margin-bottom:10px;'>
+                <div style='padding:4px 10px;background:#4361EE;color:#fff;border-radius:14px;font-size:0.65rem;font-weight:600;'>Stemple inn</div>
+                <div style='padding:4px 10px;border:1px solid #059669;color:#059669;border-radius:14px;font-size:0.65rem;font-weight:600;'>Sjekk inn</div>
+              </div>
+              <div style='padding:8px;background:#D8F3DC;border-radius:8px;border:1px solid #2D6A4F;margin-bottom:8px;'>
+                <div style='font-size:0.65rem;color:#2D6A4F;font-weight:600;'>Innstemplet</div>
+                <div style='font-size:1.2rem;font-weight:700;color:#1B4332;'>03:42:15</div>
+              </div>
+              <div style='display:flex;gap:6px;margin-bottom:10px;'>
+                <div style='flex:1;padding:6px;border:1px solid #e9ecef;border-radius:6px;text-align:center;'><div style='font-weight:700;color:#4361EE;'>3</div><div style='font-size:0.55rem;color:#9CA3AF;'>Prosjekter</div></div>
+                <div style='flex:1;padding:6px;border:1px solid #e9ecef;border-radius:6px;text-align:center;'><div style='font-weight:700;color:#4361EE;'>127t</div><div style='font-size:0.55rem;color:#9CA3AF;'>Timer</div></div>
+                <div style='flex:1;padding:6px;border:1px solid #e9ecef;border-radius:6px;text-align:center;'><div style='font-weight:700;color:#E63946;'>2</div><div style='font-size:0.55rem;color:#9CA3AF;'>Avvik</div></div>
+              </div>"),
+
+        new("Sjekklister for hele blokka", "Lag en mal, opprett 120 sjekklister for hver leilighet. Batch-oppretting sparer timer.", "#F0FDF4",
+            @"<div style='font-weight:700;font-size:0.9rem;margin-bottom:8px;'>Brannsjekk — Leil. 103</div>
+              <div style='display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid #f3f4f6;'>
+                <div style='width:16px;height:16px;border-radius:50%;background:#10B981;'></div>
+                <span style='font-size:0.75rem;'>Roykvarsler fungerer</span>
+              </div>
+              <div style='display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid #f3f4f6;'>
+                <div style='width:16px;height:16px;border-radius:50%;background:#10B981;'></div>
+                <span style='font-size:0.75rem;'>Brannslukker tilgjengelig</span>
+              </div>
+              <div style='display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid #f3f4f6;'>
+                <div style='width:16px;height:16px;border-radius:50%;background:#10B981;'></div>
+                <span style='font-size:0.75rem;'>Romningsvei fri</span>
+              </div>
+              <div style='display:flex;align-items:center;gap:6px;padding:6px 0;'>
+                <div style='width:16px;height:16px;border-radius:50%;border:2px solid #D1D5DB;'></div>
+                <span style='font-size:0.75rem;'>Nodlys fungerer</span>
+              </div>
+              <div style='display:flex;gap:6px;margin-top:10px;'>
+                <div style='flex:1;padding:6px;background:#10B981;color:#fff;border-radius:6px;text-align:center;font-size:0.7rem;font-weight:600;'>3/4 OK</div>
+              </div>"),
+
+        new("Hvem er pa byggeplassen?", "QR-kode ved inngangen. Alle sjekker inn — du ser hvem som er der i sanntid.", "#FFF7ED",
+            @"<div style='font-weight:700;font-size:0.9rem;margin-bottom:8px;'>Pa jobb na</div>
+              <div style='padding:8px;border:1px solid #e9ecef;border-radius:8px;margin-bottom:6px;'>
+                <div style='display:flex;justify-content:space-between;align-items:center;'>
+                  <span style='font-weight:500;font-size:0.8rem;'>Bryggen Terrasse</span>
+                  <span style='padding:2px 8px;background:#D1FAE5;color:#059669;border-radius:10px;font-size:0.6rem;font-weight:600;'>4 personer</span>
+                </div>
+              </div>
+              <div style='font-size:0.7rem;color:#6B7280;margin-bottom:4px;'>Ola Nordmann — Feltarbeider — Siden 07:02</div>
+              <div style='font-size:0.7rem;color:#6B7280;margin-bottom:4px;'>Kari Hansen — Prosjektleder — Siden 07:15</div>
+              <div style='font-size:0.7rem;color:#6B7280;margin-bottom:4px;'>Erik Berg — Feltarbeider — Siden 07:30</div>
+              <div style='font-size:0.7rem;color:#6B7280;'>Lars Olsen — Underentreprenor — Siden 08:00</div>"),
+
+        new("Rapporter avvik pa sekunder", "Ta bilde, beskriv, send inn. Avviket folges opp med tre statuser: Apen, Under behandling, Lukket.", "#FEF2F2",
+            @"<div style='font-weight:700;font-size:0.9rem;margin-bottom:8px;'>Rapporter avvik</div>
+              <div style='padding:8px;border:1px solid #e9ecef;border-radius:8px;margin-bottom:6px;'>
+                <div style='font-size:0.65rem;color:#9CA3AF;'>Tittel</div>
+                <div style='font-size:0.8rem;font-weight:500;'>Manglende rekkverk 3. etg</div>
+              </div>
+              <div style='padding:8px;border:1px solid #e9ecef;border-radius:8px;margin-bottom:6px;'>
+                <div style='font-size:0.65rem;color:#9CA3AF;'>Alvorlighet</div>
+                <span style='padding:2px 8px;background:#FEE2E2;color:#DC2626;border-radius:10px;font-size:0.65rem;font-weight:600;'>Hoy</span>
+              </div>
+              <div style='padding:8px;border:1px solid #e9ecef;border-radius:8px;margin-bottom:6px;'>
+                <div style='font-size:0.65rem;color:#9CA3AF;'>Prosjekt</div>
+                <div style='font-size:0.8rem;'>Bryggen Terrasse</div>
+              </div>
+              <div style='padding:10px;background:#4361EE;color:#fff;border-radius:8px;text-align:center;font-weight:600;font-size:0.8rem;margin-top:8px;'>Send inn</div>"),
+
+        new("Fungerer offline", "Ingen nettdekning? Ingen problem. Sjekklister, timer og avvik lagres lokalt og synkroniseres automatisk.", "#EBF0FF",
+            @"<div style='text-align:center;padding:20px 0;'>
+                <div style='width:60px;height:60px;border-radius:50%;background:#FEF2F2;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;'>
+                  <svg width='28' height='28' viewBox='0 0 24 24' fill='none' stroke='#E63946' stroke-width='2'><line x1='1' y1='1' x2='23' y2='23'/><path d='M16.72 11.06A10.94 10.94 0 0 1 19 12.55'/><path d='M5 12.55a10.94 10.94 0 0 1 5.17-2.39'/><path d='M10.71 5.05A16 16 0 0 1 22.56 9'/><path d='M1.42 9a15.91 15.91 0 0 1 4.7-2.88'/><path d='M8.53 16.11a6 6 0 0 1 6.95 0'/><line x1='12' y1='20' x2='12.01' y2='20'/></svg>
+                </div>
+                <div style='font-weight:600;font-size:0.9rem;margin-bottom:4px;'>Offline-modus</div>
+                <div style='font-size:0.75rem;color:#6B7280;margin-bottom:16px;'>Alt du gjor lagres lokalt</div>
+                <div style='padding:8px;background:#FEF3C7;border-radius:8px;margin-bottom:6px;'>
+                  <div style='font-size:0.7rem;color:#92400E;font-weight:500;'>3 elementer venter pa synkronisering</div>
+                </div>
+                <div style='padding:8px;background:#D1FAE5;border-radius:8px;'>
+                  <div style='font-size:0.7rem;color:#166534;font-weight:500;'>Tilbake online — synkronisert!</div>
+                </div>
+              </div>"),
+    ];
+
+    private static List<SlideData> GetTradesSlides() =>
+    [
+        new("Opprett oppdrag pa under 2 min", "Servicebesok, reparasjoner, kundebesok. Beskriv, legg til deler, ferdig.", "#EBF0FF",
+            @"<div style='font-weight:700;font-size:0.9rem;margin-bottom:8px;'>Nytt oppdrag</div>
+              <div style='padding:6px 8px;border:1px solid #e9ecef;border-radius:6px;margin-bottom:6px;'><span style='font-size:0.6rem;color:#9CA3AF;'>Beskrivelse</span><br><span style='font-size:0.75rem;'>Skifte vannror kjokken</span></div>
+              <div style='padding:6px 8px;border:1px solid #e9ecef;border-radius:6px;margin-bottom:6px;'><span style='font-size:0.6rem;color:#9CA3AF;'>Kunde</span><br><span style='font-size:0.75rem;'>Familien Olsen</span></div>
+              <div style='font-weight:600;font-size:0.7rem;margin:8px 0 4px;'>Deler</div>
+              <div style='font-size:0.7rem;padding:4px 0;border-bottom:1px solid #f3f4f6;'>Kobberror 22mm x 3m — 2 stk</div>
+              <div style='font-size:0.7rem;padding:4px 0;'>Vinkelkobling 22mm — 4 stk</div>
+              <div style='padding:8px;background:#4361EE;color:#fff;border-radius:8px;text-align:center;font-weight:600;font-size:0.8rem;margin-top:10px;'>Opprett oppdrag</div>"),
+
+        new("Timer rett fra mobilen", "Stemple inn med ett trykk. Timer fordeles pa oppdrag. Eksporter til lonn.", "#ECFDF5",
+            @"<div style='font-weight:700;font-size:0.9rem;margin-bottom:12px;'>Timeliste — Uke 15</div>
+              <div style='display:flex;gap:4px;margin-bottom:8px;'>
+                <div style='flex:1;padding:4px;border-radius:4px;background:#D1FAE5;text-align:center;font-size:0.65rem;font-weight:600;color:#059669;'>7.5</div>
+                <div style='flex:1;padding:4px;border-radius:4px;background:#D1FAE5;text-align:center;font-size:0.65rem;font-weight:600;color:#059669;'>8.0</div>
+                <div style='flex:1;padding:4px;border-radius:4px;background:#FDE68A;text-align:center;font-size:0.65rem;font-weight:600;color:#92400E;'>10.5</div>
+                <div style='flex:1;padding:4px;border-radius:4px;background:#D1FAE5;text-align:center;font-size:0.65rem;font-weight:600;color:#059669;'>7.5</div>
+                <div style='flex:1;padding:4px;border-radius:4px;background:#D1FAE5;text-align:center;font-size:0.65rem;font-weight:600;color:#059669;'>7.5</div>
+              </div>
+              <div style='font-size:0.6rem;color:#9CA3AF;display:flex;gap:4px;'>
+                <span style='flex:1;text-align:center;'>Ma</span><span style='flex:1;text-align:center;'>Ti</span><span style='flex:1;text-align:center;'>On</span><span style='flex:1;text-align:center;'>To</span><span style='flex:1;text-align:center;'>Fr</span>
+              </div>
+              <div style='font-weight:600;margin-top:12px;font-size:0.8rem;'>Totalt: 41.0t</div>"),
+
+        GetConstructionSlides()[3], // Deviation slide
+        GetConstructionSlides()[4], // Offline slide
+    ];
+
+    private static List<SlideData> GetFarmingSlides() =>
+    [
+        new("Maskinparken din", "Oversikt over alt utstyr, vedlikeholdslogg og dokumentasjon pa ett sted.", "#ECFDF5",
+            @"<div style='font-weight:700;font-size:0.9rem;margin-bottom:8px;'>Maskinpark</div>
+              <div style='padding:8px;border:1px solid #e9ecef;border-radius:8px;margin-bottom:6px;display:flex;align-items:center;gap:8px;'>
+                <div style='width:28px;height:28px;border-radius:6px;background:#4361EE;color:#fff;display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:700;'>JD</div>
+                <div><div style='font-size:0.8rem;font-weight:500;'>John Deere 6120M</div><div style='font-size:0.6rem;color:#9CA3AF;'>Traktor — 2340 timer</div></div>
+              </div>
+              <div style='padding:8px;border:1px solid #e9ecef;border-radius:8px;margin-bottom:6px;display:flex;align-items:center;gap:8px;'>
+                <div style='width:28px;height:28px;border-radius:6px;background:#059669;color:#fff;display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:700;'>KV</div>
+                <div><div style='font-size:0.8rem;font-weight:500;'>Kverneland plog</div><div style='font-size:0.6rem;color:#9CA3AF;'>Redskap — Service om 2 uker</div></div>
+              </div>"),
+
+        new("Kjemikalieregister", "Sikkerhetsdatablad, GHS-piktogrammer, verneutstyr. Klar for Mattilsynet.", "#FFF7ED",
+            @"<div style='font-weight:700;font-size:0.9rem;margin-bottom:8px;'>Stoffkartotek</div>
+              <div style='padding:8px;border:1px solid #e9ecef;border-radius:8px;margin-bottom:6px;'>
+                <div style='font-size:0.8rem;font-weight:500;'>Roundup PowerMax</div>
+                <div style='font-size:0.65rem;color:#9CA3AF;'>Ugrasmiddel — GHS07, GHS09</div>
+                <div style='display:flex;gap:4px;margin-top:4px;'>
+                  <div style='width:20px;height:20px;background:#FEE2E2;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:0.5rem;'>!</div>
+                  <div style='width:20px;height:20px;background:#DBEAFE;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:0.5rem;'>~</div>
+                </div>
+              </div>"),
+
+        GetConstructionSlides()[4], // Offline slide
+    ];
+
+    private static List<SlideData> GetGenericSlides() =>
+    [
+        GetConstructionSlides()[0], // Dashboard
+        GetConstructionSlides()[1], // Checklists
+        GetConstructionSlides()[3], // Deviations
+        GetConstructionSlides()[4], // Offline
+    ];
+
+    private record SlideData(string Title, string Description, string MockBg, string MockContent);
+}

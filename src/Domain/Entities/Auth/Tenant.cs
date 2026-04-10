@@ -20,6 +20,19 @@ public class Tenant : BaseEntity
     public bool TimebankEnabled { get; set; } = true;
     public bool OvertimeStackingMode { get; set; } // false = highest wins, true = rates stack
 
+    // Onboarding
+    public bool OnboardingCompleted { get; set; }
+    public string? IndustryType { get; set; } // Bygg, Elektro, Rorlegger, Snekker, Landbruk, Maskin, Annet
+    public string? CompanySize { get; set; } // 1-5, 6-15, 16-50, 50+
+    public string? EnabledModules { get; set; } // JSON array of enabled module keys
+
+    // Subscription
+    public string SubscriptionTier { get; set; } = "trial"; // trial, basic, pro, enterprise
+    public DateTimeOffset? TrialStartedAt { get; set; }
+    public DateTimeOffset? TrialEndsAt { get; set; }
+    public DateTimeOffset? SubscriptionStartedAt { get; set; }
+    public int? MaxUsers { get; set; }
+
     // Navigation properties
     public ICollection<TenantMembership> Memberships { get; set; } = [];
     public ICollection<Invitation> Invitations { get; set; } = [];

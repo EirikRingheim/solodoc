@@ -826,6 +826,7 @@ app.MapExportEndpoints();
 app.MapReportEndpoints();
 app.MapForefallendeEndpoints();
 app.MapRoleEndpoints();
+app.MapOnboardingEndpoints();
 
 app.Run();
 

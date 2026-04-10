@@ -1,0 +1,378 @@
+@page "/onboarding"
+@attribute [Authorize]
+@layout Solodoc.Client.Layout.AuthLayout
+@inject OnboardingService OnboardingService
+@inject EmployeeService EmployeeService
+@inject ChecklistService ChecklistService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+@using Solodoc.Shared.Onboarding
+
+<PageTitle>Solodoc - Kom i gang</PageTitle>
+
+<div style="max-width:640px;margin:0 auto;padding:24px;">
+    @* ── Progress bar ── *@
+    <div style="display:flex;gap:4px;margin-bottom:32px;">
+        @for (var i = 0; i < _totalSteps; i++)
+        {
+            var bg = i < _step ? "#4361EE" : i == _step ? "#4361EE" : "#E5E7EB";
+            <div style="@($"flex:1;height:4px;border-radius:2px;background:{bg};transition:background 0.3s;")"></div>
+        }
+    </div>
+
+    @switch (_step)
+    {
+        case 0:
+            @* ── Step 1: Welcome + Company Profile ── *@
+            <div style="text-align:center;margin-bottom:32px;">
+                <div style="width:64px;height:64px;border-radius:16px;background:#4361EE;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:1.5rem;margin:0 auto 16px;">S</div>
+                <h1 style="font-size:1.8rem;font-weight:800;color:#1B2A4A;margin:0 0 8px;">Velkommen til Solodoc!</h1>
+                <p style="color:#6B7280;font-size:1rem;">La oss sette opp bedriften din. Det tar under 2 minutter.</p>
+            </div>
+
+            <MudStack Spacing="3">
+                <MudTextField T="string" @bind-Value="_companyName" Label="Bedriftsnavn" Variant="Variant.Outlined"
+                              Placeholder="Ditt firma AS" Required="true" />
+
+                <div>
+                    <MudText Typo="Typo.subtitle2" Style="font-weight:600;" Class="mb-2">Hvilken bransje?</MudText>
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                        @foreach (var ind in IndustryTypes.All)
+                        {
+                            var isSelected = _industry == ind.Key;
+                            var capturedInd = ind;
+                            <div @onclick="() => _industry = capturedInd.Key"
+                                 style="@($"padding:12px;border-radius:10px;cursor:pointer;border:2px solid {(isSelected ? "#4361EE" : "#e9ecef")};background:{(isSelected ? "#EBF0FF" : "#fff")};transition:all 0.15s;")">
+                                <div style="font-weight:600;font-size:0.85rem;">@ind.Label</div>
+                                <div style="font-size:0.7rem;color:#9CA3AF;">@ind.Description</div>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                <div>
+                    <MudText Typo="Typo.subtitle2" Style="font-weight:600;" Class="mb-2">Hvor mange ansatte?</MudText>
+                    <div style="display:flex;gap:8px;">
+                        @foreach (var size in new[] { "1-5", "6-15", "16-50", "50+" })
+                        {
+                            var isSelected = _companySize == size;
+                            var capturedSize = size;
+                            <div @onclick="() => _companySize = capturedSize"
+                                 style="@($"flex:1;padding:10px;text-align:center;border-radius:10px;cursor:pointer;border:2px solid {(isSelected ? "#4361EE" : "#e9ecef")};background:{(isSelected ? "#EBF0FF" : "#fff")};font-weight:{(isSelected ? "600" : "400")};font-size:0.9rem;transition:all 0.15s;")">
+                                @size
+                            </div>
+                        }
+                    </div>
+                </div>
+            </MudStack>
+            break;
+
+        case 1:
+            @* ── Step 2: Module Selection ── *@
+            <div style="text-align:center;margin-bottom:24px;">
+                <h2 style="font-size:1.5rem;font-weight:700;color:#1B2A4A;margin:0 0 8px;">Velg moduler</h2>
+                <p style="color:#6B7280;">Vi har valgt det som passer for @(IndustryTypes.All.FirstOrDefault(i => i.Key == _industry)?.Label ?? "din bransje"). Juster gjerne.</p>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                @foreach (var mod in ModuleDefinitions.All)
+                {
+                    var isEnabled = _enabledModules.Contains(mod.Key);
+                    var capturedMod = mod;
+                    <div @onclick="() => ToggleModule(capturedMod.Key)"
+                         style="@($"padding:14px;border-radius:10px;cursor:pointer;border:2px solid {(isEnabled ? "#4361EE" : "#e9ecef")};background:{(isEnabled ? "#EBF0FF" : "#fff")};transition:all 0.15s;display:flex;align-items:center;gap:10px;")">
+                        <div style="@($"width:36px;height:36px;border-radius:8px;background:{(isEnabled ? "#4361EE" : "#F3F4F6")};color:{(isEnabled ? "#fff" : "#9CA3AF")};display:flex;align-items:center;justify-content:center;flex-shrink:0;")">
+                            <MudIcon Icon="@GetModuleIcon(mod.Icon)" Size="Size.Small" />
+                        </div>
+                        <div>
+                            <div style="@($"font-weight:600;font-size:0.85rem;color:{(isEnabled ? "#1B2A4A" : "#6B7280")};")">@mod.Label</div>
+                            <div style="font-size:0.65rem;color:#9CA3AF;">@mod.Description</div>
+                        </div>
+                    </div>
+                }
+            </div>
+            break;
+
+        case 2:
+            @* ── Step 3: Invite Team ── *@
+            <div style="text-align:center;margin-bottom:24px;">
+                <h2 style="font-size:1.5rem;font-weight:700;color:#1B2A4A;margin:0 0 8px;">Inviter teamet</h2>
+                <p style="color:#6B7280;">Legg til kollegaene dine. Du kan alltid invitere flere senere.</p>
+            </div>
+
+            <MudStack Spacing="2">
+                @for (var i = 0; i < _invites.Count; i++)
+                {
+                    var idx = i;
+                    <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:10px;" Class="pa-3">
+                        <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                            <MudTextField T="string" Value="@_invites[idx].Email"
+                                          ValueChanged="v => _invites[idx] = _invites[idx] with { Email = v }"
+                                          Placeholder="epost@firma.no"
+                                          Variant="Variant.Outlined" Margin="Margin.Dense" Style="flex:2;" />
+                            <MudSelect T="string" Value="@_invites[idx].Role"
+                                       ValueChanged="v => _invites[idx] = _invites[idx] with { Role = v }"
+                                       Variant="Variant.Outlined" Margin="Margin.Dense" Style="flex:1;">
+                                <MudSelectItem T="string" Value="@("field-worker")">Feltarbeider</MudSelectItem>
+                                <MudSelectItem T="string" Value="@("project-leader")">Prosjektleder</MudSelectItem>
+                                <MudSelectItem T="string" Value="@("admin")">Administrator</MudSelectItem>
+                            </MudSelect>
+                            @if (_invites.Count > 1)
+                            {
+                                <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
+                                               OnClick="() => _invites.RemoveAt(idx)" />
+                            }
+                        </MudStack>
+                    </MudPaper>
+                }
+                <MudButton Variant="Variant.Text" Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Add"
+                           OnClick="AddInviteRow"
+                           Style="text-transform:none;align-self:flex-start;">
+                    Legg til flere
+                </MudButton>
+            </MudStack>
+            break;
+
+        case 3:
+            @* ── Step 4: Import ── *@
+            <div style="text-align:center;margin-bottom:24px;">
+                <h2 style="font-size:1.5rem;font-weight:700;color:#1B2A4A;margin:0 0 8px;">Importer maler</h2>
+                <p style="color:#6B7280;">Har du sjekklister eller skjemaer fra for? Last dem opp sa konverterer vi.</p>
+            </div>
+
+            <MudPaper Elevation="0" Style="border:2px dashed #4361EE40;border-radius:12px;background:#F8FAFF;" Class="pa-8">
+                <MudStack AlignItems="AlignItems.Center" Spacing="3">
+                    <MudIcon Icon="@Icons.Material.Filled.UploadFile" Size="Size.Large" Style="color:#4361EE;" />
+                    <MudText Typo="Typo.body1" Style="font-weight:500;">Last opp PDF, Excel eller Word</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Vi leser filen og konverterer til Solodoc-format.</MudText>
+                    <MudFileUpload T="IReadOnlyList<IBrowserFile>" Accept=".pdf,.xlsx,.xls,.docx,.doc"
+                                   FilesChanged="HandleFileUploads" MaximumFileCount="10">
+                        <ActivatorContent>
+                            <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                                       StartIcon="@Icons.Material.Filled.CloudUpload"
+                                       Style="text-transform:none;border-radius:8px;">
+                                Velg filer
+                            </MudButton>
+                        </ActivatorContent>
+                    </MudFileUpload>
+
+                    @if (_importedFiles.Count > 0)
+                    {
+                        <MudStack Spacing="1" Style="width:100%;">
+                            @foreach (var f in _importedFiles)
+                            {
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2"
+                                          Style="padding:6px 10px;background:#D1FAE5;border-radius:6px;">
+                                    <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small" Color="Color.Success" />
+                                    <MudText Typo="Typo.body2">@f</MudText>
+                                </MudStack>
+                            }
+                        </MudStack>
+                    }
+                </MudStack>
+            </MudPaper>
+            break;
+
+        case 4:
+            @* ── Step 5: Done! ── *@
+            <div style="text-align:center;padding:40px 0;">
+                <div style="width:80px;height:80px;border-radius:50%;background:#D1FAE5;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;">
+                    <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Large" Style="color:#059669;" />
+                </div>
+                <h2 style="font-size:1.8rem;font-weight:800;color:#1B2A4A;margin:0 0 8px;">Alt klart!</h2>
+                <p style="color:#6B7280;max-width:400px;margin:0 auto 8px;">
+                    @_companyName er satt opp. Du har 30 dager gratis provperiode med full tilgang.
+                </p>
+
+                <div style="display:flex;gap:12px;justify-content:center;margin-top:24px;flex-wrap:wrap;">
+                    <div style="padding:12px 20px;border-radius:10px;background:#EBF0FF;text-align:center;">
+                        <div style="font-size:1.2rem;font-weight:700;color:#4361EE;">@_enabledModules.Count</div>
+                        <div style="font-size:0.75rem;color:#6B7280;">moduler aktive</div>
+                    </div>
+                    <div style="padding:12px 20px;border-radius:10px;background:#ECFDF5;text-align:center;">
+                        <div style="font-size:1.2rem;font-weight:700;color:#059669;">@_invites.Count(i => !string.IsNullOrWhiteSpace(i.Email))</div>
+                        <div style="font-size:0.75rem;color:#6B7280;">invitasjoner sendt</div>
+                    </div>
+                    <div style="padding:12px 20px;border-radius:10px;background:#FFF7ED;text-align:center;">
+                        <div style="font-size:1.2rem;font-weight:700;color:#EA580C;">@_importedFiles.Count</div>
+                        <div style="font-size:0.75rem;color:#6B7280;">maler importert</div>
+                    </div>
+                </div>
+            </div>
+            break;
+    }
+
+    @* ── Navigation buttons ── *@
+    <div style="display:flex;justify-content:space-between;margin-top:32px;">
+        @if (_step > 0 && _step < _totalSteps - 1)
+        {
+            <MudButton Variant="Variant.Text" OnClick="PrevStep"
+                       StartIcon="@Icons.Material.Filled.ArrowBack"
+                       Style="text-transform:none;">Tilbake</MudButton>
+        }
+        else
+        {
+            <div></div>
+        }
+
+        @if (_step < _totalSteps - 1)
+        {
+            <MudStack Row="true" Spacing="2">
+                @if (_step == 2 || _step == 3)
+                {
+                    <MudButton Variant="Variant.Text" OnClick="SkipStep"
+                               Style="text-transform:none;color:#9CA3AF;">Hopp over</MudButton>
+                }
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                           OnClick="NextStep" Disabled="_saving"
+                           EndIcon="@Icons.Material.Filled.ArrowForward"
+                           Style="text-transform:none;border-radius:10px;min-width:140px;min-height:44px;">
+                    @if (_saving) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> }
+                    @GetNextButtonText()
+                </MudButton>
+            </MudStack>
+        }
+        else
+        {
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                       OnClick="Finish"
+                       StartIcon="@Icons.Material.Filled.Rocket"
+                       Style="text-transform:none;border-radius:10px;min-width:200px;min-height:48px;font-size:1rem;">
+                Ga til dashboard
+            </MudButton>
+        }
+    </div>
+</div>
+
+@code {
+    private int _step;
+    private const int _totalSteps = 5;
+    private bool _saving;
+
+    // Step 1
+    private string _companyName = "";
+    private string _industry = "";
+    private string _companySize = "";
+
+    // Step 2
+    private HashSet<string> _enabledModules = [];
+
+    // Step 3
+    private List<InviteEntry> _invites = [new("", "field-worker")];
+
+    // Step 4
+    private List<string> _importedFiles = [];
+
+    private void ToggleModule(string key)
+    {
+        if (!_enabledModules.Remove(key)) _enabledModules.Add(key);
+    }
+
+    private void AddInviteRow() => _invites.Add(new("", "field-worker"));
+
+    private async Task NextStep()
+    {
+        _saving = true;
+
+        try
+        {
+            switch (_step)
+            {
+                case 0:
+                    if (string.IsNullOrWhiteSpace(_companyName) || string.IsNullOrWhiteSpace(_industry))
+                    {
+                        Snackbar.Add("Fyll ut bedriftsnavn og velg bransje", Severity.Warning);
+                        _saving = false;
+                        return;
+                    }
+                    await OnboardingService.SaveStep1Async(new(_companyName, _industry, _companySize));
+                    // Pre-select recommended modules
+                    _enabledModules = [.. ModuleDefinitions.GetRecommended(_industry)];
+                    break;
+
+                case 1:
+                    await OnboardingService.SaveStep2Async(new(_enabledModules.ToList()));
+                    break;
+
+                case 2:
+                    var validInvites = _invites.Where(i => !string.IsNullOrWhiteSpace(i.Email)).ToList();
+                    if (validInvites.Count > 0)
+                        await OnboardingService.SaveStep3Async(new(validInvites));
+                    break;
+
+                case 3:
+                    // Import step — already handled by file upload
+                    break;
+            }
+        }
+        catch { }
+
+        _saving = false;
+        _step++;
+    }
+
+    private void PrevStep() { if (_step > 0) _step--; }
+
+    private void SkipStep() => _step++;
+
+    private async Task Finish()
+    {
+        await OnboardingService.CompleteAsync();
+        Navigation.NavigateTo("/welcome", forceLoad: false);
+    }
+
+    private string GetNextButtonText() => _step switch
+    {
+        0 => "Velg moduler",
+        1 => "Inviter teamet",
+        2 => "Importer maler",
+        3 => "Fullfør",
+        _ => "Neste"
+    };
+
+    private async Task HandleFileUploads(IReadOnlyList<IBrowserFile> files)
+    {
+        foreach (var file in files)
+        {
+            try
+            {
+                using var stream = file.OpenReadStream(maxAllowedSize: 25 * 1024 * 1024);
+                using var ms = new MemoryStream();
+                await stream.CopyToAsync(ms);
+                ms.Position = 0;
+
+                var content = new MultipartFormDataContent();
+                var streamContent = new StreamContent(ms);
+                content.Add(streamContent, "file", file.Name);
+
+                var (id, error) = await ChecklistService.ImportTemplateFromFileAsync(content);
+                if (id.HasValue)
+                    _importedFiles.Add(file.Name);
+                else
+                    Snackbar.Add($"Kunne ikke importere {file.Name}: {error}", Severity.Warning);
+            }
+            catch
+            {
+                Snackbar.Add($"Feil ved import av {file.Name}", Severity.Error);
+            }
+        }
+        StateHasChanged();
+    }
+
+    private static string GetModuleIcon(string icon) => icon switch
+    {
+        "folder" => Icons.Material.Filled.Folder,
+        "build" => Icons.Material.Filled.Build,
+        "schedule" => Icons.Material.Filled.Schedule,
+        "report_problem" => Icons.Material.Filled.ReportProblem,
+        "checklist" => Icons.Material.Filled.Checklist,
+        "health_and_safety" => Icons.Material.Filled.HealthAndSafety,
+        "qr_code_2" => Icons.Material.Filled.QrCode2,
+        "science" => Icons.Material.Filled.Science,
+        "local_shipping" => Icons.Material.Filled.LocalShipping,
+        "contacts" => Icons.Material.Filled.Contacts,
+        "location_on" => Icons.Material.Filled.LocationOn,
+        _ => Icons.Material.Filled.Extension
+    };
+}
