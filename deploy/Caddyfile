@@ -2,6 +2,9 @@
 {$DOMAIN} {
     # API reverse proxy
     handle /api/* {
+        request_body {
+            max_size 25MB
+        }
         reverse_proxy api:5078
     }
 
