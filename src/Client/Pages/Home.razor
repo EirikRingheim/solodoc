@@ -550,7 +550,7 @@ else if (_announcements.Count > 0)
 
         try { await Task.WhenAll(summaryTask, clockTask, shiftTask, announcementsTask, forefallendeTask); } catch { }
 
-        _summary = summaryTask.IsCompletedSuccessfully ? summaryTask.Result : null;
+        _summary = summaryTask.IsCompletedSuccessfully ? summaryTask.Result ?? _summary : _summary;
         _activeClock = clockTask.IsCompletedSuccessfully ? clockTask.Result : null;
         _todayShift = shiftTask.IsCompletedSuccessfully ? shiftTask.Result : null;
         _announcements = announcementsTask.IsCompletedSuccessfully ? announcementsTask.Result : [];
