@@ -116,8 +116,13 @@ public class ApiHttpClient
 
     private async Task<HttpResponseMessage> TryRefreshAndRetryAsync(Func<Task<HttpResponseMessage>> retryRequest)
     {
+        // If already refreshing, wait briefly then retry with whatever token is current
         if (_isRefreshing)
-            return new HttpResponseMessage(HttpStatusCode.Unauthorized);
+        {
+            await Task.Delay(500);
+            await AttachTokenAsync();
+            return await retryRequest();
+        }
 
         _isRefreshing = true;
         try
@@ -134,7 +139,7 @@ public class ApiHttpClient
             // Try to refresh the token
             _http.DefaultRequestHeaders.Authorization = null;
             var refreshResponse = await _http.PostAsJsonAsync("api/auth/refresh",
-                new { refreshToken });
+                new { RefreshToken = refreshToken });
 
             if (refreshResponse.IsSuccessStatusCode)
             {

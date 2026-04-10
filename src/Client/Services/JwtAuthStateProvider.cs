@@ -53,7 +53,7 @@ public class JwtAuthStateProvider(ILocalStorageService localStorage, HttpClient 
 
             refreshToken = refreshToken.Trim('"');
 
-            var response = await http.PostAsJsonAsync("api/auth/refresh", new { refreshToken });
+            var response = await http.PostAsJsonAsync("api/auth/refresh", new { RefreshToken = refreshToken });
             if (!response.IsSuccessStatusCode)
                 return null;
 
