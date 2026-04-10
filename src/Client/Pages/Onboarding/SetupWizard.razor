@@ -4,8 +4,10 @@
 @inject OnboardingService OnboardingService
 @inject EmployeeService EmployeeService
 @inject ChecklistService ChecklistService
+@inject RoleService RoleService
 @inject NavigationManager Navigation
 @inject ISnackbar Snackbar
+@using Solodoc.Shared.Auth
 @using Solodoc.Shared.Onboarding
 
 <PageTitle>Solodoc - Kom i gang</PageTitle>
@@ -116,6 +118,10 @@
                                 <MudSelectItem T="string" Value="@("field-worker")">Feltarbeider</MudSelectItem>
                                 <MudSelectItem T="string" Value="@("project-leader")">Prosjektleder</MudSelectItem>
                                 <MudSelectItem T="string" Value="@("admin")">Administrator</MudSelectItem>
+                                @foreach (var cr in _customRoles)
+                                {
+                                    <MudSelectItem T="string" Value="@cr.Name">@cr.Name</MudSelectItem>
+                                }
                             </MudSelect>
                             @if (_invites.Count > 1)
                             {
@@ -260,6 +266,7 @@
 
     // Step 3
     private List<InviteEntry> _invites = [new("", "field-worker")];
+    private List<CustomRoleDto> _customRoles = [];
 
     // Step 4
     private List<string> _importedFiles = [];
@@ -293,6 +300,8 @@
 
                 case 1:
                     await OnboardingService.SaveStep2Async(new(_enabledModules.ToList()));
+                    // Pre-load custom roles for invite step
+                    try { _customRoles = await RoleService.GetRolesAsync(); } catch { }
                     break;
 
                 case 2:

@@ -1,0 +1,129 @@
+@inject IJSRuntime JS
+@inject Blazored.LocalStorage.ILocalStorageService LocalStorage
+
+@* Floating help button *@
+<div @onclick="OpenHelp" title="Hjelp"
+     style="position:fixed;bottom:80px;right:20px;width:44px;height:44px;border-radius:50%;background:#4361EE;color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 4px 12px rgba(67,97,238,0.3);z-index:90;transition:transform 0.15s;"
+     onmouseenter="this.style.transform='scale(1.1)'" onmouseleave="this.style.transform='scale(1)'">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5">
+        <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+    </svg>
+</div>
+
+@* Help dialog *@
+@if (_open)
+{
+    <div style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:200;display:flex;align-items:center;justify-content:center;"
+         @onclick="CloseHelp">
+        <div style="background:#fff;border-radius:16px;max-width:520px;width:95%;max-height:80vh;overflow:hidden;box-shadow:0 16px 48px rgba(0,0,0,0.15);"
+             @onclick:stopPropagation="true">
+
+            @if (_currentSlide < Slides.Count)
+            {
+                var slide = Slides[_currentSlide];
+
+                @* Slide content *@
+                <div style="padding:28px 28px 20px;">
+                    @* Dot indicators *@
+                    <div style="display:flex;justify-content:center;gap:6px;margin-bottom:20px;">
+                        @for (var i = 0; i < Slides.Count; i++)
+                        {
+                            var bg = i == _currentSlide ? "#4361EE" : "#E5E7EB";
+                            <div style="@($"width:{(i == _currentSlide ? "20px" : "8px")};height:8px;border-radius:4px;background:{bg};transition:all 0.3s;")"></div>
+                        }
+                    </div>
+
+                    @* Icon *@
+                    @if (!string.IsNullOrEmpty(slide.Icon))
+                    {
+                        <div style="width:48px;height:48px;border-radius:12px;background:#EBF0FF;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+                            <MudIcon Icon="@slide.Icon" Style="color:#4361EE;" />
+                        </div>
+                    }
+
+                    <h3 style="text-align:center;font-size:1.2rem;font-weight:700;color:#1B2A4A;margin:0 0 8px;">@slide.Title</h3>
+                    <p style="text-align:center;color:#6B7280;font-size:0.9rem;line-height:1.6;margin:0 0 16px;">@slide.Description</p>
+
+                    @if (slide.Tips.Count > 0)
+                    {
+                        <div style="background:#F8FAFF;border-radius:10px;padding:14px;">
+                            @foreach (var tip in slide.Tips)
+                            {
+                                <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:8px;">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="#4361EE" style="flex-shrink:0;margin-top:2px;"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                                    <span style="font-size:0.8rem;color:#374151;">@tip</span>
+                                </div>
+                            }
+                        </div>
+                    }
+
+                    @if (!string.IsNullOrEmpty(slide.Shortcut))
+                    {
+                        <div style="margin-top:12px;text-align:center;">
+                            <span style="padding:4px 12px;background:#FEF3C7;border-radius:6px;font-size:0.75rem;color:#92400E;font-weight:500;">
+                                @slide.Shortcut
+                            </span>
+                        </div>
+                    }
+                </div>
+
+                @* Navigation *@
+                <div style="padding:0 28px 20px;display:flex;justify-content:space-between;align-items:center;">
+                    <MudButton Variant="Variant.Text" OnClick="CloseHelp"
+                               Style="text-transform:none;color:#9CA3AF;font-size:0.85rem;">Lukk</MudButton>
+                    <div style="display:flex;gap:8px;">
+                        @if (_currentSlide > 0)
+                        {
+                            <MudButton Variant="Variant.Text" OnClick="PrevSlide"
+                                       Style="text-transform:none;font-size:0.85rem;">Tilbake</MudButton>
+                        }
+                        @if (_currentSlide < Slides.Count - 1)
+                        {
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="NextSlide"
+                                       Style="text-transform:none;border-radius:8px;font-size:0.85rem;">Neste</MudButton>
+                        }
+                        else
+                        {
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="CloseHelp"
+                                       Style="text-transform:none;border-radius:8px;font-size:0.85rem;">Forstatt!</MudButton>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public string PageKey { get; set; } = "";
+
+    private List<HelpSlide> Slides => HelpContent.GetSlides(PageKey);
+    private bool _open;
+    private int _currentSlide;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && Slides.Count > 0 && !string.IsNullOrEmpty(PageKey))
+        {
+            try
+            {
+                var key = $"help_seen_{PageKey}";
+                var seen = await LocalStorage.GetItemAsStringAsync(key);
+                if (string.IsNullOrWhiteSpace(seen) || seen.Trim('"') != "true")
+                {
+                    await Task.Delay(800);
+                    _open = true;
+                    _currentSlide = 0;
+                    await LocalStorage.SetItemAsStringAsync(key, "true");
+                    StateHasChanged();
+                }
+            }
+            catch { }
+        }
+    }
+
+    private void OpenHelp() { _open = true; _currentSlide = 0; }
+    private void CloseHelp() { _open = false; }
+    private void NextSlide() { if (_currentSlide < Slides.Count - 1) _currentSlide++; }
+    private void PrevSlide() { if (_currentSlide > 0) _currentSlide--; }
+}

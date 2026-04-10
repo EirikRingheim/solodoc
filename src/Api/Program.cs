@@ -827,6 +827,7 @@ app.MapReportEndpoints();
 app.MapForefallendeEndpoints();
 app.MapRoleEndpoints();
 app.MapOnboardingEndpoints();
+app.MapChatbotEndpoints();
 
 app.Run();
 

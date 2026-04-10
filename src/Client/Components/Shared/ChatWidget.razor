@@ -1,0 +1,164 @@
+@inject ChatbotService ChatbotService
+
+@* Floating chat button *@
+@if (!_open)
+{
+    <div @onclick="Open"
+         style="position:fixed;bottom:24px;right:24px;width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,#4361EE,#3451D1);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 4px 16px rgba(67,97,238,0.35);z-index:100;transition:transform 0.15s;"
+         onmouseenter="this.style.transform='scale(1.1)'" onmouseleave="this.style.transform='scale(1)'">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        </svg>
+    </div>
+}
+
+@* Chat panel *@
+@if (_open)
+{
+    <div style="position:fixed;bottom:24px;right:24px;width:380px;max-height:520px;background:#fff;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.15);z-index:200;display:flex;flex-direction:column;overflow:hidden;border:1px solid #e9ecef;">
+        @* Header *@
+        <div style="padding:14px 16px;background:linear-gradient(135deg,#4361EE,#3451D1);color:#fff;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
+            <div style="display:flex;align-items:center;gap:8px;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                <div>
+                    <div style="font-weight:600;font-size:0.9rem;">Solodoc Hjelp</div>
+                    <div style="font-size:0.65rem;opacity:0.8;">AI-assistent</div>
+                </div>
+            </div>
+            <div @onclick="Close" style="cursor:pointer;padding:4px;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </div>
+        </div>
+
+        @* Messages *@
+        <div @ref="_messagesDiv" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px;min-height:200px;">
+            @if (_messages.Count == 0)
+            {
+                <div style="text-align:center;padding:20px 0;">
+                    <div style="font-size:2rem;margin-bottom:8px;">👋</div>
+                    <div style="font-weight:600;color:#1B2A4A;margin-bottom:4px;">Hei! Hvordan kan jeg hjelpe?</div>
+                    <div style="font-size:0.8rem;color:#9CA3AF;">Spor meg om hva som helst i Solodoc.</div>
+                </div>
+
+                @* Quick suggestions *@
+                <div style="display:flex;flex-direction:column;gap:6px;">
+                    @foreach (var q in _suggestions)
+                    {
+                        var captured = q;
+                        <div @onclick="() => SendSuggestion(captured)"
+                             style="padding:8px 12px;border:1px solid #e9ecef;border-radius:8px;font-size:0.8rem;cursor:pointer;color:#4361EE;transition:background 0.15s;"
+                             onmouseenter="this.style.background='#F8FAFF'" onmouseleave="this.style.background='#fff'">
+                            @q
+                        </div>
+                    }
+                </div>
+            }
+
+            @foreach (var msg in _messages)
+            {
+                var isUser = msg.Role == "user";
+                <div style="@($"display:flex;justify-content:{(isUser ? "flex-end" : "flex-start")};")">
+                    <div style="@($"max-width:85%;padding:10px 14px;border-radius:{(isUser ? "12px 12px 4px 12px" : "12px 12px 12px 4px")};background:{(isUser ? "#4361EE" : "#F3F4F6")};color:{(isUser ? "#fff" : "#1B2A4A")};font-size:0.85rem;line-height:1.5;white-space:pre-wrap;")">
+                        @msg.Content
+                    </div>
+                </div>
+            }
+
+            @if (_thinking)
+            {
+                <div style="display:flex;justify-content:flex-start;">
+                    <div style="padding:10px 14px;border-radius:12px 12px 12px 4px;background:#F3F4F6;display:flex;gap:4px;">
+                        <div style="width:6px;height:6px;border-radius:50%;background:#9CA3AF;animation:pulse 1s infinite;"></div>
+                        <div style="width:6px;height:6px;border-radius:50%;background:#9CA3AF;animation:pulse 1s infinite 0.2s;"></div>
+                        <div style="width:6px;height:6px;border-radius:50%;background:#9CA3AF;animation:pulse 1s infinite 0.4s;"></div>
+                    </div>
+                </div>
+            }
+        </div>
+
+        @* Disclaimer *@
+        <div style="padding:0 16px 4px;font-size:0.6rem;color:#9CA3AF;text-align:center;">
+            AI-generert svar — kan inneholde feil
+        </div>
+
+        @* Input *@
+        <div style="padding:8px 12px 12px;border-top:1px solid #e9ecef;display:flex;gap:8px;">
+            <input type="text" @bind="_input" @bind:event="oninput"
+                   @onkeydown="OnKeyDown"
+                   placeholder="Skriv et sporsmol..."
+                   style="flex:1;padding:8px 12px;border:1px solid #e9ecef;border-radius:8px;font-size:0.85rem;outline:none;font-family:inherit;" />
+            <button @onclick="Send" disabled="@(_thinking || string.IsNullOrWhiteSpace(_input))"
+                    style="@($"width:36px;height:36px;border-radius:8px;border:none;background:{(string.IsNullOrWhiteSpace(_input) ? "#E5E7EB" : "#4361EE")};color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;")">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            </button>
+        </div>
+    </div>
+}
+
+<style>
+    @@keyframes pulse {
+        0%, 100% { opacity: 0.4; transform: scale(0.8); }
+        50% { opacity: 1; transform: scale(1); }
+    }
+</style>
+
+@code {
+    private bool _open;
+    private string _input = "";
+    private bool _thinking;
+    private List<ChatMsg> _messages = [];
+    private ElementReference _messagesDiv;
+
+    private static readonly string[] _suggestions =
+    [
+        "Hvordan registrerer jeg timer?",
+        "Hvordan lager jeg en sjekkliste?",
+        "Hvordan rapporterer jeg avvik?",
+        "Hvordan godkjenner jeg timer som admin?"
+    ];
+
+    private void Open() => _open = true;
+    private void Close() => _open = false;
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await Send();
+    }
+
+    private async Task SendSuggestion(string text)
+    {
+        _input = text;
+        await Send();
+    }
+
+    private async Task Send()
+    {
+        if (string.IsNullOrWhiteSpace(_input) || _thinking) return;
+
+        var userMsg = _input.Trim();
+        _input = "";
+        _messages.Add(new("user", userMsg));
+        _thinking = true;
+        StateHasChanged();
+
+        try
+        {
+            var reply = await ChatbotService.SendMessageAsync(userMsg, _messages.SkipLast(1).ToList());
+            if (!string.IsNullOrWhiteSpace(reply))
+            {
+                _messages.Add(new("assistant", reply));
+            }
+            else
+            {
+                _messages.Add(new("assistant", "Beklager, jeg kunne ikke svare pa det. Prov igjen eller kontakt support."));
+            }
+        }
+        catch
+        {
+            _messages.Add(new("assistant", "Noe gikk galt. Sjekk internettforbindelsen og prov igjen."));
+        }
+
+        _thinking = false;
+        StateHasChanged();
+    }
+}
