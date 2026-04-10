@@ -92,14 +92,8 @@ else
     </TitleContent>
     <DialogContent>
         <MudStack Spacing="3">
-            <MudStack Row="true" Spacing="2">
-                <MudTextField T="string" @bind-Value="_dlgName" Label="Rollenavn" Variant="Variant.Outlined"
-                              Required="true" Placeholder="F.eks. Bas, Formann, Lærling" Style="flex:1;" />
-                <MudTextField T="string" @bind-Value="_dlgColor" Label="Farge" Variant="Variant.Outlined"
-                              Placeholder="#4361EE" Style="max-width:120px;"
-                              Adornment="Adornment.Start"
-                              AdornmentIcon="@Icons.Material.Filled.Palette" />
-            </MudStack>
+            <MudTextField T="string" @bind-Value="_dlgName" Label="Rollenavn" Variant="Variant.Outlined"
+                          Required="true" Placeholder="F.eks. Bas, Formann, Lærling" />
             <MudTextField T="string" @bind-Value="_dlgDescription" Label="Beskrivelse" Variant="Variant.Outlined"
                           Placeholder="Kort beskrivelse av hva denne rollen kan gjore" />
 

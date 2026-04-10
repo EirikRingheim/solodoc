@@ -5,6 +5,8 @@
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
 @inject HoursService HoursService
+@inject RoleService RoleService
+@using Solodoc.Shared.Auth
 
 <PageTitle>Solodoc - @(_employee?.FullName ?? "Ansatt")</PageTitle>
 
@@ -15,7 +17,7 @@
     {
         <MudChip T="string" Size="Size.Small" Color="Color.Default">@_employee.Role</MudChip>
         <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
-                       OnClick="() => _roleEditOpen = true" Title="Endre rolle" />
+                       OnClick="OpenRoleEdit" Title="Endre rolle" />
     }
 </MudStack>
 
@@ -44,7 +46,7 @@ else
                 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
                     <MudText Typo="Typo.body2" Style="font-weight:500;">@_employee.Role</MudText>
                     <MudIconButton Icon="@Icons.Material.Filled.SwapHoriz" Size="Size.Small"
-                                   OnClick="() => _roleEditOpen = true" Title="Endre rolle"
+                                   OnClick="OpenRoleEdit" Title="Endre rolle"
                                    Style="padding:2px;" />
                 </MudStack>
             </MudItem>
@@ -387,6 +389,7 @@ else
             Velg ny rolle for @(_employee?.FullName ?? "ansatt")
         </MudText>
         <MudStack Spacing="2">
+            <MudText Typo="Typo.caption" Style="font-weight:600;color:#9CA3AF;">STANDARDROLLER</MudText>
             @foreach (var role in _availableRoles)
             {
                 var isSelected = _newRole == role.Key;
@@ -409,6 +412,36 @@ else
                         </div>
                     </MudStack>
                 </MudPaper>
+            }
+
+            @if (_customRoles.Count > 0)
+            {
+                <MudText Typo="Typo.caption" Style="font-weight:600;color:#9CA3AF;margin-top:8px;">EGENDEFINERTE ROLLER</MudText>
+                @foreach (var cr in _customRoles)
+                {
+                    var isSelected = _newRole == $"custom:{cr.Id}";
+                    var capturedCr = cr;
+                    <MudPaper Elevation="0" Class="pa-3"
+                              Style="@($"border:2px solid {(isSelected ? "#4361EE" : "#e9ecef")};border-radius:10px;cursor:pointer;{(isSelected ? "background:#EBF0FF;" : "")}")"
+                              @onclick="() => SelectCustomRole(capturedCr.Id)">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            @if (isSelected)
+                            {
+                                <MudIcon Icon="@Icons.Material.Filled.RadioButtonChecked" Color="Color.Primary" Size="Size.Small" />
+                            }
+                            else
+                            {
+                                <MudIcon Icon="@Icons.Material.Filled.RadioButtonUnchecked" Color="Color.Default" Size="Size.Small" />
+                            }
+                            <div>
+                                <MudText Typo="Typo.body2" Style="font-weight:600;">@cr.Name</MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                    @(cr.Description ?? $"{cr.Permissions.Count} tilganger")
+                                </MudText>
+                            </div>
+                        </MudStack>
+                    </MudPaper>
+                }
             }
         </MudStack>
     </DialogContent>
@@ -439,6 +472,7 @@ else
     private bool _roleEditOpen;
     private string _newRole = "";
     private bool _savingRole;
+    private List<CustomRoleDto> _customRoles = [];
     private static readonly Dictionary<string, string> _availableRoles = new()
     {
         ["admin"] = "Administrator",
@@ -453,6 +487,15 @@ else
         "field-worker" => "Kan registrere timer, fylle ut sjekklister, rapportere avvik og opprette oppdrag.",
         _ => ""
     };
+
+    private void SelectCustomRole(Guid id) => _newRole = $"custom:{id}";
+
+    private async Task OpenRoleEdit()
+    {
+        _newRole = "";
+        try { _customRoles = await RoleService.GetRolesAsync(); } catch { _customRoles = []; }
+        _roleEditOpen = true;
+    }
 
     private async Task SaveRole()
     {
