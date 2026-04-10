@@ -36,11 +36,8 @@
                         }
                     </div>
                 </div>
-                @if (_tenants.Count > 1 || _isSuperAdmin)
-                {
-                    <MudIcon Icon="@(_companySwitcherOpen ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
-                             Size="Size.Small" Color="Color.Secondary" />
-                }
+                <MudIcon Icon="@(_companySwitcherOpen ? Icons.Material.Filled.ExpandLess : Icons.Material.Filled.ExpandMore)"
+                         Size="Size.Small" Color="Color.Secondary" />
             </MudStack>
         </div>
 
@@ -48,6 +45,12 @@
         @if (_companySwitcherOpen)
         {
             <div style="margin:0 12px 8px;border-radius:10px;border:1px solid #e9ecef;overflow:hidden;">
+                @if (_tenants.Count == 0)
+                {
+                    <div style="padding:12px;text-align:center;">
+                        <MudProgressCircular Indeterminate="true" Size="Size.Small" Color="Color.Primary" />
+                    </div>
+                }
                 @foreach (var t in _tenants)
                 {
                     var isActive = t.Id.ToString() == _selectedTenantId;
@@ -464,7 +467,15 @@
 
     private void ToggleDrawer() => _drawerOpen = !_drawerOpen;
     private void GoToSync() => Navigation.NavigateTo("/admin/sync");
-    private void ToggleCompanySwitcher() => _companySwitcherOpen = !_companySwitcherOpen;
+    private async Task ToggleCompanySwitcher()
+    {
+        _companySwitcherOpen = !_companySwitcherOpen;
+        if (_companySwitcherOpen && _tenants.Count == 0)
+        {
+            try { _tenants = await AuthService.GetTenantsAsync(); } catch { }
+            StateHasChanged();
+        }
+    }
 
     private async Task SwitchToTenant(TenantDto tenant)
     {
