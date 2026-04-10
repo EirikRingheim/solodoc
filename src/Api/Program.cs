@@ -828,6 +828,7 @@ app.MapForefallendeEndpoints();
 app.MapRoleEndpoints();
 app.MapOnboardingEndpoints();
 app.MapChatbotEndpoints();
+app.MapMarketplaceEndpoints();
 
 app.Run();
 

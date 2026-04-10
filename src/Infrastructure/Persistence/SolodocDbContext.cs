@@ -105,6 +105,8 @@ public class SolodocDbContext : DbContext
     public DbSet<ChecklistInstance> ChecklistInstances => Set<ChecklistInstance>();
     public DbSet<TemplateAssignment> TemplateAssignments => Set<TemplateAssignment>();
     public DbSet<ChecklistInstanceItem> ChecklistInstanceItems => Set<ChecklistInstanceItem>();
+    public DbSet<MarketplaceTemplate> MarketplaceTemplates => Set<MarketplaceTemplate>();
+    public DbSet<MarketplacePurchase> MarketplacePurchases => Set<MarketplacePurchase>();
 
     // Procedures
     public DbSet<ProcedureTemplate> ProcedureTemplates => Set<ProcedureTemplate>();

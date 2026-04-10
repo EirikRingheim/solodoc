@@ -1,8 +1,11 @@
 @page "/checklists/templates/{Id:guid}"
 @attribute [Authorize]
 @inject ChecklistService ChecklistService
+@inject MarketplaceService MarketplaceService
 @inject NavigationManager Navigation
 @inject ISnackbar Snackbar
+@inject AuthenticationStateProvider AuthStateProvider
+@using Solodoc.Shared.Marketplace
 
 <PageTitle>Solodoc - @(_template?.Name ?? "Mal")</PageTitle>
 
@@ -41,6 +44,15 @@
                    Style="text-transform:none;border-radius:8px;">
             Slett
         </MudButton>
+        @if (_isSuperAdmin)
+        {
+            <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Success"
+                       StartIcon="@Icons.Material.Filled.Storefront"
+                       OnClick="PublishToMarketplace"
+                       Style="text-transform:none;border-radius:8px;">
+                Publiser til malbutikk
+            </MudButton>
+        }
     }
 </MudStack>
 
@@ -227,6 +239,7 @@ else
     private ChecklistTemplateDetailDto? _template;
     private bool _loading = true;
     private bool _duplicating;
+    private bool _isSuperAdmin;
     private bool _addingItem;
 
     // Name editing
@@ -253,7 +266,17 @@ else
         ["Signature"] = "Signatur"
     };
 
-    protected override async Task OnInitializedAsync() => await LoadTemplate();
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTemplate();
+        try
+        {
+            var auth = await AuthStateProvider.GetAuthenticationStateAsync();
+            var role = auth.User.FindFirst("role")?.Value;
+            _isSuperAdmin = role is "super-admin" or "tenant-admin";
+        }
+        catch { }
+    }
 
     private async Task LoadTemplate()
     {
@@ -315,6 +338,19 @@ else
         {
             Snackbar.Add("Kunne ikke slette malen", Severity.Error);
         }
+    }
+
+    // ── Publish to marketplace ──
+
+    private async Task PublishToMarketplace()
+    {
+        if (_template is null) return;
+        var ok = await MarketplaceService.PublishAsync(Id,
+            new(null, null, _template.Category, null, 49));
+        if (ok)
+            Snackbar.Add("Mal publisert til malbutikken!", Severity.Success);
+        else
+            Snackbar.Add("Kunne ikke publisere", Severity.Error);
     }
 
     // ── Duplicate ──

@@ -61,6 +61,7 @@ builder.Services.AddScoped<CheckInService>();
 builder.Services.AddScoped<RoleService>();
 builder.Services.AddScoped<OnboardingService>();
 builder.Services.AddScoped<ChatbotService>();
+builder.Services.AddScoped<MarketplaceService>();
 builder.Services.AddScoped<OfflineStorageService>();
 builder.Services.AddScoped<SyncService>();
 builder.Services.AddScoped<OfflineAwareApiClient>();
