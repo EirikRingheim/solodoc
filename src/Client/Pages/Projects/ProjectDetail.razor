@@ -686,7 +686,7 @@ else
         if (_publishedTemplates.Count == 0)
         {
             var all = await ChecklistService.GetTemplatesAsync();
-            _publishedTemplates = all.Where(t => t.IsPublished).ToList();
+            _publishedTemplates = all;
         }
         _selectedTemplateId = null;
         _checklistLocation = string.Empty;
