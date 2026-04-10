@@ -78,7 +78,7 @@ public static class ShiftEndpoints
         CreateShiftDefinitionRequest req, SolodocDbContext db, ITenantProvider tp, CancellationToken ct)
     {
         if (tp.TenantId is null) return Results.Unauthorized();
-        if (string.IsNullOrWhiteSpace(req.Name)) return Results.BadRequest(new { error = "Navn er pakrevd." });
+        if (string.IsNullOrWhiteSpace(req.Name)) return Results.BadRequest(new { error = "Navn er påkrevd." });
 
         TimeOnly? start = null, end = null;
         if (req.IsWorkDay)
@@ -181,7 +181,7 @@ public static class ShiftEndpoints
         CreateRotationPatternRequest req, SolodocDbContext db, ITenantProvider tp, CancellationToken ct)
     {
         if (tp.TenantId is null) return Results.Unauthorized();
-        if (string.IsNullOrWhiteSpace(req.Name)) return Results.BadRequest(new { error = "Navn er pakrevd." });
+        if (string.IsNullOrWhiteSpace(req.Name)) return Results.BadRequest(new { error = "Navn er påkrevd." });
         if (req.CycleLengthDays <= 0) return Results.BadRequest(new { error = "Sykluslengde ma vaere storre enn 0." });
 
         var pattern = new RotationPattern
@@ -565,7 +565,7 @@ public static class ShiftEndpoints
                         AbsenceType.Ferie => "Ferie",
                         AbsenceType.Sykmelding or AbsenceType.Egenmelding => "Syk",
                         AbsenceType.Avspasering => "Avspass.",
-                        _ => "Fravaer"
+                        _ => "Fravær"
                     };
                     // Absence takes priority — hide shift for this day
                     shiftName = null;
@@ -574,7 +574,7 @@ public static class ShiftEndpoints
                 }
 
                 var hours = dayEntries.Sum(e => e.Hours);
-                var hoursStatus = dayAbsence is not null ? "Fravaer"
+                var hoursStatus = dayAbsence is not null ? "Fravær"
                     : dayEntries.Count == 0 ? (isWorkDay ? "Mangler" : "")
                     : dayEntries.All(e => e.Status == TimeEntryStatus.Approved) ? "Godkjent"
                     : "Registrert";
@@ -695,7 +695,7 @@ public static class ShiftEndpoints
         }
 
         if (!req.ShiftDefinitionId.HasValue)
-            return Results.BadRequest(new { error = "ShiftDefinitionId er pakrevd for skifttildeling." });
+            return Results.BadRequest(new { error = "ShiftDefinitionId er påkrevd for skifttildeling." });
 
         // Remove existing planner entries for this person in the range
         var existingEntries = await db.PlannerEntries
@@ -829,7 +829,7 @@ public static class ShiftEndpoints
             }
 
             var totalHours = dayHours.Sum(h => h.Hours);
-            var status = absence is not null ? "Fravaer"
+            var status = absence is not null ? "Fravær"
                 : dayHours.Count == 0 ? ""
                 : dayHours.All(h => h.Status == TimeEntryStatus.Approved) ? "Godkjent"
                 : "Registrert";

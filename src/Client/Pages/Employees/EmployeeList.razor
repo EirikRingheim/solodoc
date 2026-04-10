@@ -67,7 +67,7 @@
                             }
                             @if (context.Item.ExpiringCerts > 0)
                             {
-                                <MudTooltip Text="@($"{context.Item.ExpiringCerts} utloper snart")">
+                                <MudTooltip Text="@($"{context.Item.ExpiringCerts} utløper snart")">
                                     <MudChip T="string" Size="Size.Small"
                                              Style="height:22px;min-width:28px;background-color:#f59e0b;color:white;"
                                              Class="cert-expiring">@context.Item.ExpiringCerts</MudChip>
@@ -75,7 +75,7 @@
                             }
                             @if (context.Item.ExpiredCerts > 0)
                             {
-                                <MudTooltip Text="@($"{context.Item.ExpiredCerts} utlopte")">
+                                <MudTooltip Text="@($"{context.Item.ExpiredCerts} utløpte")">
                                     <MudChip T="string" Size="Size.Small"
                                              Style="height:22px;min-width:28px;background-color:#ef4444;color:white;"
                                              Class="cert-expired">@context.Item.ExpiredCerts</MudChip>

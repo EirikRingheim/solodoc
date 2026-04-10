@@ -284,7 +284,7 @@ public static class HmsEndpoints
                             ? db.Persons.Where(p => p.Id == ai.AssignedToId).Select(p => p.FullName).FirstOrDefault()
                             : null,
                         ai.Deadline,
-                        ai.IsCompleted ? "Fullfort" : "Apen"))
+                        ai.IsCompleted ? "Fullført" : "Åpen"))
                     .ToList()))
             .FirstOrDefaultAsync(ct);
 

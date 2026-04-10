@@ -26,7 +26,7 @@ public static class HelpContent
         "projects" => [
             new() { Title = "Prosjekter", Description = "Store oppdrag med full livssyklus — planlegging, gjennomforing, dokumentasjon og avslutning.", Icon = Icons.Material.Filled.Folder,
                 Tips = ["Klikk på et prosjekt for å se detaljer, sjekklister og avvik", "Bruk sok og sortering for å finne riktig prosjekt"] },
-            new() { Title = "Prosjektstatus", Description = "Hvert prosjekt har en status: Planlagt, Aktiv, Fullfort eller Kansellert.", Icon = Icons.Material.Filled.Flag,
+            new() { Title = "Prosjektstatus", Description = "Hvert prosjekt har en status: Planlagt, Aktiv, Fullført eller Kansellert.", Icon = Icons.Material.Filled.Flag,
                 Tips = ["Endre status med knappene på prosjektdetaljsiden", "Aktive prosjekter vises på dashboardet"] },
             new() { Title = "Sjekklister i prosjektet", Description = "Tilordne sjekklister til prosjektet. Batch-opprett for hele blokka med nummerering.", Icon = Icons.Material.Filled.Checklist,
                 Tips = ["Trykk Opprett sjekkliste inne på prosjektet", "Velg mal og antall — navngivning genereres automatisk"] },
@@ -43,7 +43,7 @@ public static class HelpContent
         ],
         "hours-admin" => [
             new() { Title = "Timer-oversikt", Description = "Se alle ansattes timer i et heatmap. Godkjenn timer dag for dag.", Icon = Icons.Material.Filled.QueryStats,
-                Tips = ["Gronn = godkjent, gul = registrert, rod = mangler", "Bla = fravaer (ferie, sykdom, avspasering)"] },
+                Tips = ["Grønn = godkjent, gul = registrert, rod = mangler", "Bla = fravær (ferie, sykdom, avspasering)"] },
             new() { Title = "Hurtiggodkjenning", Description = "Naviger med piltaster i heatmapet. Trykk Enter for å godkjenne.", Icon = Icons.Material.Filled.Keyboard,
                 Tips = ["Forste Enter: viser Godkjenn?", "Andre Enter: godkjenner dagen", "Escape: lukker detaljpanelet"],
                 Shortcut = "Piltaster: naviger | Enter + Enter: godkjenn | Escape: lukk" },
@@ -51,8 +51,8 @@ public static class HelpContent
                 Tips = ["Filtrer på ansatt for å se én person", "CSV-filen inneholder alle detaljer for lønnskjøring"] },
         ],
         "deviations" => [
-            new() { Title = "Avvik", Description = "Rapporter, folg opp og lukk avvik. Tre statuser: Apen (rod), Under behandling (gul), Lukket (gronn).", Icon = Icons.Material.Filled.ReportProblem,
-                Tips = ["Rapporter med tittel, beskrivelse, alvorlighet og bilde", "Koble til prosjekt, oppdrag eller lokasjon", "Tildel ansvarlig og sett frist for korrigerende tiltak"] },
+            new() { Title = "Avvik", Description = "Rapporter, folg opp og lukk avvik. Tre statuser: Apen (rod), Under behandling (gul), Lukket (grønn).", Icon = Icons.Material.Filled.ReportProblem,
+                Tips = ["Rapporter med tittel, beskrivelse, alvorlighet og bilde", "Koble til prosjekt, oppdrag eller lokasjon", "Tildel ansvårlig og sett frist for korrigerende tiltak"] },
         ],
         "checklists" => [
             new() { Title = "Sjekklister og maler", Description = "Lag maler én gang, bruk dem overalt. Fyll ut med OK/Irrelevant, tekst, tall, dato, bilder og signatur.", Icon = Icons.Material.Filled.Checklist,

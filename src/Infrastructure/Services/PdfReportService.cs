@@ -107,7 +107,7 @@ public class PdfReportService(SolodocDbContext db, ILogger<PdfReportService> log
                         if (deviation.CorrectiveActionDeadline.HasValue)
                             col.Item().Text(t => { t.Span("Frist: ").SemiBold(); t.Span(deviation.CorrectiveActionDeadline.Value.ToString("dd.MM.yyyy")); });
                         if (deviation.CorrectiveActionCompletedAt.HasValue)
-                            col.Item().Text(t => { t.Span("Fullfort: ").SemiBold(); t.Span(deviation.CorrectiveActionCompletedAt.Value.ToString("dd.MM.yyyy")); });
+                            col.Item().Text(t => { t.Span("Fullført: ").SemiBold(); t.Span(deviation.CorrectiveActionCompletedAt.Value.ToString("dd.MM.yyyy")); });
                     }
 
                     if (!string.IsNullOrWhiteSpace(deviation.InjuryDescription))
@@ -119,7 +119,7 @@ public class PdfReportService(SolodocDbContext db, ILogger<PdfReportService> log
                         if (deviation.FirstAidGiven.HasValue)
                             col.Item().Text(t => { t.Span("Forstehjelp gitt: ").SemiBold(); t.Span(deviation.FirstAidGiven.Value ? "Ja" : "Nei"); });
                         if (deviation.HospitalVisit.HasValue)
-                            col.Item().Text(t => { t.Span("Sykehusbesok: ").SemiBold(); t.Span(deviation.HospitalVisit.Value ? "Ja" : "Nei"); });
+                            col.Item().Text(t => { t.Span("Sykehusbesøk: ").SemiBold(); t.Span(deviation.HospitalVisit.Value ? "Ja" : "Nei"); });
                     }
 
                     if (deviation.Latitude.HasValue && deviation.Longitude.HasValue)
@@ -645,7 +645,7 @@ public class PdfReportService(SolodocDbContext db, ILogger<PdfReportService> log
 
                         table.Cell().Padding(8).Background(Colors.Green.Lighten5).Column(c =>
                         {
-                            c.Item().Text("Sjekklister fullfort").SemiBold();
+                            c.Item().Text("Sjekklister fullført").SemiBold();
                             c.Item().Text(checklistsCompleted.ToString()).FontSize(20).Bold();
                             c.Item().Text($"{checklistsInProgress} under arbeid").FontSize(9).FontColor(Colors.Grey.Medium);
                         });
@@ -756,7 +756,7 @@ public class PdfReportService(SolodocDbContext db, ILogger<PdfReportService> log
                                 table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(cert.Type);
                                 table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(cert.IssuedBy ?? "-");
                                 table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3)
-                                    .Text(cert.ExpiryDate?.ToString("dd.MM.yyyy") ?? "Ingen utlopsdato");
+                                    .Text(cert.ExpiryDate?.ToString("dd.MM.yyyy") ?? "Ingen utløpsdato");
                                 table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3)
                                     .Background(statusColor).Text(statusText);
                             }
@@ -880,7 +880,7 @@ public class PdfReportService(SolodocDbContext db, ILogger<PdfReportService> log
                                     table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(cert.Name);
                                     table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3).Text(cert.IssuedBy ?? "-");
                                     table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3)
-                                        .Text(cert.ExpiryDate?.ToString("dd.MM.yyyy") ?? "Ingen utlopsdato");
+                                        .Text(cert.ExpiryDate?.ToString("dd.MM.yyyy") ?? "Ingen utløpsdato");
                                     table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(3)
                                         .Background(statusColor).Text(statusText);
                                 }
@@ -1130,7 +1130,7 @@ public class PdfReportService(SolodocDbContext db, ILogger<PdfReportService> log
 
     private static string FormatDeviationStatus(DeviationStatus status) => status switch
     {
-        DeviationStatus.Open => "Apen",
+        DeviationStatus.Open => "Åpen",
         DeviationStatus.InProgress => "Under behandling",
         DeviationStatus.Closed => "Lukket",
         _ => status.ToString()
@@ -1151,7 +1151,7 @@ public class PdfReportService(SolodocDbContext db, ILogger<PdfReportService> log
         DeviationType.Nestenulykke => "Nestenulykke",
         DeviationType.FarligTilstand => "Farlig tilstand",
         DeviationType.Kvalitetsavvik => "Kvalitetsavvik",
-        DeviationType.Miljøavvik => "Miljoavvik",
+        DeviationType.Miljøavvik => "Miljøavvik",
         _ => type.ToString()
     };
 
@@ -1159,7 +1159,7 @@ public class PdfReportService(SolodocDbContext db, ILogger<PdfReportService> log
     {
         ProjectStatus.Planlagt => "Planlagt",
         ProjectStatus.Active => "Aktiv",
-        ProjectStatus.Completed => "Fullfort",
+        ProjectStatus.Completed => "Fullført",
         ProjectStatus.Cancelled => "Kansellert",
         _ => status.ToString()
     };

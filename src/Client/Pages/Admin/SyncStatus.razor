@@ -101,7 +101,7 @@ else
                                 @entry.Action @entry.Url — @time.ToString("HH:mm:ss")
                                 @if (entry.RetryCount > 0)
                                 {
-                                    <span> — @entry.RetryCount forsok</span>
+                                    <span> — @entry.RetryCount forsøk</span>
                                 }
                             </MudText>
                         </div>
@@ -174,7 +174,7 @@ else
         await SyncService.ProcessQueueAsync();
         await RefreshQueue();
         _syncing = false;
-        Snackbar.Add("Synkronisering fullfort", Severity.Success);
+        Snackbar.Add("Synkronisering fullført", Severity.Success);
     }
 
     private async Task RetryEntry(SyncQueueEntry entry)

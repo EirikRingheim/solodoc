@@ -21,7 +21,7 @@
             var color = _project.Status switch
             {
                 "Aktiv" => Color.Success,
-                "Fullfort" or "Fullført" => Color.Info,
+                "Fullført" or "Fullført" => Color.Info,
                 "Planlagt" => Color.Primary,
                 "Kansellert" => Color.Error,
                 _ => Color.Default
@@ -247,10 +247,10 @@ else
                                 @RenderChecklistGroup(drafts)
                             }
                         </MudTabPanel>
-                        <MudTabPanel Text="@($"Fullforte ({completedList.Count})")" Icon="@Icons.Material.Filled.CheckCircle">
+                        <MudTabPanel Text="@($"Fullførte ({completedList.Count})")" Icon="@Icons.Material.Filled.CheckCircle">
                             @if (completedList.Count == 0)
                             {
-                                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="pa-4" Style="text-align:center;">Ingen fullforte sjekklister</MudText>
+                                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="pa-4" Style="text-align:center;">Ingen fullførte sjekklister</MudText>
                             }
                             else
                             {

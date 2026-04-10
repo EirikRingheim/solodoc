@@ -53,7 +53,7 @@
                         {
                             "Aktiv" => Color.Success,
                             "VenterPaDeler" => Color.Warning,
-                            "Fullfort" => Color.Default,
+                            "Fullført" => Color.Default,
                             _ => Color.Default
                         };
                     }
@@ -138,8 +138,8 @@
 
     private static string FormatStatus(string status) => status switch
     {
-        "VenterPaDeler" => "Venter pa deler",
-        "Fullfort" => "Fullfort",
+        "VenterPaDeler" => "Venter på deler",
+        "Fullført" => "Fullført",
         _ => status
     };
 }

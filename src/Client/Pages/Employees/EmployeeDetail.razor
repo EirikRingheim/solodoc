@@ -120,7 +120,7 @@ else
                                 </MudStack>
                                 <MudStack Spacing="0" AlignItems="AlignItems.End">
                                     <MudText Typo="Typo.body2">
-                                        @(cert.ExpiryDate?.ToString("dd.MM.yyyy") ?? "Ingen utlopsdato")
+                                        @(cert.ExpiryDate?.ToString("dd.MM.yyyy") ?? "Ingen utløpsdato")
                                     </MudText>
                                     <MudText Typo="Typo.caption" Color="@statusColor">@statusText</MudText>
                                 </MudStack>
@@ -173,7 +173,7 @@ else
             }
         </MudTabPanel>
 
-        <MudTabPanel Text="Timer og fravaer" Icon="@Icons.Material.Filled.AccessTime">
+        <MudTabPanel Text="Timer og fravær" Icon="@Icons.Material.Filled.AccessTime">
             @if (_empBalance is not null)
             {
                 @* Balance cards *@
@@ -193,7 +193,7 @@ else
                         </MudItem>
                         <MudItem xs="6" sm="3">
                             <MudStack Spacing="0">
-                                <MudText Typo="Typo.caption" Color="Color.Secondary">Sykfravaer</MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">Sykfravær</MudText>
                                 <MudText Typo="Typo.body1" Style="font-weight:600;">@_empBalance.SickLeaveHours.ToString("0.#")t</MudText>
                             </MudStack>
                         </MudItem>
@@ -245,8 +245,8 @@ else
                                     <td></td>
                                     @foreach (var cell in _empHeatmap.Rows[0].Cells)
                                     {
-                                        var bg = cell.Status switch { "Godkjent" => "#BBF7D0", "Registrert" => "#FDE68A", "Mangler" => "#FECACA", "Fravaer" => "#DDD6FE", _ => "#F3F4F6" };
-                                        var fg = cell.Status switch { "Godkjent" => "#166534", "Registrert" => "#92400E", "Mangler" => "#991B1B", "Fravaer" => "#5B21B6", _ => "#D1D5DB" };
+                                        var bg = cell.Status switch { "Godkjent" => "#BBF7D0", "Registrert" => "#FDE68A", "Mangler" => "#FECACA", "Fravær" => "#DDD6FE", _ => "#F3F4F6" };
+                                        var fg = cell.Status switch { "Godkjent" => "#166534", "Registrert" => "#92400E", "Mangler" => "#991B1B", "Fravær" => "#5B21B6", _ => "#D1D5DB" };
                                         <td style="padding:2px;text-align:center;font-size:0.65rem;font-weight:500;background:@bg;color:@fg;border-radius:3px;border:1px solid #E5E7EB;height:24px;"
                                             title="@($"{cell.Date:dd.MM} — {cell.Hours:0.#}t — {cell.Status}")">
                                             @if (cell.AbsenceType is not null)
@@ -260,7 +260,7 @@ else
                                         </td>
                                     }
                                     <td style="padding:4px;text-align:center;font-size:0.75rem;font-weight:600;">
-                                        @_empHeatmap.Rows[0].Cells.Where(c => c.Status != "Fravaer").Sum(c => c.Hours).ToString("0.#")
+                                        @_empHeatmap.Rows[0].Cells.Where(c => c.Status != "Fravær").Sum(c => c.Hours).ToString("0.#")
                                     </td>
                                 </tr>
                             </tbody>
@@ -282,7 +282,7 @@ else
                         </MudStack>
                         <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
                             <span style="width:10px;height:10px;background:#DDD6FE;border-radius:2px;display:inline-block;"></span>
-                            <MudText Typo="Typo.caption">Fravaer</MudText>
+                            <MudText Typo="Typo.caption">Fravær</MudText>
                         </MudStack>
                     </MudStack>
                 }
@@ -324,7 +324,7 @@ else
                 @* Absence history *@
                 @if (_empAbsences.Count > 0)
                 {
-                    <MudText Typo="Typo.subtitle2" Style="font-weight:600;" Class="mb-2">Fravaershistorikk</MudText>
+                    <MudText Typo="Typo.subtitle2" Style="font-weight:600;" Class="mb-2">Fraværshistorikk</MudText>
                     <MudStack Spacing="1">
                         @foreach (var abs in _empAbsences.Where(a => a.Status != "Sokt"))
                         {
@@ -673,7 +673,7 @@ else
     {
         var parameters = new DialogParameters<ConfirmDialog>
         {
-            { x => x.ContentText, $"Er du sikker pa at du vil suspendere {_employee?.FullName}?" },
+            { x => x.ContentText, $"Er du sikker på at du vil suspendere {_employee?.FullName}?" },
             { x => x.ButtonText, "Suspender" },
             { x => x.ButtonColor, Color.Warning }
         };
@@ -699,7 +699,7 @@ else
     {
         var parameters = new DialogParameters<ConfirmDialog>
         {
-            { x => x.ContentText, $"Er du sikker pa at du vil aktivere {_employee?.FullName}?" },
+            { x => x.ContentText, $"Er du sikker på at du vil aktivere {_employee?.FullName}?" },
             { x => x.ButtonText, "Aktiver" },
             { x => x.ButtonColor, Color.Success }
         };
@@ -725,7 +725,7 @@ else
     {
         var parameters = new DialogParameters<ConfirmDialog>
         {
-            { x => x.ContentText, $"Er du sikker pa at du vil fjerne {_employee?.FullName}? Denne handlingen kan ikke angres." },
+            { x => x.ContentText, $"Er du sikker på at du vil fjerne {_employee?.FullName}? Denne handlingen kan ikke angres." },
             { x => x.ButtonText, "Fjern" },
             { x => x.ButtonColor, Color.Error }
         };

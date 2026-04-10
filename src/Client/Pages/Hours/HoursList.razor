@@ -18,7 +18,7 @@
                    StartIcon="@Icons.Material.Filled.EventBusy"
                    OnClick="() => _absenceDialogOpen = true"
                    Style="text-transform:none;border-radius:8px;">
-            Registrer fravaer
+            Registrer fravær
         </MudButton>
         <MudButton Variant="Variant.Filled" Color="Color.Primary"
                    StartIcon="@Icons.Material.Filled.Add"
@@ -313,7 +313,7 @@
                             </MudItem>
                             <MudItem xs="6" sm="3">
                                 <MudStack Spacing="0">
-                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Sykfravaer</MudText>
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Sykfravær</MudText>
                                     <MudText Typo="Typo.body1" Style="font-weight:600;">@_balance.SickLeaveHours.ToString("0.#")t</MudText>
                                 </MudStack>
                             </MudItem>
@@ -351,7 +351,7 @@
                     </MudStack>
                     <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center">
                         <span style="width:12px;height:12px;background:#DDD6FE;border-radius:2px;display:inline-block;"></span>
-                        <MudText Typo="Typo.caption">Fravaer</MudText>
+                        <MudText Typo="Typo.caption">Fravær</MudText>
                     </MudStack>
                     <MudText Typo="Typo.caption" Color="Color.Secondary">Piltaster: naviger | Enter: send inn | Dobbelklikk: rediger</MudText>
                 </MudStack>
@@ -495,7 +495,7 @@
 @* ═══ Absence Dialog ═══ *@
 <MudDialog @bind-Visible="_absenceDialogOpen" Options="_dialogOptions">
     <TitleContent>
-        <MudText Typo="Typo.h6">Registrer fravaer</MudText>
+        <MudText Typo="Typo.h6">Registrer fravær</MudText>
     </TitleContent>
     <DialogContent>
         <MudStack Spacing="3">
@@ -956,12 +956,12 @@
 
         if (id.HasValue)
         {
-            Snackbar.Add("Fravaer registrert", Severity.Success);
+            Snackbar.Add("Fravær registrert", Severity.Success);
             _absenceDialogOpen = false;
             _balance = await HoursService.GetMyBalanceAsync();
             if (_heatmapLoaded) await LoadMyHeatmap();
         }
-        else Snackbar.Add("Kunne ikke registrere fravaer", Severity.Error);
+        else Snackbar.Add("Kunne ikke registrere fravær", Severity.Error);
 
         _absSaving = false; StateHasChanged();
     }
@@ -1101,8 +1101,8 @@
 
     private static string GetStatusBg(string s) => s switch
     { "Godkjent" => "#BBF7D0", "Registrert" => "#FDE68A", "Mangler" => "#FECACA",
-      "Fravaer" => "#DDD6FE", _ => "#F3F4F6" };
+      "Fravær" => "#DDD6FE", _ => "#F3F4F6" };
     private static string GetStatusFg(string s) => s switch
     { "Godkjent" => "#166534", "Registrert" => "#92400E", "Mangler" => "#991B1B",
-      "Fravaer" => "#5B21B6", _ => "#D1D5DB" };
+      "Fravær" => "#5B21B6", _ => "#D1D5DB" };
 }

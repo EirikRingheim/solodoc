@@ -162,7 +162,7 @@
                 </TitleContent>
                 <ChildContent>
                     <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-3">
-                        Juster sats per helligdag. Klikk pa prosenten for a endre.
+                        Juster sats per helligdag. Klikk på prosenten for å endre.
                     </MudText>
                     @for (var i = 0; i < _norwegianHolidays.Count; i++)
                     {
@@ -174,7 +174,7 @@
                                     <MudText Typo="Typo.body2" Style="font-weight:500;">@holiday.Name</MudText>
                                     <MudText Typo="Typo.caption" Color="Color.Secondary">
                                         @holiday.Date
-                                        @if (holiday.IsHalfDay) { <span> (halv rod, fra @(holiday.HalfDayCutoff?.ToString("HH:mm") ?? "12:00"))</span> }
+                                        @if (holiday.IsHalfDay) { <span> (halv rød, fra @(holiday.HalfDayCutoff?.ToString("HH:mm") ?? "12:00"))</span> }
                                     </MudText>
                                 </MudStack>
                                 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
@@ -228,7 +228,7 @@
                 <MudCheckBox T="bool" Value="_settings.OvertimeStackingMode" Label="Satser legges sammen"
                              ValueChanged="ToggleStacking" Color="Color.Primary" />
                 <MudText Typo="Typo.caption" Color="Color.Secondary">
-                    @(_settings.OvertimeStackingMode ? "Alle matchende satser summeres" : "Kun hoyeste sats gjelder")
+                    @(_settings.OvertimeStackingMode ? "Alle matchende satser summeres" : "Kun høyeste sats gjelder")
                 </MudText>
 
                 <MudDivider />
@@ -317,7 +317,7 @@
 
                 @if (_rCycleLength > 0 && _shifts.Count > 0)
                 {
-                    <MudText Typo="Typo.caption" Color="Color.Secondary">Klikk pa dager for a bytte skift:</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Klikk på dager for å bytte skift:</MudText>
                     <div style="display:flex;gap:3px;flex-wrap:wrap;">
                         @for (var i = 1; i <= _rCycleLength; i++)
                         {
@@ -334,7 +334,7 @@
                         }
                     </div>
                     <MudText Typo="Typo.caption" Color="Color.Secondary">
-                        Klikk for a bytte: @string.Join(" → ", _shifts.Select(s => s.Name))
+                        Klikk for å bytte: @string.Join(" → ", _shifts.Select(s => s.Name))
                     </MudText>
                 }
             }
@@ -387,7 +387,7 @@
     <DialogContent>
         <MudStack Spacing="2">
             <MudText Typo="Typo.body1">
-                Er du sikker pa at du vil slette <strong>@_confirmDeleteName</strong>?
+                Er du sikker på at du vil slette <strong>@_confirmDeleteName</strong>?
             </MudText>
             <MudAlert Severity="Severity.Warning" Dense="true">
                 Eksisterende planoppforinger og historikk beholdes, men denne typen vil ikke lenger vaere tilgjengelig for nye tildelinger.
@@ -408,7 +408,7 @@
         <MudStack Spacing="2">
             <MudTextField T="string" @bind-Value="_otName" Label="Navn" Variant="Variant.Outlined" />
             <MudNumericField T="decimal" @bind-Value="_otRate" Label="Sats (%)" Variant="Variant.Outlined" Min="0" Step="10m" />
-            <MudNumericField T="int" @bind-Value="_otPriority" Label="Prioritet (lavere = hoyere)" Variant="Variant.Outlined" Min="1" />
+            <MudNumericField T="int" @bind-Value="_otPriority" Label="Prioritet (lavere = høyere)" Variant="Variant.Outlined" Min="1" />
             <MudText Typo="Typo.caption" Style="font-weight:600;">Gjelder for:</MudText>
             <MudStack Row="true" Spacing="2" Style="flex-wrap:wrap;">
                 <MudCheckBox T="bool" @bind-Value="_otWeekdays" Label="Ukedager" Dense="true" />

@@ -104,7 +104,7 @@ public static class HoursEndpoints
         AbsenceType.Foreldrepermisjon => "Permisjon",
         AbsenceType.Permisjon => "Permisjon",
         AbsenceType.Avspasering => "Avspass.",
-        _ => "Fravaer"
+        _ => "Fravær"
     };
 
     private static string StatusToString(TimeEntryStatus status) => status switch
@@ -275,7 +275,7 @@ public static class HoursEndpoints
                 && a.Status != AbsenceStatus.Rejected
                 && a.StartDate <= today && a.EndDate >= today, ct);
         if (hasAbsenceToday)
-            return Results.BadRequest(new { error = "Du har registrert fravaer i dag. Slett fravaeret forst." });
+            return Results.BadRequest(new { error = "Du har registrert fravær i dag. Slett fraværet forst." });
 
         var now = DateTimeOffset.UtcNow;
         var entry = new TimeEntry
@@ -405,7 +405,7 @@ public static class HoursEndpoints
                 && a.Status != AbsenceStatus.Rejected
                 && a.StartDate <= request.Date && a.EndDate >= request.Date, ct);
         if (hasAbsence)
-            return Results.BadRequest(new { error = "Du har registrert fravaer denne dagen. Slett fravaeret forst." });
+            return Results.BadRequest(new { error = "Du har registrert fravær denne dagen. Slett fraværet forst." });
 
         // Calculate hours from start/end if provided, otherwise use Hours directly
         decimal hours;
@@ -964,7 +964,7 @@ public static class HoursEndpoints
 
                     if (dayAbsence is not null)
                     {
-                        status = "Fravaer";
+                        status = "Fravær";
                         absType = AbsenceTypeToShort(dayAbsence.Type);
                     }
                     else if (dayEntries.Count == 0)
@@ -1024,7 +1024,7 @@ public static class HoursEndpoints
 
             if (dayAbsence is not null)
             {
-                status = "Fravaer";
+                status = "Fravær";
                 absenceType = AbsenceTypeToShort(dayAbsence.Type);
             }
             else if (dayEntries.Count == 0)

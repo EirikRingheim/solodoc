@@ -564,7 +564,7 @@ else
     {
         if (_hasUnsavedChanges && !_submitted)
         {
-            var confirmed = await JS.InvokeAsync<bool>("confirm", "Du har ulagrede endringer. Er du sikker pa at du vil forlate siden?");
+            var confirmed = await JS.InvokeAsync<bool>("confirm", "Du har ulagrede endringer. Er du sikker på at du vil forlate siden?");
             if (!confirmed)
                 context.PreventNavigation();
         }

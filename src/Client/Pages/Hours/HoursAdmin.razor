@@ -278,7 +278,7 @@ else
                                             </MudText>
                                         </MudItem>
                                         <MudItem xs="6">
-                                            <MudText Typo="Typo.caption" Color="Color.Secondary">Sykfravaer</MudText>
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary">Sykfravær</MudText>
                                             <MudText Typo="Typo.body2" Style="font-weight:500;">@_selectedBalance.SickLeaveHours.ToString("0.#")t</MudText>
                                         </MudItem>
                                         @if (_selectedBalance.TimebankEnabled)
@@ -667,10 +667,10 @@ else
 
     private static string GetStatusBg(string s) => s switch
     { "Godkjent" => "#BBF7D0", "Registrert" => "#FDE68A", "Mangler" => "#FECACA",
-      "Fravaer" => "#DDD6FE", _ => "#F3F4F6" };
+      "Fravær" => "#DDD6FE", _ => "#F3F4F6" };
     private static string GetStatusFg(string s) => s switch
     { "Godkjent" => "#166534", "Registrert" => "#92400E", "Mangler" => "#991B1B",
-      "Fravaer" => "#5B21B6", _ => "#D1D5DB" };
+      "Fravær" => "#5B21B6", _ => "#D1D5DB" };
 
     private static string GetCategoryColor(string c) => c switch
     {

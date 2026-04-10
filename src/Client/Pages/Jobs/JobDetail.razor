@@ -15,7 +15,7 @@
         {
             "Aktiv" => Color.Success,
             "VenterPaDeler" => Color.Warning,
-            "Fullfort" => Color.Default,
+            "Fullført" => Color.Default,
             _ => Color.Default
         };
         <MudChip T="string" Size="Size.Small" Color="@color">@FormatStatus(_job.Status)</MudChip>
@@ -75,8 +75,8 @@ else
                            Variant="Variant.Outlined" Margin="Margin.Dense"
                            ValueChanged="OnStatusChanged" Class="mb-3">
                     <MudSelectItem Value="@("Aktiv")">Aktiv</MudSelectItem>
-                    <MudSelectItem Value="@("VenterPaDeler")">Venter pa deler</MudSelectItem>
-                    <MudSelectItem Value="@("Fullfort")">Fullfort</MudSelectItem>
+                    <MudSelectItem Value="@("VenterPaDeler")">Venter på deler</MudSelectItem>
+                    <MudSelectItem Value="@("Fullført")">Fullført</MudSelectItem>
                 </MudSelect>
 
                 <MudButton Variant="Variant.Outlined" Color="Color.Primary"
@@ -129,7 +129,7 @@ else
                 {
                     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
                         <MudTextField @bind-Value="_newPartName" T="string"
-                                      Placeholder="Navn pa del/utstyr"
+                                      Placeholder="Navn på del/utstyr"
                                       Variant="Variant.Outlined" Margin="Margin.Dense"
                                       Style="flex:1;" />
                         <MudButton Variant="Variant.Filled" Color="Color.Primary"
@@ -227,8 +227,8 @@ else
 
     private static string FormatStatus(string status) => status switch
     {
-        "VenterPaDeler" => "Venter pa deler",
-        "Fullfort" => "Fullfort",
+        "VenterPaDeler" => "Venter på deler",
+        "Fullført" => "Fullført",
         _ => status
     };
 }

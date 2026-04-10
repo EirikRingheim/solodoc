@@ -23,7 +23,7 @@ public static class LocationEndpoints
         app.MapPost("/api/locations/{id:guid}/templates", AssignTemplate).RequireAuthorization();
         app.MapDelete("/api/locations/{locationId:guid}/templates/{templateId:guid}", RemoveTemplate).RequireAuthorization();
 
-        // Instances for a location
+        // Instances for å location
         app.MapGet("/api/locations/{id:guid}/instances", GetLocationInstances).RequireAuthorization();
 
         return app;
@@ -63,7 +63,7 @@ public static class LocationEndpoints
         CreateLocationRequest req, SolodocDbContext db, ITenantProvider tp, CancellationToken ct)
     {
         if (tp.TenantId is null) return Results.Unauthorized();
-        if (string.IsNullOrWhiteSpace(req.Name)) return Results.BadRequest(new { error = "Navn er pakrevd." });
+        if (string.IsNullOrWhiteSpace(req.Name)) return Results.BadRequest(new { error = "Navn er påkrevd." });
 
         var loc = new Location
         {

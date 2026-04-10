@@ -129,7 +129,7 @@ public static class AbsenceEndpoints
         if (conflictDays.Count > 0)
         {
             var dayList = string.Join(", ", conflictDays.Select(d => d.ToString("dd.MM")));
-            return Results.BadRequest(new { error = $"Du har allerede timer registrert pa: {dayList}. Slett timene forst, og registrer fravaer etterpaa." });
+            return Results.BadRequest(new { error = $"Du har allerede timer registrert pa: {dayList}. Slett timene forst, og registrer fravær etterpå." });
         }
 
         // Check for existing absence on these days
@@ -138,7 +138,7 @@ public static class AbsenceEndpoints
                 && a.Status != AbsenceStatus.Rejected
                 && a.StartDate <= request.EndDate && a.EndDate >= request.StartDate, ct);
         if (hasAbsence)
-            return Results.BadRequest(new { error = "Du har allerede registrert fravaer i denne perioden." });
+            return Results.BadRequest(new { error = "Du har allerede registrert fravær i denne perioden." });
 
         var absenceType = ParseAbsenceType(request.Type);
 
@@ -201,7 +201,7 @@ public static class AbsenceEndpoints
 
         if (absence is null) return Results.NotFound();
         if (absence.Status == AbsenceStatus.Approved)
-            return Results.BadRequest(new { error = "Godkjent fravaer kan ikke slettes." });
+            return Results.BadRequest(new { error = "Godkjent fravær kan ikke slettes." });
 
         db.Absences.Remove(absence);
         await db.SaveChangesAsync(ct);
