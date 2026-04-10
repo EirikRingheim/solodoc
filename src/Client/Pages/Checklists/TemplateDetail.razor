@@ -4,14 +4,39 @@
 @inject NavigationManager Navigation
 @inject ISnackbar Snackbar
 
-<PageTitle>Solodoc - Mal detaljer</PageTitle>
+<PageTitle>Solodoc - @(_template?.Name ?? "Mal")</PageTitle>
 
-<MudButton Variant="Variant.Text" Color="Color.Primary"
-           StartIcon="@Icons.Material.Filled.ArrowBack"
-           Href="/checklists"
-           Style="text-transform:none;margin-bottom:16px;">
-    Tilbake til sjekklister
-</MudButton>
+<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-4">
+    <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Href="/checklists" />
+    @if (_loading)
+    {
+        <MudText Typo="Typo.h5">Laster...</MudText>
+    }
+    else if (_template is not null)
+    {
+        @if (_editingName)
+        {
+            <MudTextField T="string" @bind-Value="_editName" Variant="Variant.Outlined" Dense="true"
+                          Style="max-width:400px;"
+                          Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Check"
+                          OnAdornmentClick="SaveName" OnBlur="SaveName"
+                          Placeholder="Malnavn" />
+        }
+        else
+        {
+            <MudText Typo="Typo.h5" Style="font-weight:600;cursor:pointer;" @onclick="StartEditName">
+                @_template.Name
+            </MudText>
+            <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="StartEditName" />
+        }
+        <MudButton Variant="Variant.Outlined" Size="Size.Small"
+                   StartIcon="@Icons.Material.Filled.ContentCopy"
+                   OnClick="DuplicateTemplate" Disabled="_duplicating"
+                   Style="text-transform:none;border-radius:8px;">
+            Dupliser
+        </MudButton>
+    }
+</MudStack>
 
 @if (_loading)
 {
@@ -19,394 +44,175 @@
 }
 else if (_template is null)
 {
-    <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-8">
-        <MudStack AlignItems="AlignItems.Center" Spacing="2">
-            <MudIcon Icon="@Icons.Material.Filled.ErrorOutline" Size="Size.Large" Color="Color.Warning" />
-            <MudText Typo="Typo.body1" Color="Color.Secondary">Mal ikke funnet</MudText>
-        </MudStack>
-    </MudPaper>
+    <MudAlert Severity="Severity.Warning">Mal ikke funnet.</MudAlert>
 }
 else
 {
-    @* ── Header Section ── *@
-    <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-5 mb-4">
-        <MudStack Spacing="3">
-            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Style="flex-wrap:wrap;">
-                @if (_editingName)
-                {
-                    <MudTextField T="string" @bind-Value="_editName" Variant="Variant.Outlined"
-                                  Style="max-width:400px;" Dense="true"
-                                  Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Check"
-                                  OnAdornmentClick="SaveName" OnBlur="SaveName" />
-                }
-                else
-                {
-                    <MudText Typo="Typo.h5" Style="font-weight:600;cursor:pointer;"
-                             @onclick="StartEditName">@_template.Name</MudText>
-                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
-                                   OnClick="StartEditName" />
-                }
-            </MudStack>
-
-            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Style="flex-wrap:wrap;">
-                @if (!string.IsNullOrWhiteSpace(_template.DocumentNumber))
-                {
-                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
-                             Color="Color.Default" Style="height:24px;">@_template.DocumentNumber</MudChip>
-                }
-                <MudChip T="string" Size="Size.Small" Variant="Variant.Filled"
-                         Color="Color.Info" Style="height:24px;">Rev. @_template.CurrentVersion</MudChip>
-                @if (_template.IsPublished)
-                {
-                    <MudChip T="string" Size="Size.Small" Variant="Variant.Filled"
-                             Color="Color.Success" Style="height:24px;">Publisert</MudChip>
-                }
-                else
-                {
-                    <MudChip T="string" Size="Size.Small" Variant="Variant.Filled"
-                             Color="Color.Default" Style="height:24px;">Utkast</MudChip>
-                }
-            </MudStack>
-
-            @* Tags *@
-            @if (!string.IsNullOrWhiteSpace(_template.Tags))
-            {
-                <MudStack Row="true" Spacing="1" Style="flex-wrap:wrap;">
-                    @foreach (var tag in _template.Tags.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-                    {
-                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
-                                 Color="Color.Primary" Style="height:24px;"
-                                 OnClose="() => RemoveTag(tag)">@tag</MudChip>
-                    }
+    <div style="max-width:720px;">
+        @* ── Description & Category ── *@
+        <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;" Class="pa-4 mb-4">
+            <MudStack Spacing="2">
+                <MudTextField T="string" @bind-Value="_settingsDescription" Label="Beskrivelse (valgfritt)"
+                              Variant="Variant.Outlined" Lines="2"
+                              DebounceInterval="600" OnDebounceIntervalElapsed="SaveSettings" />
+                <MudStack Row="true" Spacing="2">
+                    <MudTextField T="string" @bind-Value="_settingsCategory" Label="Kategori"
+                                  Variant="Variant.Outlined" Style="flex:1;"
+                                  DebounceInterval="600" OnDebounceIntervalElapsed="SaveSettings" />
+                    <MudSwitch T="bool" @bind-Value="_settingsRequireSignature" Label="Krev signatur"
+                               Color="Color.Primary" @bind-Value:after="SaveSettings" />
                 </MudStack>
-            }
-
-            @* Action buttons *@
-            <MudStack Row="true" Spacing="2" Style="flex-wrap:wrap;">
-                @if (!_template.IsPublished)
-                {
-                    <MudButton Variant="Variant.Filled" Color="Color.Primary"
-                               StartIcon="@Icons.Material.Filled.Publish"
-                               OnClick="PublishTemplate" Disabled="_publishing"
-                               Style="text-transform:none;border-radius:8px;">
-                        @if (_publishing)
-                        {
-                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
-                        }
-                        Publiser
-                    </MudButton>
-                }
-                <MudButton Variant="Variant.Outlined" Color="Color.Primary"
-                           StartIcon="@Icons.Material.Filled.ContentCopy"
-                           OnClick="DuplicateTemplate" Disabled="_duplicating"
-                           Style="text-transform:none;border-radius:8px;">
-                    Dupliser mal
-                </MudButton>
-            </MudStack>
-        </MudStack>
-    </MudPaper>
-
-    @* ── Settings Section (Collapsible) ── *@
-    <MudExpansionPanels Class="mb-4">
-        <MudExpansionPanel Text="Innstillinger" Style="border:1px solid #E9ECEF;border-radius:12px;">
-            <MudStack Spacing="3" Class="pa-2">
-                <MudTextField T="string" @bind-Value="_settingsDescription" Label="Beskrivelse"
-                              Variant="Variant.Outlined" Lines="3"
-                              DebounceInterval="500" OnDebounceIntervalElapsed="SaveSettings" />
-                <MudTextField T="string" @bind-Value="_settingsCategory" Label="Kategori"
-                              Variant="Variant.Outlined"
-                              DebounceInterval="500" OnDebounceIntervalElapsed="SaveSettings" />
-                <MudSwitch T="bool" @bind-Value="_settingsRequireSignature" Label="Krev signatur"
-                           Color="Color.Primary" @bind-Value:after="SaveSettings" />
-                @if (_settingsRequireSignature)
-                {
-                    <MudStack Spacing="2">
-                        <MudNumericField T="int" @bind-Value="_settingsSignatureCount"
-                                         Label="Antall signaturer" Min="1" Max="5"
-                                         Variant="Variant.Outlined"
-                                         DebounceInterval="500" />
-                        <MudTextField T="string" @bind-Value="_settingsSignatureRoles"
-                                      Label="Signaturroller (kommaseparert)"
-                                      Variant="Variant.Outlined"
-                                      HelperText="F.eks. Utfyller, Prosjektleder, Kontrollor"
-                                      DebounceInterval="500" OnDebounceIntervalElapsed="SaveSettings" />
-                    </MudStack>
-                }
-                <MudTextField T="string" @bind-Value="_settingsTags" Label="Tags (kommaseparert)"
-                              Variant="Variant.Outlined"
-                              DebounceInterval="500" OnDebounceIntervalElapsed="SaveSettings" />
-            </MudStack>
-        </MudExpansionPanel>
-    </MudExpansionPanels>
-
-    @* ── Items Section (Builder) ── *@
-    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
-        <MudText Typo="Typo.h6">Elementer</MudText>
-        <MudToggleGroup T="string" @bind-Value="_builderMode" Style="border-radius:8px;" Dense="true"
-                        Color="Color.Primary" CheckMark="false">
-            <MudToggleItem Value="@("step")" Text="Steg-for-steg" />
-            <MudToggleItem Value="@("overview")" Text="Oversikt" />
-        </MudToggleGroup>
-    </MudStack>
-
-    @if (_builderMode == "step")
-    {
-        @* ── Step-by-step builder ── *@
-        @if (_template.Items.Count > 0)
-        {
-            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
-                @_template.Items.Count elementer lagt til.
-                Bytt til Oversikt for aa se og redigere alle.
-            </MudText>
-        }
-
-        <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-5 mb-4">
-            <MudText Typo="Typo.h6" Class="mb-3">Punkt @(_template.Items.Count + 1)</MudText>
-
-            @* Type selection for new item *@
-            <MudSelect T="string" @bind-Value="_newItemType" Label="Elementtype" Variant="Variant.Outlined" Class="mb-3">
-                @foreach (var itemType in _itemTypes)
-                {
-                    <MudSelectItem T="string" Value="@itemType.Key">@itemType.Value</MudSelectItem>
-                }
-            </MudSelect>
-
-            <MudTextField @bind-Value="_newItemLabel" Label="Punkttekst" Variant="Variant.Outlined"
-                          Lines="2" Class="mb-3" />
-
-            <MudTextField @bind-Value="_newItemSectionGroup" Label="Seksjonsgruppe (valgfritt)"
-                          Variant="Variant.Outlined" Class="mb-3" />
-
-            @* Type-specific settings for step-by-step *@
-            @if (_newItemType == "Check")
-            {
-                <MudSwitch T="bool" @bind-Value="_newItemAllowComment" Label="Tillat kommentar"
-                           Color="Color.Primary" />
-                <MudSwitch T="bool" @bind-Value="_newItemAllowPhoto" Label="Tillat foto"
-                           Color="Color.Primary" />
-                <MudSwitch T="bool" @bind-Value="_newItemRequireCommentOnIR" Label="Krev kommentar ved Irrelevant"
-                           Color="Color.Primary" />
-            }
-            else if (_newItemType == "NumberInput")
-            {
-                <MudTextField T="string" @bind-Value="_newItemUnit" Label="Enhet (f.eks. kg, m, timer)"
-                              Variant="Variant.Outlined" Class="mb-3" />
-            }
-            else if (_newItemType == "Dropdown")
-            {
-                <MudTextField T="string" @bind-Value="_newItemDropdownOptions"
-                              Label="Valg (kommaseparert)" Variant="Variant.Outlined"
-                              HelperText="F.eks. God, Akseptabel, Mangelfull" Class="mb-3" />
-            }
-
-            <MudSwitch T="bool" @bind-Value="_newItemIsRequired" Label="Paakrevd"
-                       Color="Color.Primary" Class="mt-2" />
-
-            <MudStack Row="true" Justify="Justify.FlexEnd" Class="mt-4">
-                <MudButton OnClick="AddStepItem" Variant="Variant.Filled" Color="Color.Primary"
-                           StartIcon="@Icons.Material.Filled.Add"
-                           Style="text-transform:none;border-radius:8px;min-height:48px;"
-                           Disabled="@(string.IsNullOrWhiteSpace(_newItemLabel) || _addingItem)">
-                    Legg til og neste
-                </MudButton>
             </MudStack>
         </MudPaper>
-    }
-    else
-    {
-        @* ── Overview mode (existing builder) ── *@
+
+        @* ── Items list ── *@
+        <MudText Typo="Typo.subtitle1" Style="font-weight:600;" Class="mb-2">
+            Elementer (@_template.Items.Count)
+        </MudText>
+
         @if (_template.Items.Count == 0)
         {
-            <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-6 mb-4">
+            <MudPaper Elevation="0" Style="border:2px dashed #d1d5db;border-radius:12px;" Class="pa-8 mb-4">
                 <MudStack AlignItems="AlignItems.Center" Spacing="2">
-                    <MudIcon Icon="@Icons.Material.Filled.ListAlt" Size="Size.Large" Color="Color.Default" />
-                    <MudText Typo="Typo.body1" Color="Color.Secondary">Ingen elementer i denne malen</MudText>
+                    <MudIcon Icon="@Icons.Material.Filled.PlaylistAdd" Size="Size.Large" Color="Color.Secondary" />
+                    <MudText Color="Color.Secondary">Legg til elementer nedenfor</MudText>
                 </MudStack>
             </MudPaper>
         }
         else
         {
-            var grouped = _template.Items
-                .OrderBy(i => i.SortOrder)
-                .GroupBy(i => i.SectionGroup ?? "Generelt")
-                .ToList();
-
-            @foreach (var group in grouped)
+            @foreach (var item in _template.Items.OrderBy(i => i.SortOrder))
             {
-                <MudText Typo="Typo.subtitle1" Style="font-weight:600;" Class="mb-2 mt-3">@group.Key</MudText>
+                var capturedItem = item;
+                <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;" Class="pa-0 mb-2">
+                    <div style="display:flex;align-items:stretch;">
+                        @* Left color bar indicating type *@
+                        <div style="width:5px;border-radius:12px 0 0 12px;background:@GetTypeColor(item.Type);flex-shrink:0;"></div>
 
-                @foreach (var item in group)
-                {
-                    <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-4 mb-3">
-                        <MudStack Spacing="2">
-                            @* Item header row *@
-                            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
-                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                                    <MudIcon Icon="@GetTypeIcon(item.Type)" Color="Color.Primary" />
-                                    @if (_editingItemId == item.Id)
-                                    {
-                                        <MudTextField T="string" @bind-Value="_editItemLabel" Variant="Variant.Outlined"
-                                                      Dense="true" Style="min-width:200px;"
-                                                      Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Check"
-                                                      OnAdornmentClick="() => SaveItemLabel(item)"
-                                                      OnBlur="() => SaveItemLabel(item)" />
-                                    }
-                                    else
-                                    {
-                                        <MudText Typo="Typo.body1" Style="font-weight:500;cursor:pointer;"
-                                                 @onclick="() => StartEditItemLabel(item)">
-                                            @item.Label
-                                            @if (item.IsRequired)
-                                            {
-                                                <span style="color:#d32f2f;"> *</span>
-                                            }
-                                        </MudText>
-                                    }
-                                    <MudText Typo="Typo.caption" Color="Color.Secondary">@GetTypeLabel(item.Type)</MudText>
-                                </MudStack>
+                        <div style="flex:1;padding:12px 14px;">
+                            @* Top row: number + label + actions *@
+                            <div style="display:flex;align-items:center;gap:8px;">
+                                <span style="font-size:0.7rem;font-weight:700;color:#9CA3AF;min-width:20px;">@item.SortOrder</span>
 
-                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="0">
-                                    <MudIconButton Icon="@Icons.Material.Filled.ArrowUpward" Size="Size.Small"
-                                                   OnClick="() => MoveItemUp(item)" Disabled="item.SortOrder <= 1" />
-                                    <MudIconButton Icon="@Icons.Material.Filled.ArrowDownward" Size="Size.Small"
-                                                   OnClick="() => MoveItemDown(item)" />
-                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
-                                                   Color="Color.Error" OnClick="() => DeleteItem(item)" />
-                                </MudStack>
-                            </MudStack>
+                                @* Type preview icon *@
+                                <MudIcon Icon="@GetTypeIcon(item.Type)" Size="Size.Small" Style="@($"color:{GetTypeColor(item.Type)};")" />
 
-                            @* Item settings *@
-                            <MudDivider />
+                                @* Editable label *@
+                                @if (_editingItemId == item.Id)
+                                {
+                                    <MudTextField T="string" @bind-Value="_editItemLabel" Variant="Variant.Text"
+                                                  Dense="true" Style="flex:1;" Immediate="true"
+                                                  Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Check"
+                                                  OnAdornmentClick="() => SaveItemLabel(capturedItem)"
+                                                  OnBlur="() => SaveItemLabel(capturedItem)" />
+                                }
+                                else
+                                {
+                                    <span style="flex:1;font-weight:500;cursor:pointer;"
+                                          @onclick="() => StartEditItemLabel(capturedItem)">
+                                        @item.Label
+                                    </span>
+                                }
 
-                            <MudGrid Spacing="2">
-                                <MudItem xs="12" sm="6">
-                                    <MudSwitch T="bool" Value="item.IsRequired" Label="Paakrevd"
-                                               Color="Color.Primary"
-                                               ValueChanged="(bool val) => UpdateItemRequired(item, val)" />
-                                </MudItem>
-                                <MudItem xs="12" sm="6">
-                                    <MudTextField T="string" Value="@(item.SectionGroup ?? "")"
-                                                  Label="Seksjonsgruppe" Variant="Variant.Outlined" Dense="true"
-                                                  DebounceInterval="800"
-                                                  ValueChanged="(string val) => UpdateItemSectionGroup(item, val)" />
-                                </MudItem>
-                            </MudGrid>
+                                @* Type badge *@
+                                <span style="font-size:0.65rem;padding:2px 8px;border-radius:10px;background:@(GetTypeColor(item.Type) + "18");color:@GetTypeColor(item.Type);font-weight:600;white-space:nowrap;">
+                                    @GetTypeLabel(item.Type)
+                                </span>
 
-                            @* Help text (expandable) *@
-                            <MudTextField T="string" Value="@(item.HelpText ?? "")"
-                                          Label="Hjelpetekst" Variant="Variant.Outlined" Dense="true"
-                                          DebounceInterval="800"
-                                          ValueChanged="(string val) => UpdateItemHelpText(item, val)" />
+                                @* Actions *@
+                                <MudIconButton Icon="@Icons.Material.Filled.ArrowUpward" Size="Size.Small"
+                                               OnClick="() => MoveItemUp(capturedItem)" Disabled="item.SortOrder <= 1"
+                                               Style="padding:4px;" />
+                                <MudIconButton Icon="@Icons.Material.Filled.ArrowDownward" Size="Size.Small"
+                                               OnClick="() => MoveItemDown(capturedItem)"
+                                               Style="padding:4px;" />
+                                <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
+                                               Color="Color.Error" OnClick="() => DeleteItem(capturedItem)"
+                                               Style="padding:4px;" />
+                            </div>
 
-                            @* Type-specific settings *@
+                            @* Type-specific preview / settings (inline) *@
                             @if (item.Type == "Check")
                             {
-                                <MudStack Spacing="1">
-                                    <MudSwitch T="bool" Value="item.RequireCommentOnIrrelevant"
-                                               Label="Krev kommentar ved Irrelevant" Color="Color.Primary"
-                                               ValueChanged="(bool val) => UpdateItemCheckSetting(item, requireComment: val)" />
-                                    <MudSwitch T="bool" Value="item.AllowPhoto"
-                                               Label="Tillat foto" Color="Color.Primary"
-                                               ValueChanged="(bool val) => UpdateItemCheckSetting(item, allowPhoto: val)" />
-                                    <MudSwitch T="bool" Value="item.AllowComment"
-                                               Label="Tillat kommentar" Color="Color.Primary"
-                                               ValueChanged="(bool val) => UpdateItemCheckSetting(item, allowComment: val)" />
-                                </MudStack>
+                                <div style="margin-top:8px;display:flex;gap:6px;">
+                                    <span style="padding:4px 14px;border-radius:8px;background:#D1FAE5;color:#059669;font-size:0.75rem;font-weight:600;">OK</span>
+                                    <span style="padding:4px 14px;border-radius:8px;background:#F3F4F6;color:#6B7280;font-size:0.75rem;font-weight:600;">Ikke relevant</span>
+                                </div>
+                            }
+                            else if (item.Type == "TextInput")
+                            {
+                                <div style="margin-top:8px;padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;color:#9CA3AF;font-size:0.8rem;">
+                                    Fritekst...
+                                </div>
                             }
                             else if (item.Type == "NumberInput")
                             {
-                                <MudTextField T="string" Value="@(item.UnitLabel ?? "")"
-                                              Label="Enhet (f.eks. kg, m, timer)" Variant="Variant.Outlined" Dense="true"
-                                              DebounceInterval="800"
-                                              ValueChanged="(string val) => UpdateItemUnitLabel(item, val)" />
+                                <div style="margin-top:8px;display:flex;gap:8px;align-items:center;">
+                                    <div style="flex:1;padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;color:#9CA3AF;font-size:0.8rem;">
+                                        0
+                                    </div>
+                                    <MudTextField T="string" Value="@(item.UnitLabel ?? "")" Variant="Variant.Outlined"
+                                                  Dense="true" Placeholder="Enhet" Style="max-width:100px;"
+                                                  DebounceInterval="600"
+                                                  ValueChanged="(string val) => UpdateItemUnitLabel(capturedItem, val)" />
+                                </div>
+                            }
+                            else if (item.Type == "DateInput")
+                            {
+                                <div style="margin-top:8px;padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;color:#9CA3AF;font-size:0.8rem;display:flex;align-items:center;gap:6px;">
+                                    <MudIcon Icon="@Icons.Material.Filled.CalendarMonth" Size="Size.Small" Color="Color.Secondary" />
+                                    dd.mm.yyyy
+                                </div>
                             }
                             else if (item.Type == "Dropdown")
                             {
-                                <MudTextField T="string" Value="@(item.DropdownOptions ?? "")"
-                                              Label="Valg (kommaseparert)" Variant="Variant.Outlined" Dense="true"
-                                              HelperText="F.eks. God, Akseptabel, Mangelfull"
-                                              DebounceInterval="800"
-                                              ValueChanged="(string val) => UpdateItemDropdownOptions(item, val)" />
+                                <div style="margin-top:8px;">
+                                    <MudTextField T="string" Value="@(item.DropdownOptions ?? "")"
+                                                  Variant="Variant.Outlined" Dense="true"
+                                                  Placeholder="Alternativ 1, Alternativ 2, Alternativ 3"
+                                                  HelperText="Kommaseparerte valg"
+                                                  DebounceInterval="600"
+                                                  ValueChanged="(string val) => UpdateItemDropdownOptions(capturedItem, val)" />
+                                </div>
                             }
-                        </MudStack>
-                    </MudPaper>
-                }
+                            else if (item.Type == "Photo")
+                            {
+                                <div style="margin-top:8px;padding:12px;border:2px dashed #d1d5db;border-radius:8px;text-align:center;color:#9CA3AF;font-size:0.8rem;">
+                                    <MudIcon Icon="@Icons.Material.Filled.CameraAlt" Size="Size.Small" Color="Color.Secondary" />
+                                    Ta bilde eller last opp
+                                </div>
+                            }
+                            else if (item.Type == "Signature")
+                            {
+                                <div style="margin-top:8px;padding:12px;border:2px dashed #d1d5db;border-radius:8px;text-align:center;color:#9CA3AF;font-size:0.8rem;">
+                                    <MudIcon Icon="@Icons.Material.Filled.Draw" Size="Size.Small" Color="Color.Secondary" />
+                                    Signatur
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </MudPaper>
             }
         }
 
-        @* ── Add Item Button (overview mode) ── *@
-        @if (_showAddItemTypes)
-        {
-            <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-4 mb-4">
-                <MudText Typo="Typo.subtitle2" Class="mb-3">Velg elementtype</MudText>
-                <MudGrid Spacing="2">
-                    @foreach (var itemType in _itemTypes)
-                    {
-                        <MudItem xs="6" sm="4" md="3">
-                            <MudButton Variant="Variant.Outlined" Color="Color.Primary" FullWidth="true"
-                                       StartIcon="@GetTypeIcon(itemType.Key)"
-                                       OnClick="() => AddItem(itemType.Key)"
-                                       Style="text-transform:none;border-radius:8px;min-height:48px;"
-                                       Disabled="_addingItem">
-                                @itemType.Value
-                            </MudButton>
-                        </MudItem>
-                    }
-                </MudGrid>
-                <MudButton Variant="Variant.Text" Color="Color.Default" Class="mt-2"
-                           OnClick="() => _showAddItemTypes = false"
-                           Style="text-transform:none;">
-                    Avbryt
-                </MudButton>
-            </MudPaper>
-        }
-        else
-        {
-            <MudButton Variant="Variant.Outlined" Color="Color.Primary" FullWidth="true"
-                       StartIcon="@Icons.Material.Filled.Add"
-                       OnClick="() => _showAddItemTypes = true"
-                       Style="text-transform:none;border-radius:8px;min-height:48px;" Class="mb-4">
-                Legg til element
-            </MudButton>
-        }
-    }
-
-    @* ── Version History (Collapsible) ── *@
-    @if (_template.Versions.Count > 0)
-    {
-        <MudExpansionPanels Class="mb-4">
-            <MudExpansionPanel Text="Versjonshistorikk" Style="border:1px solid #E9ECEF;border-radius:12px;">
-                <MudList T="string" Dense="true">
-                    @foreach (var version in _template.Versions.OrderByDescending(v => v.VersionNumber))
-                    {
-                        var isCurrent = version.VersionNumber == _template.CurrentVersion;
-                        <MudListItem T="string">
-                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                                <MudText Typo="Typo.body2" Style="@(isCurrent ? "font-weight:700;" : "")">
-                                    Versjon @version.VersionNumber
-                                </MudText>
-                                @if (isCurrent)
-                                {
-                                    <MudChip T="string" Size="Size.Small" Variant="Variant.Filled"
-                                             Color="Color.Primary" Style="height:20px;">Gjeldende</MudChip>
-                                }
-                                @if (version.PublishedAt.HasValue)
-                                {
-                                    <MudText Typo="Typo.caption" Color="Color.Secondary">
-                                        Publisert @version.PublishedAt.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm")
-                                        @if (!string.IsNullOrWhiteSpace(version.PublishedByName))
-                                        {
-                                            <text> av @version.PublishedByName</text>
-                                        }
-                                    </MudText>
-                                }
-                            </MudStack>
-                        </MudListItem>
-                    }
-                </MudList>
-            </MudExpansionPanel>
-        </MudExpansionPanels>
-    }
+        @* ── Add element buttons ── *@
+        <MudPaper Elevation="0" Style="border:2px dashed #4361EE40;border-radius:12px;background:#F8FAFF;" Class="pa-4 mb-4">
+            <MudText Typo="Typo.caption" Style="font-weight:600;color:#4361EE;" Class="mb-2">LEGG TIL ELEMENT</MudText>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                @foreach (var t in _itemTypes)
+                {
+                    var type = t.Key;
+                    <MudButton Variant="Variant.Outlined" Size="Size.Small"
+                               StartIcon="@GetTypeIcon(type)"
+                               OnClick="() => AddItem(type)"
+                               Disabled="_addingItem"
+                               Style="@($"text-transform:none;border-radius:8px;border-color:{GetTypeColor(type)}40;color:{GetTypeColor(type)};")">
+                        @t.Value
+                    </MudButton>
+                }
+            </div>
+        </MudPaper>
+    </div>
 }
 
 @code {
@@ -414,40 +220,21 @@ else
 
     private ChecklistTemplateDetailDto? _template;
     private bool _loading = true;
-    private bool _publishing;
     private bool _duplicating;
     private bool _addingItem;
-    private bool _showAddItemTypes;
-
-    // Builder mode
-    private string _builderMode = "step";
-
-    // Step-by-step builder state
-    private string _newItemType = "Check";
-    private string _newItemLabel = string.Empty;
-    private string _newItemSectionGroup = string.Empty;
-    private bool _newItemIsRequired;
-    private bool _newItemAllowComment;
-    private bool _newItemAllowPhoto;
-    private bool _newItemRequireCommentOnIR;
-    private string _newItemUnit = string.Empty;
-    private string _newItemDropdownOptions = string.Empty;
 
     // Name editing
     private bool _editingName;
-    private string _editName = string.Empty;
+    private string _editName = "";
 
     // Item label editing
     private Guid? _editingItemId;
-    private string _editItemLabel = string.Empty;
+    private string _editItemLabel = "";
 
     // Settings
-    private string _settingsDescription = string.Empty;
-    private string _settingsCategory = string.Empty;
+    private string _settingsDescription = "";
+    private string _settingsCategory = "";
     private bool _settingsRequireSignature;
-    private int _settingsSignatureCount = 1;
-    private string _settingsSignatureRoles = string.Empty;
-    private string _settingsTags = string.Empty;
 
     private static readonly Dictionary<string, string> _itemTypes = new()
     {
@@ -455,15 +242,12 @@ else
         ["TextInput"] = "Tekstfelt",
         ["NumberInput"] = "Tallfelt",
         ["DateInput"] = "Dato",
-        ["Dropdown"] = "Nedtrekksliste",
+        ["Dropdown"] = "Nedtrekk",
         ["Photo"] = "Foto",
         ["Signature"] = "Signatur"
     };
 
-    protected override async Task OnInitializedAsync()
-    {
-        await LoadTemplate();
-    }
+    protected override async Task OnInitializedAsync() => await LoadTemplate();
 
     private async Task LoadTemplate()
     {
@@ -471,17 +255,14 @@ else
         _template = await ChecklistService.GetTemplateByIdAsync(Id);
         if (_template is not null)
         {
-            _settingsDescription = _template.Description ?? string.Empty;
-            _settingsCategory = _template.Category ?? string.Empty;
+            _settingsDescription = _template.Description ?? "";
+            _settingsCategory = _template.Category ?? "";
             _settingsRequireSignature = _template.RequireSignature;
-            _settingsSignatureCount = _template.SignatureCount;
-            _settingsSignatureRoles = _template.SignatureRoles ?? string.Empty;
-            _settingsTags = _template.Tags ?? string.Empty;
         }
         _loading = false;
     }
 
-    // ── Name editing ──
+    // ── Name ──
 
     private void StartEditName()
     {
@@ -495,56 +276,25 @@ else
         if (_template is null || !_editingName) return;
         _editingName = false;
         if (string.IsNullOrWhiteSpace(_editName) || _editName == _template.Name) return;
-
-        var request = new UpdateChecklistTemplateRequest(
-            _editName, _settingsDescription, _settingsCategory,
-            _settingsRequireSignature, _settingsSignatureCount,
-            _settingsSignatureRoles, _settingsTags);
-        var success = await ChecklistService.UpdateTemplateAsync(Id, request);
-        if (success) await LoadTemplate();
-        else Snackbar.Add("Kunne ikke oppdatere navn", Severity.Error);
+        await SaveSettingsWithName(_editName);
     }
 
-    // ── Settings save ──
+    // ── Settings ──
 
-    private async Task SaveSettings()
+    private async Task SaveSettings() => await SaveSettingsWithName(_template?.Name ?? "");
+
+    private async Task SaveSettingsWithName(string name)
     {
         if (_template is null) return;
         var request = new UpdateChecklistTemplateRequest(
-            _template.Name, _settingsDescription, _settingsCategory,
-            _settingsRequireSignature, _settingsSignatureCount,
-            _settingsSignatureRoles, _settingsTags);
-        var success = await ChecklistService.UpdateTemplateAsync(Id, request);
-        if (!success) Snackbar.Add("Kunne ikke lagre innstillinger", Severity.Error);
+            name, _settingsDescription, _settingsCategory,
+            _settingsRequireSignature, _template.SignatureCount,
+            _template.SignatureRoles, _template.Tags);
+        var ok = await ChecklistService.UpdateTemplateAsync(Id, request);
+        if (ok) await LoadTemplate();
     }
 
-    // ── Tags ──
-
-    private async Task RemoveTag(string tag)
-    {
-        if (_template is null) return;
-        var tags = _settingsTags.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Where(t => t != tag).ToList();
-        _settingsTags = string.Join(", ", tags);
-        await SaveSettings();
-        await LoadTemplate();
-    }
-
-    // ── Publish / Duplicate ──
-
-    private async Task PublishTemplate()
-    {
-        if (_template is null) return;
-        _publishing = true;
-        var success = await ChecklistService.PublishTemplateAsync(Id);
-        _publishing = false;
-        if (success)
-        {
-            Snackbar.Add("Malen er publisert", Severity.Success);
-            await LoadTemplate();
-        }
-        else Snackbar.Add("Kunne ikke publisere", Severity.Error);
-    }
+    // ── Duplicate ──
 
     private async Task DuplicateTemplate()
     {
@@ -557,10 +307,9 @@ else
             Snackbar.Add("Mal duplisert", Severity.Success);
             Navigation.NavigateTo($"/checklists/templates/{newId.Value}");
         }
-        else Snackbar.Add("Kunne ikke duplisere", Severity.Error);
     }
 
-    // ── Item Label Editing ──
+    // ── Item label ──
 
     private void StartEditItemLabel(ChecklistTemplateItemDto item)
     {
@@ -573,152 +322,10 @@ else
         if (_editingItemId != item.Id) return;
         _editingItemId = null;
         if (string.IsNullOrWhiteSpace(_editItemLabel) || _editItemLabel == item.Label) return;
-
-        var request = new UpdateTemplateItemRequest(
-            _editItemLabel, item.IsRequired, item.HelpText, item.SectionGroup,
-            item.SortOrder, item.DropdownOptions, item.UnitLabel,
-            item.RequireCommentOnIrrelevant, item.AllowPhoto, item.AllowComment);
-        var success = await ChecklistService.UpdateTemplateItemAsync(Id, item.Id, request);
-        if (success) await LoadTemplate();
-        else Snackbar.Add("Kunne ikke oppdatere", Severity.Error);
+        await UpdateItem(item with { Label = _editItemLabel });
     }
 
-    // ── Item Updates ──
-
-    private async Task UpdateItemRequired(ChecklistTemplateItemDto item, bool val)
-    {
-        var request = new UpdateTemplateItemRequest(
-            item.Label, val, item.HelpText, item.SectionGroup, item.SortOrder,
-            item.DropdownOptions, item.UnitLabel, item.RequireCommentOnIrrelevant,
-            item.AllowPhoto, item.AllowComment);
-        var success = await ChecklistService.UpdateTemplateItemAsync(Id, item.Id, request);
-        if (success) await LoadTemplate();
-    }
-
-    private async Task UpdateItemSectionGroup(ChecklistTemplateItemDto item, string val)
-    {
-        var request = new UpdateTemplateItemRequest(
-            item.Label, item.IsRequired, item.HelpText, string.IsNullOrWhiteSpace(val) ? null : val,
-            item.SortOrder, item.DropdownOptions, item.UnitLabel,
-            item.RequireCommentOnIrrelevant, item.AllowPhoto, item.AllowComment);
-        await ChecklistService.UpdateTemplateItemAsync(Id, item.Id, request);
-        await LoadTemplate();
-    }
-
-    private async Task UpdateItemHelpText(ChecklistTemplateItemDto item, string val)
-    {
-        var request = new UpdateTemplateItemRequest(
-            item.Label, item.IsRequired, string.IsNullOrWhiteSpace(val) ? null : val,
-            item.SectionGroup, item.SortOrder, item.DropdownOptions, item.UnitLabel,
-            item.RequireCommentOnIrrelevant, item.AllowPhoto, item.AllowComment);
-        await ChecklistService.UpdateTemplateItemAsync(Id, item.Id, request);
-    }
-
-    private async Task UpdateItemCheckSetting(ChecklistTemplateItemDto item,
-        bool? requireComment = null, bool? allowPhoto = null, bool? allowComment = null)
-    {
-        var request = new UpdateTemplateItemRequest(
-            item.Label, item.IsRequired, item.HelpText, item.SectionGroup, item.SortOrder,
-            item.DropdownOptions, item.UnitLabel,
-            requireComment ?? item.RequireCommentOnIrrelevant,
-            allowPhoto ?? item.AllowPhoto,
-            allowComment ?? item.AllowComment);
-        var success = await ChecklistService.UpdateTemplateItemAsync(Id, item.Id, request);
-        if (success) await LoadTemplate();
-    }
-
-    private async Task UpdateItemUnitLabel(ChecklistTemplateItemDto item, string val)
-    {
-        var request = new UpdateTemplateItemRequest(
-            item.Label, item.IsRequired, item.HelpText, item.SectionGroup, item.SortOrder,
-            item.DropdownOptions, string.IsNullOrWhiteSpace(val) ? null : val,
-            item.RequireCommentOnIrrelevant, item.AllowPhoto, item.AllowComment);
-        await ChecklistService.UpdateTemplateItemAsync(Id, item.Id, request);
-    }
-
-    private async Task UpdateItemDropdownOptions(ChecklistTemplateItemDto item, string val)
-    {
-        var request = new UpdateTemplateItemRequest(
-            item.Label, item.IsRequired, item.HelpText, item.SectionGroup, item.SortOrder,
-            string.IsNullOrWhiteSpace(val) ? null : val, item.UnitLabel,
-            item.RequireCommentOnIrrelevant, item.AllowPhoto, item.AllowComment);
-        await ChecklistService.UpdateTemplateItemAsync(Id, item.Id, request);
-    }
-
-    // ── Item Reorder ──
-
-    private async Task MoveItemUp(ChecklistTemplateItemDto item)
-    {
-        var items = _template!.Items.OrderBy(i => i.SortOrder).ToList();
-        var index = items.IndexOf(item);
-        if (index <= 0) return;
-
-        var prev = items[index - 1];
-        await UpdateItemSortOrder(item, prev.SortOrder);
-        await UpdateItemSortOrder(prev, item.SortOrder);
-        await LoadTemplate();
-    }
-
-    private async Task MoveItemDown(ChecklistTemplateItemDto item)
-    {
-        var items = _template!.Items.OrderBy(i => i.SortOrder).ToList();
-        var index = items.IndexOf(item);
-        if (index < 0 || index >= items.Count - 1) return;
-
-        var next = items[index + 1];
-        await UpdateItemSortOrder(item, next.SortOrder);
-        await UpdateItemSortOrder(next, item.SortOrder);
-        await LoadTemplate();
-    }
-
-    private async Task UpdateItemSortOrder(ChecklistTemplateItemDto item, int newSortOrder)
-    {
-        var request = new UpdateTemplateItemRequest(
-            item.Label, item.IsRequired, item.HelpText, item.SectionGroup, newSortOrder,
-            item.DropdownOptions, item.UnitLabel, item.RequireCommentOnIrrelevant,
-            item.AllowPhoto, item.AllowComment);
-        await ChecklistService.UpdateTemplateItemAsync(Id, item.Id, request);
-    }
-
-    // ── Step-by-step Add ──
-
-    private async Task AddStepItem()
-    {
-        if (string.IsNullOrWhiteSpace(_newItemLabel)) return;
-        _addingItem = true;
-        var maxSort = _template?.Items.Count > 0 ? _template.Items.Max(i => i.SortOrder) : 0;
-        var request = new AddTemplateItemRequest(
-            _newItemType,
-            _newItemLabel,
-            _newItemIsRequired,
-            null,
-            string.IsNullOrWhiteSpace(_newItemSectionGroup) ? null : _newItemSectionGroup,
-            maxSort + 1,
-            _newItemType == "Dropdown" ? (string.IsNullOrWhiteSpace(_newItemDropdownOptions) ? "Alternativ 1, Alternativ 2" : _newItemDropdownOptions) : null,
-            _newItemType == "NumberInput" ? (string.IsNullOrWhiteSpace(_newItemUnit) ? null : _newItemUnit) : null,
-            _newItemRequireCommentOnIR,
-            _newItemAllowPhoto,
-            _newItemAllowComment);
-        var itemId = await ChecklistService.AddTemplateItemAsync(Id, request);
-        _addingItem = false;
-        if (itemId.HasValue)
-        {
-            await LoadTemplate();
-            // Reset step-by-step fields
-            _newItemLabel = string.Empty;
-            _newItemIsRequired = false;
-            _newItemAllowComment = false;
-            _newItemAllowPhoto = false;
-            _newItemRequireCommentOnIR = false;
-            _newItemUnit = string.Empty;
-            _newItemDropdownOptions = string.Empty;
-            _newItemSectionGroup = string.Empty;
-            Snackbar.Add("Element lagt til", Severity.Success);
-        }
-        else Snackbar.Add("Kunne ikke legge til element", Severity.Error);
-    }
-
-    // ── Add / Delete Items ──
+    // ── Item CRUD ──
 
     private async Task AddItem(string type)
     {
@@ -727,25 +334,73 @@ else
         var request = new AddTemplateItemRequest(
             type, "Nytt element", false, null, null, maxSort + 1,
             type == "Dropdown" ? "Alternativ 1, Alternativ 2" : null,
-            type == "NumberInput" ? "" : null);
+            type == "NumberInput" ? "" : null,
+            true, true, true); // defaults: requireCommentOnIR, allowPhoto, allowComment all ON
         var itemId = await ChecklistService.AddTemplateItemAsync(Id, request);
         _addingItem = false;
-        _showAddItemTypes = false;
         if (itemId.HasValue)
         {
             await LoadTemplate();
-            // Start editing the new item label
             var newItem = _template?.Items.FirstOrDefault(i => i.Id == itemId.Value);
             if (newItem is not null) StartEditItemLabel(newItem);
         }
-        else Snackbar.Add("Kunne ikke legge til element", Severity.Error);
     }
 
     private async Task DeleteItem(ChecklistTemplateItemDto item)
     {
-        var success = await ChecklistService.DeleteTemplateItemAsync(Id, item.Id);
-        if (success) await LoadTemplate();
-        else Snackbar.Add("Kunne ikke slette element", Severity.Error);
+        await ChecklistService.DeleteTemplateItemAsync(Id, item.Id);
+        await LoadTemplate();
+    }
+
+    private async Task UpdateItem(ChecklistTemplateItemDto item)
+    {
+        var request = new UpdateTemplateItemRequest(
+            item.Label, item.IsRequired, item.HelpText, item.SectionGroup,
+            item.SortOrder, item.DropdownOptions, item.UnitLabel,
+            item.RequireCommentOnIrrelevant, item.AllowPhoto, item.AllowComment);
+        await ChecklistService.UpdateTemplateItemAsync(Id, item.Id, request);
+        await LoadTemplate();
+    }
+
+    private async Task UpdateItemUnitLabel(ChecklistTemplateItemDto item, string val)
+    {
+        await UpdateItem(item with { UnitLabel = string.IsNullOrWhiteSpace(val) ? null : val });
+    }
+
+    private async Task UpdateItemDropdownOptions(ChecklistTemplateItemDto item, string val)
+    {
+        await UpdateItem(item with { DropdownOptions = string.IsNullOrWhiteSpace(val) ? null : val });
+    }
+
+    // ── Reorder ──
+
+    private async Task MoveItemUp(ChecklistTemplateItemDto item)
+    {
+        var items = _template!.Items.OrderBy(i => i.SortOrder).ToList();
+        var idx = items.IndexOf(item);
+        if (idx <= 0) return;
+        var prev = items[idx - 1];
+        await SwapOrder(item, prev);
+    }
+
+    private async Task MoveItemDown(ChecklistTemplateItemDto item)
+    {
+        var items = _template!.Items.OrderBy(i => i.SortOrder).ToList();
+        var idx = items.IndexOf(item);
+        if (idx < 0 || idx >= items.Count - 1) return;
+        var next = items[idx + 1];
+        await SwapOrder(item, next);
+    }
+
+    private async Task SwapOrder(ChecklistTemplateItemDto a, ChecklistTemplateItemDto b)
+    {
+        var aSort = a.SortOrder;
+        var bSort = b.SortOrder;
+        await ChecklistService.UpdateTemplateItemAsync(Id, a.Id,
+            new(a.Label, a.IsRequired, a.HelpText, a.SectionGroup, bSort, a.DropdownOptions, a.UnitLabel, a.RequireCommentOnIrrelevant, a.AllowPhoto, a.AllowComment));
+        await ChecklistService.UpdateTemplateItemAsync(Id, b.Id,
+            new(b.Label, b.IsRequired, b.HelpText, b.SectionGroup, aSort, b.DropdownOptions, b.UnitLabel, b.RequireCommentOnIrrelevant, b.AllowPhoto, b.AllowComment));
+        await LoadTemplate();
     }
 
     // ── Helpers ──
@@ -772,5 +427,17 @@ else
         "Photo" => "Foto",
         "Signature" => "Signatur",
         _ => type
+    };
+
+    private static string GetTypeColor(string type) => type switch
+    {
+        "Check" => "#10B981",
+        "TextInput" => "#4361EE",
+        "NumberInput" => "#EA580C",
+        "DateInput" => "#7C3AED",
+        "Dropdown" => "#0891B2",
+        "Photo" => "#E63946",
+        "Signature" => "#D97706",
+        _ => "#6B7280"
     };
 }

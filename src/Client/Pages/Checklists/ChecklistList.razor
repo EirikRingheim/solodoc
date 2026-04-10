@@ -135,27 +135,34 @@
             @if (_assignCount > 1)
             {
                 <MudText Typo="Typo.subtitle2" Style="font-weight:600;">Navngivning</MudText>
-                <MudSelect T="string" @bind-Value="_assignNamingMode" Label="Navngivning" Variant="Variant.Outlined">
-                    <MudSelectItem T="string" Value="@("numbered")">Nummerert (1, 2, 3...)</MudSelectItem>
-                    <MudSelectItem T="string" Value="@("range")">Nummerert fra-til</MudSelectItem>
-                    <MudSelectItem T="string" Value="@("custom")">Egendefinerte navn</MudSelectItem>
-                </MudSelect>
+                <MudToggleGroup T="string" @bind-Value="_assignNamingMode" Color="Color.Primary"
+                                Style="border-radius:8px;" Dense="true" CheckMark="false">
+                    <MudToggleItem Value="@("numbered")" Text="Nummerert" />
+                    <MudToggleItem Value="@("range")" Text="Fra-til" />
+                    <MudToggleItem Value="@("custom")" Text="Egne navn" />
+                </MudToggleGroup>
 
                 @if (_assignNamingMode == "numbered")
                 {
                     <MudTextField T="string" @bind-Value="_assignPrefix" Label="Prefiks"
-                                  Variant="Variant.Outlined" Placeholder="Etasje"
-                                  HelperText="Resultat: Etasje 1, Etasje 2, ..." />
+                                  Variant="Variant.Outlined" Placeholder="Etasje" Immediate="true" />
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                        @for (var i = 1; i <= Math.Min(_assignCount, 3); i++)
+                        {
+                            @(i > 1 ? ", " : "")@(_assignPrefix) @i
+                        }
+                        @(_assignCount > 3 ? $", ... {_assignPrefix} {_assignCount}" : "")
+                    </MudText>
                 }
                 else if (_assignNamingMode == "range")
                 {
                     <MudStack Row="true" Spacing="2">
                         <MudTextField T="string" @bind-Value="_assignPrefix" Label="Prefiks"
-                                      Variant="Variant.Outlined" Placeholder="Seksjon" />
+                                      Variant="Variant.Outlined" Placeholder="Seksjon" Immediate="true" />
                         <MudNumericField T="int" @bind-Value="_assignRangeStart" Label="Fra" Variant="Variant.Outlined" Min="1" />
                     </MudStack>
                     <MudText Typo="Typo.caption" Color="Color.Secondary">
-                        Resultat: @_assignPrefix @_assignRangeStart – @(_assignRangeStart + _assignCount - 1)
+                        @_assignPrefix @_assignRangeStart – @(_assignRangeStart + _assignCount - 1)
                     </MudText>
                 }
                 else if (_assignNamingMode == "custom")
