@@ -13,41 +13,56 @@
     @* ── Super Admin Bar ── *@
     @if (_isSuperAdmin)
     {
-        <div style="background:#1B2A4A;color:#fff;padding:4px 16px;display:flex;align-items:center;gap:12px;font-size:0.75rem;z-index:200;position:relative;">
-            <MudIcon Icon="@Icons.Material.Filled.AdminPanelSettings" Size="Size.Small" Style="color:#F59E0B;" />
-            <span style="font-weight:600;color:#F59E0B;">SUPER ADMIN</span>
+        <div style="background:linear-gradient(90deg,#1B2A4A,#243352);color:#fff;padding:6px 20px;display:flex;align-items:center;gap:16px;font-size:0.8rem;z-index:200;position:relative;flex-wrap:wrap;min-height:40px;">
+            <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+                <MudIcon Icon="@Icons.Material.Filled.Shield" Size="Size.Small" Style="color:#F59E0B;" />
+                <span style="font-weight:700;color:#F59E0B;letter-spacing:0.5px;">SUPER ADMIN</span>
+            </div>
 
             @* Tenant switcher *@
-            <div style="display:flex;align-items:center;gap:6px;margin-left:8px;">
-                <span style="color:#9CA3AF;">Bedrift:</span>
-                <select style="background:#2D3B55;color:#fff;border:1px solid #4B5563;border-radius:6px;padding:2px 8px;font-size:0.75rem;cursor:pointer;"
+            <div style="display:flex;align-items:center;gap:6px;">
+                <MudIcon Icon="@Icons.Material.Filled.Business" Size="Size.Small" Style="color:#6B7280;" />
+                <select style="background:#2D3B55;color:#fff;border:1px solid #4B5563;border-radius:8px;padding:4px 12px;font-size:0.8rem;cursor:pointer;min-width:180px;outline:none;"
                         value="@_selectedTenantId"
                         @onchange="OnTenantChanged">
                     @foreach (var t in _tenants)
                     {
-                        <option value="@t.Id">@t.Name (@t.Role)</option>
+                        <option value="@t.Id">@t.Name</option>
                     }
                 </select>
             </div>
 
             @* Role impersonation *@
-            <div style="display:flex;align-items:center;gap:6px;margin-left:8px;">
-                <span style="color:#9CA3AF;">Vis som:</span>
-                <select style="background:#2D3B55;color:#fff;border:1px solid #4B5563;border-radius:6px;padding:2px 8px;font-size:0.75rem;cursor:pointer;"
-                        value="@_viewAsRole"
-                        @onchange="OnRoleChanged">
-                    <option value="admin">Admin</option>
-                    <option value="project-leader">Prosjektleder</option>
-                    <option value="field-worker">Feltarbeider</option>
-                </select>
+            <div style="display:flex;align-items:center;gap:6px;">
+                <MudIcon Icon="@Icons.Material.Filled.SwitchAccount" Size="Size.Small" Style="color:#6B7280;" />
+                <div style="display:flex;border-radius:8px;overflow:hidden;border:1px solid #4B5563;">
+                    @foreach (var role in _impersonationRoles)
+                    {
+                        var isActive = _viewAsRole == role.Key;
+                        var capturedRole = role;
+                        <button style="@($"background:{(isActive ? "#4361EE" : "#2D3B55")};color:{(isActive ? "#fff" : "#9CA3AF")};border:none;padding:4px 12px;font-size:0.75rem;cursor:pointer;font-weight:{(isActive ? "600" : "400")};transition:all 0.15s;")"
+                                @onclick="() => SetImpersonationRole(capturedRole.Key)">
+                            @role.Value
+                        </button>
+                    }
+                </div>
             </div>
 
             <MudSpacer />
 
-            <MudButton Variant="Variant.Text" Size="Size.Small" Href="/admin/tenants"
-                       Style="color:#60A5FA;text-transform:none;font-size:0.75rem;">
-                Alle bedrifter
-            </MudButton>
+            @* Quick links *@
+            <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+                <MudButton Variant="Variant.Text" Size="Size.Small" Href="/admin/tenants"
+                           StartIcon="@Icons.Material.Filled.People"
+                           Style="color:#60A5FA;text-transform:none;font-size:0.75rem;">
+                    Bedrifter
+                </MudButton>
+                <MudButton Variant="Variant.Text" Size="Size.Small" Href="/admin/sync"
+                           StartIcon="@Icons.Material.Filled.Sync"
+                           Style="color:#60A5FA;text-transform:none;font-size:0.75rem;">
+                    Sync
+                </MudButton>
+            </div>
         </div>
     }
 
@@ -115,40 +130,63 @@
             <MudNavLink Href="/procedures" Match="NavLinkMatch.Prefix"
                         Icon="@Icons.Material.Filled.MenuBook">Prosedyrer</MudNavLink>
 
-            <div class="nav-group-label mt-4">DOKUMENTASJON</div>
-            <MudNavLink Href="/locations" Match="NavLinkMatch.Prefix"
-                        Icon="@Icons.Material.Filled.LocationOn">Lokasjoner</MudNavLink>
-            <MudNavLink Href="/contacts" Match="NavLinkMatch.Prefix"
-                        Icon="@Icons.Material.Filled.Contacts">Kontakter</MudNavLink>
-            <MudNavLink Href="/machines" Match="NavLinkMatch.Prefix"
-                        Icon="@Icons.Material.Filled.PrecisionManufacturing">Maskinpark</MudNavLink>
-            <MudNavLink Href="/hms" Match="NavLinkMatch.Prefix"
-                        Icon="@Icons.Material.Filled.HealthAndSafety">HMS</MudNavLink>
-            <MudNavLink Href="/chemicals" Match="NavLinkMatch.Prefix"
-                        Icon="@Icons.Material.Filled.Science">Stoffkartotek</MudNavLink>
-            <MudNavLink Href="/reports" Match="NavLinkMatch.Prefix"
-                        Icon="@Icons.Material.Filled.Assessment">Rapporter</MudNavLink>
+            @if (_viewAsRole is not "subcontractor")
+            {
+                <div class="nav-group-label mt-4">DOKUMENTASJON</div>
+                <MudNavLink Href="/locations" Match="NavLinkMatch.Prefix"
+                            Icon="@Icons.Material.Filled.LocationOn">Lokasjoner</MudNavLink>
+                @if (ShowProjectLeaderSection)
+                {
+                    <MudNavLink Href="/contacts" Match="NavLinkMatch.Prefix"
+                                Icon="@Icons.Material.Filled.Contacts">Kontakter</MudNavLink>
+                    <MudNavLink Href="/machines" Match="NavLinkMatch.Prefix"
+                                Icon="@Icons.Material.Filled.PrecisionManufacturing">Maskinpark</MudNavLink>
+                }
+                <MudNavLink Href="/hms" Match="NavLinkMatch.Prefix"
+                            Icon="@Icons.Material.Filled.HealthAndSafety">HMS</MudNavLink>
+                <MudNavLink Href="/chemicals" Match="NavLinkMatch.Prefix"
+                            Icon="@Icons.Material.Filled.Science">Stoffkartotek</MudNavLink>
+                @if (ShowProjectLeaderSection)
+                {
+                    <MudNavLink Href="/reports" Match="NavLinkMatch.Prefix"
+                                Icon="@Icons.Material.Filled.Assessment">Rapporter</MudNavLink>
+                }
+            }
 
             <div class="nav-group-label mt-4">MIN KONTO</div>
             <MudNavLink Href="/profile" Match="NavLinkMatch.Prefix"
                         Icon="@Icons.Material.Filled.Person">Min profil</MudNavLink>
-            <MudNavLink Href="/employees" Match="NavLinkMatch.Prefix"
-                        Icon="@Icons.Material.Filled.People">Ansatte</MudNavLink>
-            <MudNavLink Href="/admin/hours" Match="NavLinkMatch.Prefix"
-                        Icon="@Icons.Material.Filled.QueryStats">Timer-oversikt</MudNavLink>
+            @if (ShowEmployeeSection)
+            {
+                <MudNavLink Href="/employees" Match="NavLinkMatch.Prefix"
+                            Icon="@Icons.Material.Filled.People">Ansatte</MudNavLink>
+            }
+            @if (ShowProjectLeaderSection)
+            {
+                <MudNavLink Href="/admin/hours" Match="NavLinkMatch.Prefix"
+                            Icon="@Icons.Material.Filled.QueryStats">Timer-oversikt</MudNavLink>
+            }
 
-            <div class="nav-group-label mt-4">ADMIN</div>
-            <MudNavLink Href="/admin/shifts" Match="NavLinkMatch.Prefix"
-                        Icon="@Icons.Material.Filled.Schedule">Skift og overtid</MudNavLink>
-            <MudNavLink Href="/admin/planner" Match="NavLinkMatch.Prefix"
-                        Icon="@Icons.Material.Filled.CalendarViewMonth">Skiftplanlegger</MudNavLink>
-            <MudNavLink Href="/admin/settings" Match="NavLinkMatch.Prefix"
-                        Icon="@Icons.Material.Filled.Settings">Innstillinger</MudNavLink>
+            @if (ShowAdminSection)
+            {
+                <div class="nav-group-label mt-4">ADMIN</div>
+                <MudNavLink Href="/admin/shifts" Match="NavLinkMatch.Prefix"
+                            Icon="@Icons.Material.Filled.Schedule">Skift og overtid</MudNavLink>
+                <MudNavLink Href="/admin/planner" Match="NavLinkMatch.Prefix"
+                            Icon="@Icons.Material.Filled.CalendarViewMonth">Skiftplanlegger</MudNavLink>
+                <MudNavLink Href="/admin/settings" Match="NavLinkMatch.Prefix"
+                            Icon="@Icons.Material.Filled.Settings">Innstillinger</MudNavLink>
+            }
             @if (_isSuperAdmin)
             {
+                <div class="nav-group-label mt-4" style="color:#F59E0B;">SOLODOC</div>
                 <MudNavLink Href="/admin/tenants" Match="NavLinkMatch.Prefix"
                             Icon="@Icons.Material.Filled.Business" Style="color:#F59E0B;">
                     Alle bedrifter
+                </MudNavLink>
+                <MudNavLink Href="/admin/sync" Match="NavLinkMatch.Prefix"
+                            Icon="@Icons.Material.Filled.Sync" Style="color:#F59E0B;">
+                    Synkronisering
                 </MudNavLink>
             }
         </MudNavMenu>
@@ -309,6 +347,19 @@
     private int _syncPendingCount;
     private DateTimeOffset? _syncLastSynced;
 
+    // Impersonation roles
+    private static readonly Dictionary<string, string> _impersonationRoles = new()
+    {
+        ["admin"] = "Admin",
+        ["project-leader"] = "Prosjektleder",
+        ["field-worker"] = "Feltarbeider",
+        ["subcontractor"] = "Underentreprenor"
+    };
+
+    private bool ShowAdminSection => _viewAsRole is "admin";
+    private bool ShowProjectLeaderSection => _viewAsRole is "admin" or "project-leader";
+    private bool ShowEmployeeSection => _viewAsRole is "admin" or "project-leader";
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
@@ -391,9 +442,9 @@
         Navigation.NavigateTo("/", forceLoad: true);
     }
 
-    private async Task OnRoleChanged(ChangeEventArgs e)
+    private async Task SetImpersonationRole(string role)
     {
-        _viewAsRole = e.Value?.ToString() ?? "admin";
+        _viewAsRole = role;
         await LocalStorage.SetItemAsStringAsync("viewAsRole", _viewAsRole);
         StateHasChanged();
     }
