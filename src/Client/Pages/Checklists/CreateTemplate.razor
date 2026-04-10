@@ -123,7 +123,14 @@
             streamContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(file.ContentType);
             content.Add(streamContent, "file", file.Name);
 
-            var id = await ChecklistService.ImportTemplateFromFileAsync(content);
+            if (file.Size > 25 * 1024 * 1024)
+            {
+                Snackbar.Add("Filen er for stor. Maks 25 MB.", Severity.Warning);
+                _importing = false;
+                return;
+            }
+
+            var (id, error) = await ChecklistService.ImportTemplateFromFileAsync(content);
 
             ms.Dispose();
             stream.Dispose();
@@ -135,12 +142,15 @@
             }
             else
             {
-                Snackbar.Add("Kunne ikke lese filen. Prov et annet format.", Severity.Warning);
+                Snackbar.Add(error ?? "Kunne ikke lese filen.", Severity.Warning);
             }
         }
         catch (Exception ex)
         {
-            Snackbar.Add($"Feil ved opplasting: {ex.Message}", Severity.Error);
+            if (ex.Message.Contains("exceeds the maximum"))
+                Snackbar.Add("Filen er for stor. Maks 25 MB.", Severity.Warning);
+            else
+                Snackbar.Add($"Feil ved opplasting: {ex.Message}", Severity.Error);
         }
 
         _importing = false;

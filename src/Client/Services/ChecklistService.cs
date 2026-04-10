@@ -88,18 +88,35 @@ public class ChecklistService(ApiHttpClient api)
         return response.IsSuccessStatusCode;
     }
 
-    public async Task<Guid?> ImportTemplateFromFileAsync(MultipartFormDataContent content)
+    public async Task<(Guid? Id, string? Error)> ImportTemplateFromFileAsync(MultipartFormDataContent content)
     {
-        // Use raw HTTP client with manual token attachment for multipart uploads
         await api.AttachTokenAsync();
         var response = await api.Http.PostAsync("api/checklists/templates/import", content);
         if (response.IsSuccessStatusCode)
         {
             var result = await response.Content.ReadFromJsonAsync<IdResponse>();
-            return result?.Id;
+            return (result?.Id, null);
         }
-        return null;
+
+        // Try to read error message from response
+        try
+        {
+            var errorJson = await response.Content.ReadFromJsonAsync<ErrorResponse>();
+            return (null, errorJson?.Error ?? $"Feil ({(int)response.StatusCode})");
+        }
+        catch
+        {
+            return (null, response.StatusCode switch
+            {
+                System.Net.HttpStatusCode.RequestEntityTooLarge => "Filen er for stor. Maks 25 MB.",
+                System.Net.HttpStatusCode.Unauthorized => "Du er ikke logget inn. Logg inn og prov igjen.",
+                System.Net.HttpStatusCode.BadRequest => "Kunne ikke lese filen. Prov et annet format (PDF, Excel, Word).",
+                _ => $"Uventet feil ({(int)response.StatusCode})"
+            });
+        }
     }
+
+    private record ErrorResponse(string? Error);
 
     // ─── Instances ───────────────────────────────────────
 
