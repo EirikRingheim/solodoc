@@ -269,7 +269,7 @@
     {
         var searchLower = _templateSearch?.ToLowerInvariant() ?? "";
         var filtered = _templates
-            .Where(t => t.DocumentType == documentType)
+            .Where(t => t.DocumentType == documentType || (documentType == "Checklist" && string.IsNullOrEmpty(t.DocumentType)))
             .Where(t => string.IsNullOrEmpty(searchLower)
                 || t.Name.Contains(searchLower, StringComparison.OrdinalIgnoreCase)
                 || (t.Category?.Contains(searchLower, StringComparison.OrdinalIgnoreCase) ?? false))
