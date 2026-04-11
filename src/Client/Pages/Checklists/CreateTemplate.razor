@@ -20,16 +20,17 @@
                           Placeholder="F.eks. Brannsjekk, Overlevering, Fuktkontroll"
                           Required="true" Immediate="true" />
 
-            <MudStack Row="true" Spacing="2">
-                <MudChipSet T="string" @bind-SelectedValue="_documentType" Mandatory="true" SelectionMode="SelectionMode.SingleSelection">
-                    <MudChip T="string" Value="@("Checklist")" Variant="Variant.Outlined" Color="Color.Primary"
-                             Style="text-transform:none;">Sjekkliste</MudChip>
-                    <MudChip T="string" Value="@("Schema")" Variant="Variant.Outlined" Color="Color.Primary"
-                             Style="text-transform:none;">Skjema</MudChip>
-                    <MudChip T="string" Value="@("Procedure")" Variant="Variant.Outlined" Color="Color.Primary"
-                             Style="text-transform:none;">Prosedyre</MudChip>
-                </MudChipSet>
-            </MudStack>
+            <div style="display:flex;gap:8px;">
+                @foreach (var dt in new[] { ("Checklist", "Sjekkliste"), ("Schema", "Skjema"), ("Procedure", "Prosedyre") })
+                {
+                    var isSelected = _documentType == dt.Item1;
+                    var capturedKey = dt.Item1;
+                    <div @onclick="() => _documentType = capturedKey"
+                         style="@($"flex:1;padding:10px;text-align:center;border-radius:10px;cursor:pointer;font-weight:{(isSelected ? "600" : "400")};font-size:0.9rem;border:2px solid {(isSelected ? "#4361EE" : "#e9ecef")};background:{(isSelected ? "#EBF0FF" : "#fff")};color:{(isSelected ? "#4361EE" : "#6B7280")};transition:all 0.15s;")">
+                        @dt.Item2
+                    </div>
+                }
+            </div>
 
             <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
                        OnClick="CreateAndEdit" Disabled="@(_submitting || string.IsNullOrWhiteSpace(_name))"
