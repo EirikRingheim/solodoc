@@ -16,6 +16,7 @@ public static class MarketplaceEndpoints
         app.MapPost("/api/marketplace/publish/{templateId:guid}", PublishToMarketplace).RequireAuthorization();
         app.MapPost("/api/marketplace/buy/{id:guid}", BuyTemplate).RequireAuthorization();
         app.MapGet("/api/marketplace/purchases", GetMyPurchases).RequireAuthorization();
+        app.MapPut("/api/marketplace/{id:guid}", UpdateMarketplaceTemplate).RequireAuthorization();
         app.MapDelete("/api/marketplace/{id:guid}", UnpublishFromMarketplace).RequireAuthorization();
 
         return app;
@@ -238,6 +239,27 @@ public static class MarketplaceEndpoints
             .ToListAsync(ct);
 
         return Results.Ok(purchases);
+    }
+
+    // ─── Update marketplace template ─────────────────────
+
+    private static async Task<IResult> UpdateMarketplaceTemplate(
+        Guid id,
+        PublishToMarketplaceRequest request,
+        SolodocDbContext db,
+        CancellationToken ct)
+    {
+        var mp = await db.MarketplaceTemplates.FirstOrDefaultAsync(m => m.Id == id && !m.IsDeleted, ct);
+        if (mp is null) return Results.NotFound();
+
+        if (!string.IsNullOrWhiteSpace(request.Name)) mp.Name = request.Name;
+        if (request.Description is not null) mp.Description = request.Description;
+        if (!string.IsNullOrWhiteSpace(request.Category)) mp.Category = request.Category;
+        if (request.Color is not null) mp.Color = request.Color;
+        if (request.PriceKr.HasValue) mp.PriceKr = request.PriceKr.Value;
+
+        await db.SaveChangesAsync(ct);
+        return Results.Ok();
     }
 
     // ─── Unpublish (super admin) ────────────────────────

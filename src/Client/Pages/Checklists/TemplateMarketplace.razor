@@ -3,8 +3,10 @@
 @inject MarketplaceService MarketplaceService
 @inject ISnackbar Snackbar
 @inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthStateProvider
 @using Solodoc.Shared.Onboarding
 @using Solodoc.Shared.Marketplace
+@using System.Security.Claims
 
 <PageTitle>Solodoc - Malbutikk</PageTitle>
 
@@ -104,6 +106,25 @@ else
                         {
                             <MudText Typo="Typo.caption" Color="Color.Secondary">@tmpl.PurchaseCount bedrifter bruker denne</MudText>
                         }
+
+                        @* Admin controls *@
+                        @if (_isAdmin)
+                        {
+                            <MudStack Row="true" Spacing="1" Style="margin-top:4px;">
+                                <MudButton Variant="Variant.Text" Size="Size.Small"
+                                           StartIcon="@Icons.Material.Filled.Edit"
+                                           OnClick="() => OpenEditDialog(capturedTmpl)"
+                                           Style="text-transform:none;font-size:0.75rem;">Rediger</MudButton>
+                                <MudButton Variant="Variant.Text" Size="Size.Small"
+                                           StartIcon="@Icons.Material.Filled.VisibilityOff"
+                                           OnClick="() => HideTemplate(capturedTmpl)"
+                                           Style="text-transform:none;font-size:0.75rem;color:#F59E0B;">Skjul</MudButton>
+                                <MudButton Variant="Variant.Text" Size="Size.Small" Color="Color.Error"
+                                           StartIcon="@Icons.Material.Filled.Delete"
+                                           OnClick="() => DeleteTemplate(capturedTmpl)"
+                                           Style="text-transform:none;font-size:0.75rem;">Slett</MudButton>
+                            </MudStack>
+                        }
                     </MudStack>
                 </MudPaper>
             </MudItem>
@@ -174,18 +195,62 @@ else
     </MudSimpleTable>
 }
 
+@* ── Edit Dialog ── *@
+<MudDialog @bind-Visible="_editOpen" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true })">
+    <TitleContent><MudText Typo="Typo.h6">Rediger mal i butikk</MudText></TitleContent>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudTextField T="string" @bind-Value="_editName" Label="Navn" Variant="Variant.Outlined" />
+            <MudTextField T="string" @bind-Value="_editDescription" Label="Beskrivelse" Variant="Variant.Outlined" Lines="2" />
+            <MudSelect T="string" @bind-Value="_editCategory" Label="Kategori" Variant="Variant.Outlined">
+                <MudSelectItem T="string" Value="@("Bygg")">Bygg</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Elektro")">Elektro</MudSelectItem>
+                <MudSelectItem T="string" Value="@("HMS")">HMS</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Rørlegger")">Rørlegger</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Landbruk")">Landbruk</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Generell")">Generell</MudSelectItem>
+            </MudSelect>
+            <MudNumericField T="int" @bind-Value="_editPrice" Label="Pris (kr)" Variant="Variant.Outlined" Min="0" />
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => _editOpen = false" Style="text-transform:none;">Avbryt</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveEdit"
+                   Style="text-transform:none;border-radius:8px;">Lagre</MudButton>
+    </DialogActions>
+</MudDialog>
+
 @code {
     private List<MarketplaceListItemDto> _templates = [];
     private List<PurchaseDto> _purchases = [];
     private string? _filter;
     private bool _loading = true;
     private bool _buying;
+    private bool _isAdmin;
+
+    // Edit dialog
+    private bool _editOpen;
+    private Guid _editId;
+    private string _editName = "";
+    private string _editDescription = "";
+    private string _editCategory = "Generell";
+    private int _editPrice = 49;
 
     private List<MarketplaceListItemDto> FilteredTemplates =>
         _filter is null ? _templates : _templates.Where(t => t.Category == _filter).ToList();
 
     protected override async Task OnInitializedAsync()
     {
+        // Check admin status
+        try
+        {
+            var auth = await AuthStateProvider.GetAuthenticationStateAsync();
+            var role = auth.User.FindFirst("role")?.Value
+                       ?? auth.User.FindFirst(ClaimTypes.Role)?.Value;
+            _isAdmin = role is "super-admin" or "tenant-admin";
+        }
+        catch { }
+
         var templatesTask = MarketplaceService.GetTemplatesAsync();
         var purchasesTask = MarketplaceService.GetPurchasesAsync();
         _templates = await templatesTask;
@@ -202,7 +267,6 @@ else
         if (result is not null)
         {
             Snackbar.Add($"{tmpl.Name} kjøpt! Malen er lagt til i dine sjekklister.", Severity.Success);
-            // Refresh
             _templates = await MarketplaceService.GetTemplatesAsync();
             _purchases = await MarketplaceService.GetPurchasesAsync();
         }
@@ -211,6 +275,55 @@ else
             Snackbar.Add("Kunne ikke kjøpe malen. Prøv igjen.", Severity.Error);
         }
         _buying = false;
+    }
+
+    private void OpenEditDialog(MarketplaceListItemDto tmpl)
+    {
+        _editId = tmpl.Id;
+        _editName = tmpl.Name;
+        _editDescription = tmpl.Description ?? "";
+        _editCategory = tmpl.Category;
+        _editPrice = tmpl.PriceKr;
+        _editOpen = true;
+    }
+
+    private async Task SaveEdit()
+    {
+        var ok = await MarketplaceService.UpdateAsync(_editId, new(_editName, _editDescription, _editCategory, null, _editPrice));
+        if (ok)
+        {
+            Snackbar.Add("Oppdatert!", Severity.Success);
+            _editOpen = false;
+            _templates = await MarketplaceService.GetTemplatesAsync();
+        }
+        else
+        {
+            Snackbar.Add("Kunne ikke oppdatere", Severity.Error);
+        }
+    }
+
+    private async Task HideTemplate(MarketplaceListItemDto tmpl)
+    {
+        var ok = await MarketplaceService.UnpublishAsync(tmpl.Id);
+        if (ok)
+        {
+            Snackbar.Add($"{tmpl.Name} skjult fra butikken", Severity.Info);
+            _templates = await MarketplaceService.GetTemplatesAsync();
+        }
+    }
+
+    private async Task DeleteTemplate(MarketplaceListItemDto tmpl)
+    {
+        var ok = await MarketplaceService.DeleteAsync(tmpl.Id);
+        if (ok)
+        {
+            Snackbar.Add($"{tmpl.Name} slettet", Severity.Success);
+            _templates = await MarketplaceService.GetTemplatesAsync();
+        }
+        else
+        {
+            Snackbar.Add("Kunne ikke slette — har noen kjøpt denne?", Severity.Error);
+        }
     }
 
     private void OrderPack() => Snackbar.Add("Kontakt oss for å bestille en pakke: kontakt@solodoc.no", Severity.Info);

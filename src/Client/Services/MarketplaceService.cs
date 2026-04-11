@@ -35,5 +35,15 @@ public class MarketplaceService(ApiHttpClient api)
         return (await api.DeleteAsync($"api/marketplace/{id}")).IsSuccessStatusCode;
     }
 
+    public async Task<bool> UpdateAsync(Guid id, PublishToMarketplaceRequest request)
+    {
+        return (await api.PutAsJsonAsync($"api/marketplace/{id}", request)).IsSuccessStatusCode;
+    }
+
+    public async Task<bool> DeleteAsync(Guid id)
+    {
+        return (await api.DeleteAsync($"api/marketplace/{id}")).IsSuccessStatusCode;
+    }
+
     public record BuyResult(Guid TemplateId, int Price);
 }
