@@ -32,6 +32,16 @@
             </MudText>
             <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" OnClick="StartEditName" />
         }
+        <span style="display:flex;align-items:center;gap:4px;font-size:0.75rem;color:#059669;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="#059669"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+            Automatisk lagret
+        </span>
+        <MudButton Variant="Variant.Filled" Size="Size.Small" Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.Visibility"
+                   OnClick="() => _previewOpen = true"
+                   Style="text-transform:none;border-radius:8px;">
+            Forhåndsvisning
+        </MudButton>
         <MudButton Variant="Variant.Outlined" Size="Size.Small"
                    StartIcon="@Icons.Material.Filled.ContentCopy"
                    OnClick="DuplicateTemplate" Disabled="_duplicating"
@@ -233,6 +243,96 @@ else
     </div>
 }
 
+@* ── Preview Dialog (shows how it looks when filling out) ── *@
+@if (_previewOpen && _template is not null)
+{
+    <div style="position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px;"
+         @onclick="() => _previewOpen = false">
+        <div style="background:#fff;border-radius:16px;max-width:500px;width:100%;max-height:85vh;overflow-y:auto;box-shadow:0 16px 48px rgba(0,0,0,0.15);"
+             @onclick:stopPropagation="true">
+            @* Phone-style header *@
+            <div style="padding:16px 20px;border-bottom:1px solid #e9ecef;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:#fff;border-radius:16px 16px 0 0;z-index:1;">
+                <div>
+                    <div style="font-weight:700;font-size:1rem;">@_template.Name</div>
+                    <div style="font-size:0.75rem;color:#9CA3AF;">Forhåndsvisning · @_template.Items.Count elementer</div>
+                </div>
+                <div @onclick="() => _previewOpen = false" style="cursor:pointer;padding:4px;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6B7280" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </div>
+            </div>
+
+            @* Items rendered as fill-out view *@
+            <div style="padding:16px 20px;">
+                @foreach (var item in _template.Items.OrderBy(i => i.SortOrder))
+                {
+                    <div style="border:1px solid #e9ecef;border-radius:10px;padding:14px;margin-bottom:10px;">
+                        <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+                            <span style="font-weight:600;font-size:0.9rem;">@item.Label</span>
+                            @if (item.IsRequired)
+                            {
+                                <span style="color:#E63946;">*</span>
+                            }
+                        </div>
+
+                        @switch (item.Type.ToString())
+                        {
+                            case "Check":
+                                <div style="display:flex;gap:8px;">
+                                    <div style="flex:1;padding:10px;text-align:center;border-radius:8px;border:2px solid #D1FAE5;color:#059669;font-weight:600;font-size:0.85rem;">OK</div>
+                                    <div style="flex:1;padding:10px;text-align:center;border-radius:8px;border:2px solid #e9ecef;color:#6B7280;font-weight:600;font-size:0.85rem;">Ikke relevant</div>
+                                </div>
+                                break;
+                            case "TextInput":
+                                <div style="padding:10px;border:1px solid #e9ecef;border-radius:8px;color:#9CA3AF;font-size:0.85rem;">Fritekst...</div>
+                                break;
+                            case "NumberInput":
+                                <div style="display:flex;gap:8px;align-items:center;">
+                                    <div style="flex:1;padding:10px;border:1px solid #e9ecef;border-radius:8px;color:#9CA3AF;font-size:0.85rem;">0</div>
+                                    @if (!string.IsNullOrWhiteSpace(item.UnitLabel))
+                                    {
+                                        <span style="color:#6B7280;font-size:0.85rem;">@item.UnitLabel</span>
+                                    }
+                                </div>
+                                break;
+                            case "DateInput":
+                                <div style="padding:10px;border:1px solid #e9ecef;border-radius:8px;color:#9CA3AF;font-size:0.85rem;display:flex;align-items:center;gap:6px;">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                                    dd.mm.yyyy
+                                </div>
+                                break;
+                            case "Dropdown":
+                                <div style="padding:10px;border:1px solid #e9ecef;border-radius:8px;color:#9CA3AF;font-size:0.85rem;display:flex;align-items:center;justify-content:space-between;">
+                                    Velg...
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+                                </div>
+                                break;
+                            case "Photo":
+                                <div style="padding:16px;border:2px dashed #d1d5db;border-radius:8px;text-align:center;color:#9CA3AF;font-size:0.85rem;">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" stroke-width="2" style="display:block;margin:0 auto 4px;"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                                    Ta bilde
+                                </div>
+                                break;
+                            case "Signature":
+                                <div style="padding:16px;border:2px dashed #d1d5db;border-radius:8px;text-align:center;color:#9CA3AF;font-size:0.85rem;">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" stroke-width="2" style="display:block;margin:0 auto 4px;"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>
+                                    Signer
+                                </div>
+                                break;
+                        }
+                    </div>
+                }
+            </div>
+
+            @* Footer *@
+            <div style="padding:12px 20px;border-top:1px solid #e9ecef;position:sticky;bottom:0;background:#fff;border-radius:0 0 16px 16px;">
+                <div style="padding:12px;background:#4361EE;color:#fff;border-radius:10px;text-align:center;font-weight:600;">
+                    Send inn
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     [Parameter] public Guid Id { get; set; }
 
@@ -240,6 +340,7 @@ else
     private bool _loading = true;
     private bool _duplicating;
     private bool _isSuperAdmin;
+    private bool _previewOpen;
     private bool _addingItem;
 
     // Name editing

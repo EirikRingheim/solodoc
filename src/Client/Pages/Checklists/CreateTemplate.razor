@@ -102,7 +102,10 @@
             var id = await ChecklistService.CreateTemplateAsync(request);
 
             if (id.HasValue)
+            {
+                Snackbar.Add("Mal opprettet!", Severity.Success);
                 Navigation.NavigateTo($"/checklists/templates/{id.Value}");
+            }
             else
                 Snackbar.Add("Kunne ikke opprette mal", Severity.Error);
         }
