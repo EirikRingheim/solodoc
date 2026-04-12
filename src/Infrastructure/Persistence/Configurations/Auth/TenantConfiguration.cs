@@ -10,7 +10,7 @@ public class TenantConfiguration : IEntityTypeConfiguration<Tenant>
     {
         builder.HasKey(t => t.Id);
 
-        builder.HasIndex(t => t.OrgNumber).IsUnique();
+        builder.HasIndex(t => t.OrgNumber).IsUnique().HasFilter("org_number <> ''");
 
         builder.Property(t => t.Name).HasMaxLength(300).IsRequired();
         builder.Property(t => t.OrgNumber).HasMaxLength(20).IsRequired();
