@@ -1,0 +1,486 @@
+@page "/admin/subcontractors"
+@attribute [Authorize]
+@inject ApiHttpClient Api
+@inject ProjectService ProjectService
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
+@using Solodoc.Shared.Auth
+@using Solodoc.Shared.Projects
+@using System.Net.Http.Json
+
+<PageTitle>Solodoc - Underentreprenorer</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-4">
+    <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Href="/employees" />
+    <MudText Typo="Typo.h5" Style="font-weight:700;">Underentreprenorer</MudText>
+</MudStack>
+
+@* ── Invite form ── *@
+<MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;" Class="pa-5 mb-4">
+    <MudText Typo="Typo.subtitle1" Style="font-weight:600;" Class="mb-3">Inviter underentreprenor</MudText>
+    <MudStack Spacing="3">
+        <MudGrid Spacing="2">
+            <MudItem xs="12" sm="6">
+                <MudTextField T="string" @bind-Value="_inviteEmail" Label="E-post" Variant="Variant.Outlined"
+                              Placeholder="navn@firma.no" InputType="InputType.Email" Required="true" Immediate="true" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudSelect T="Guid?" @bind-Value="_inviteProjectId" Label="Prosjekt" Variant="Variant.Outlined"
+                           Placeholder="Velg prosjekt..." Required="true"
+                           AdornmentIcon="@Icons.Material.Filled.Folder">
+                    @foreach (var p in _projects)
+                    {
+                        <MudSelectItem T="Guid?" Value="@((Guid?)p.Id)">@p.Name</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+        </MudGrid>
+
+        <MudGrid Spacing="2">
+            <MudItem xs="12" sm="6">
+                <MudSelect T="int" @bind-Value="_inviteAccessDays" Label="Tilgangsvarighet" Variant="Variant.Outlined">
+                    <MudSelectItem T="int" Value="1">1 dag</MudSelectItem>
+                    <MudSelectItem T="int" Value="7">1 uke</MudSelectItem>
+                    <MudSelectItem T="int" Value="30">1 maned</MudSelectItem>
+                    <MudSelectItem T="int" Value="90">3 maneder</MudSelectItem>
+                    <MudSelectItem T="int" Value="365">1 ar</MudSelectItem>
+                    <MudSelectItem T="int" Value="0">Ubegrenset</MudSelectItem>
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" sm="6" Style="display:flex;align-items:center;">
+                <MudSwitch T="bool" @bind-Value="_inviteHoursEnabled" Label="Kan registrere timer" Color="Color.Primary" />
+            </MudItem>
+        </MudGrid>
+
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                   OnClick="SendInvite"
+                   Disabled="@(_inviting || string.IsNullOrWhiteSpace(_inviteEmail) || !_inviteProjectId.HasValue)"
+                   Style="text-transform:none;border-radius:8px;align-self:flex-start;">
+            @if (_inviting) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> }
+            Send invitasjon
+        </MudButton>
+    </MudStack>
+</MudPaper>
+
+@* ── Generated invite link ── *@
+@if (_lastInviteUrl is not null)
+{
+    <MudPaper Elevation="0" Style="border:2px solid #059669;border-radius:12px;background:#F0FDF4;" Class="pa-4 mb-4">
+        <MudStack Spacing="2">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudIcon Icon="@Icons.Material.Filled.Link" Style="color:#059669;" />
+                <MudText Typo="Typo.subtitle2" Style="font-weight:600;color:#059669;">Invitasjonslenke opprettet!</MudText>
+            </MudStack>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">Send denne lenken til underentreprenoren:</MudText>
+            <div style="display:flex;gap:8px;align-items:center;">
+                <code style="flex:1;background:#fff;padding:10px;border-radius:6px;border:1px solid #D1FAE5;font-size:0.8rem;word-break:break-all;">@_lastInviteFullUrl</code>
+                <MudIconButton Icon="@Icons.Material.Filled.ContentCopy" Size="Size.Small"
+                               OnClick="CopyInviteLink" Style="color:#059669;" />
+            </div>
+        </MudStack>
+    </MudPaper>
+}
+
+@* ── Active subcontractors ── *@
+<MudText Typo="Typo.subtitle1" Style="font-weight:600;" Class="mb-2">Aktive underentreprenorer</MudText>
+
+@if (_loadingList)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+}
+else if (_subcontractors.Count == 0)
+{
+    <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;" Class="pa-8">
+        <MudStack AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Filled.GroupAdd" Size="Size.Large" Color="Color.Secondary" />
+            <MudText Color="Color.Secondary">Ingen underentreprenorer enna. Inviter den forste!</MudText>
+        </MudStack>
+    </MudPaper>
+}
+else
+{
+    <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;overflow:hidden;">
+        <MudSimpleTable Dense="true" Hover="true" Style="font-size:0.85rem;">
+            <thead>
+                <tr style="background:#F8F9FA;">
+                    <th>Navn</th>
+                    <th>E-post</th>
+                    <th>Prosjekt</th>
+                    <th>Status</th>
+                    <th>Utloper</th>
+                    <th>Timer</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var sub in _subcontractors)
+                {
+                    var capturedSub = sub;
+                    var isExpired = sub.ExpiresAt.HasValue && sub.ExpiresAt.Value < DateTimeOffset.UtcNow;
+                    var stateColor = sub.State switch { "Active" => "#059669", "Revoked" => "#DC2626", _ => "#6B7280" };
+                    var stateLabel = sub.State switch { "Active" => isExpired ? "Utlopt" : "Aktiv", "Revoked" => "Fjernet", "ReadOnly" => "Lesetilgang", _ => sub.State };
+                    if (isExpired) stateColor = "#D97706";
+
+                    <tr>
+                        <td style="font-weight:500;">@sub.PersonName</td>
+                        <td style="color:#6B7280;">@sub.PersonEmail</td>
+                        <td>@sub.ProjectName</td>
+                        <td>
+                            <span style="@($"color:{stateColor};font-weight:600;font-size:0.75rem;")">@stateLabel</span>
+                        </td>
+                        <td style="font-size:0.75rem;color:#9CA3AF;">
+                            @(sub.ExpiresAt?.ToLocalTime().ToString("dd.MM.yy") ?? "Ubegrenset")
+                        </td>
+                        <td>
+                            @if (sub.HoursEnabled) { <MudIcon Icon="@Icons.Material.Filled.Check" Size="Size.Small" Color="Color.Success" /> }
+                            else { <MudIcon Icon="@Icons.Material.Filled.Close" Size="Size.Small" Color="Color.Secondary" /> }
+                        </td>
+                        <td>
+                            @if (sub.State == "Active")
+                            {
+                                <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Error"
+                                           OnClick="() => RevokeAccess(capturedSub)"
+                                           Style="text-transform:none;font-size:0.7rem;">Fjern</MudButton>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </MudSimpleTable>
+    </MudPaper>
+}
+
+@* ── Test / Preview section ── *@
+<MudPaper Elevation="0" Style="border:1px solid #FDE68A;border-radius:12px;background:#FFFBEB;" Class="pa-4 mt-4">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-3">
+        <MudIcon Icon="@Icons.Material.Filled.Science" Style="color:#D97706;" />
+        <MudText Typo="Typo.subtitle1" Style="font-weight:600;color:#92400E;">Test begge flytene</MudText>
+    </MudStack>
+
+    <MudGrid Spacing="3">
+        @* ── Flow 1: Subcontractor invite ── *@
+        <MudItem xs="12" md="6">
+            <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:10px;background:#fff;" Class="pa-4">
+                <MudStack Spacing="2">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                        <MudIcon Icon="@Icons.Material.Filled.Mail" Style="color:#4361EE;" />
+                        <MudText Typo="Typo.subtitle2" Style="font-weight:600;">1. UE-invitasjon</MudText>
+                    </MudStack>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        Slik ser det ut nar en underentreprenor mottar invitasjonslenken og oppretter konto.
+                    </MudText>
+                    @if (_previewInviteId is null)
+                    {
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="CreateTestInvite"
+                                   Disabled="@(_creatingTest || _projects.Count == 0)"
+                                   Style="text-transform:none;border-radius:8px;">
+                            @if (_creatingTest) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> }
+                            Opprett test-invitasjon
+                        </MudButton>
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.caption" Style="color:#059669;font-weight:500;">Test-invitasjon opprettet</MudText>
+                        <MudButton Variant="Variant.Filled" OnClick="() => _showInvitePreview = true"
+                                   Style="text-transform:none;border-radius:8px;background:#4361EE;color:#fff;">
+                            Se underentreprenorens visning
+                        </MudButton>
+                    }
+                </MudStack>
+            </MudPaper>
+        </MudItem>
+
+        @* ── Flow 2: Guest QR check-in ── *@
+        <MudItem xs="12" md="6">
+            <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:10px;background:#fff;" Class="pa-4">
+                <MudStack Spacing="2">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                        <MudIcon Icon="@Icons.Material.Filled.QrCode" Style="color:#059669;" />
+                        <MudText Typo="Typo.subtitle2" Style="font-weight:600;">2. Gjest QR-innsjekking</MudText>
+                    </MudStack>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        Slik ser det ut nar en besokende skanner QR-koden pa byggeplassen uten konto.
+                    </MudText>
+                    <MudButton Variant="Variant.Filled" OnClick="() => _showGuestPreview = true"
+                               Style="text-transform:none;border-radius:8px;background:#059669;color:#fff;">
+                        Se gjestens visning
+                    </MudButton>
+                </MudStack>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+</MudPaper>
+
+@* ── Invite preview dialog ── *@
+<MudDialog @bind-Visible="_showInvitePreview" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true })">
+    <TitleContent>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Filled.PhoneIphone" Color="Color.Primary" />
+            <MudText Typo="Typo.h6">Underentreprenorens visning</MudText>
+        </MudStack>
+    </TitleContent>
+    <DialogContent>
+        @* Phone frame mockup *@
+        <div style="max-width:380px;margin:0 auto;border:2px solid #E9ECEF;border-radius:24px;overflow:hidden;background:#F8F9FA;">
+            @if (_testInviteDetails is not null)
+            {
+                var accent = _testInviteDetails.TenantAccentColor ?? "#4361EE";
+                @* Header *@
+                <div style="@($"background:linear-gradient(135deg, {accent}15, {accent}08);padding:28px 20px 16px;text-align:center;border-top:4px solid {accent};")">
+                    <div style="@($"font-weight:700;color:{accent};font-size:1.1rem;")">@_testInviteDetails.TenantName</div>
+                    <div style="@($"display:inline-block;padding:3px 12px;border-radius:16px;background:{accent};color:#fff;font-size:0.65rem;font-weight:600;margin-top:6px;")">UNDERENTREPRENOR</div>
+                    <div style="font-weight:700;font-size:1.2rem;margin-top:10px;">@_testInviteDetails.ProjectName</div>
+                    <div style="font-size:0.8rem;color:#6B7280;margin-top:4px;">@_testInviteDetails.InvitedByName har invitert deg</div>
+                </div>
+
+                @* Form preview *@
+                <div style="padding:20px;">
+                    <div style="font-size:0.8rem;color:#6B7280;margin-bottom:12px;">Opprett konto for a fa tilgang</div>
+                    <div style="background:#fff;border:1px solid #E9ECEF;border-radius:8px;padding:10px 12px;margin-bottom:8px;">
+                        <div style="font-size:0.65rem;color:#9CA3AF;">Fullt navn</div>
+                        <div style="color:#374151;">Ola Nordmann</div>
+                    </div>
+                    <div style="background:#F3F4F6;border:1px solid #E9ECEF;border-radius:8px;padding:10px 12px;margin-bottom:8px;">
+                        <div style="font-size:0.65rem;color:#9CA3AF;">E-post</div>
+                        <div style="color:#9CA3AF;">@_testInviteDetails.Email</div>
+                    </div>
+                    <div style="background:#fff;border:1px solid #E9ECEF;border-radius:8px;padding:10px 12px;margin-bottom:8px;">
+                        <div style="font-size:0.65rem;color:#9CA3AF;">Passord</div>
+                        <div style="color:#374151;">********</div>
+                    </div>
+                    <div style="@($"background:{accent};color:#fff;border-radius:10px;padding:12px;text-align:center;font-weight:600;margin-top:12px;")">
+                        Opprett konto og bli med
+                    </div>
+                    <div style="text-align:center;margin-top:12px;font-size:0.75rem;color:#9CA3AF;">
+                        Har du allerede konto? <span style="@($"color:{accent};")">Logg inn</span>
+                    </div>
+                </div>
+            }
+        </div>
+
+        @* Step indicator *@
+        <MudStack AlignItems="AlignItems.Center" Class="mt-4" Spacing="2">
+            <MudText Typo="Typo.caption" Color="Color.Secondary">Etter registrering ser de:</MudText>
+            <div style="max-width:380px;width:100%;border:2px solid #D1FAE5;border-radius:16px;overflow:hidden;background:#F0FDF4;padding:24px;text-align:center;">
+                <div style="font-size:2rem;margin-bottom:8px;">&#10003;</div>
+                <div style="font-weight:700;font-size:1.1rem;color:#059669;">Velkommen!</div>
+                <div style="font-size:0.85rem;color:#6B7280;margin-top:4px;">
+                    Du har na tilgang til <b>@_testInviteDetails?.ProjectName</b>
+                </div>
+                <div style="font-size:0.8rem;color:#9CA3AF;margin-top:4px;">
+                    Sjekklister, avviksrapportering og innsjekking
+                </div>
+            </div>
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => _showInvitePreview = false" Style="text-transform:none;">Lukk</MudButton>
+        @if (_previewInviteId is not null)
+        {
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                       Href="@($"/invite/sub/{_previewInviteId}")" Target="_blank"
+                       Style="text-transform:none;border-radius:8px;">
+                Apne ekte side (inkognito)
+            </MudButton>
+        }
+    </DialogActions>
+</MudDialog>
+
+@* ── Guest QR preview dialog ── *@
+<MudDialog @bind-Visible="_showGuestPreview" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true })">
+    <TitleContent>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Filled.PhoneIphone" Style="color:#059669;" />
+            <MudText Typo="Typo.h6">Gjestens visning etter QR-skann</MudText>
+        </MudStack>
+    </TitleContent>
+    <DialogContent>
+        @* Phone frame mockup *@
+        <div style="max-width:380px;margin:0 auto;border:2px solid #E9ECEF;border-radius:24px;overflow:hidden;background:#F8F9FA;">
+            @* Header *@
+            <div style="background:linear-gradient(135deg, #4361EE15, #4361EE08);padding:28px 20px 16px;text-align:center;border-top:4px solid #4361EE;">
+                <div style="font-weight:700;color:#4361EE;font-size:1.1rem;">Fjellbygg AS</div>
+                <div style="display:inline-block;padding:3px 12px;border-radius:16px;background:#4361EE;color:#fff;font-size:0.65rem;font-weight:600;margin-top:6px;">PROSJEKT</div>
+                <div style="font-weight:700;font-size:1.2rem;margin-top:10px;">@(_projects.FirstOrDefault()?.Name ?? "Eksempelprosjekt")</div>
+            </div>
+
+            @* Guest form *@
+            <div style="padding:20px;">
+                <div style="font-size:0.8rem;color:#6B7280;margin-bottom:12px;text-align:center;">Registrer deg for a sjekke inn</div>
+                <div style="background:#fff;border:1px solid #E9ECEF;border-radius:8px;padding:10px 12px;margin-bottom:8px;">
+                    <div style="font-size:0.65rem;color:#9CA3AF;">Fullt navn *</div>
+                    <div style="color:#374151;">Per Hansen</div>
+                </div>
+                <div style="background:#fff;border:1px solid #E9ECEF;border-radius:8px;padding:10px 12px;margin-bottom:8px;">
+                    <div style="font-size:0.65rem;color:#9CA3AF;">Firma</div>
+                    <div style="color:#374151;">Hansen Elektro AS</div>
+                </div>
+                <div style="background:#fff;border:1px solid #E9ECEF;border-radius:8px;padding:10px 12px;margin-bottom:8px;">
+                    <div style="font-size:0.65rem;color:#9CA3AF;">Telefon</div>
+                    <div style="color:#374151;">412 34 567</div>
+                </div>
+                <div style="background:#059669;color:#fff;border-radius:10px;padding:12px;text-align:center;font-weight:600;margin-top:12px;">
+                    Sjekk inn som gjest
+                </div>
+                <div style="border-top:1px solid #E9ECEF;margin-top:16px;padding-top:12px;text-align:center;">
+                    <span style="font-size:0.75rem;color:#4361EE;">Har du konto? Logg inn her</span>
+                </div>
+            </div>
+        </div>
+
+        @* After check-in *@
+        <MudStack AlignItems="AlignItems.Center" Class="mt-4" Spacing="2">
+            <MudText Typo="Typo.caption" Color="Color.Secondary">Etter innsjekking ser de:</MudText>
+            <div style="max-width:380px;width:100%;border:2px solid #D1FAE5;border-radius:16px;overflow:hidden;background:#F0FDF4;padding:24px;text-align:center;">
+                <div style="font-size:2rem;margin-bottom:8px;">&#10003;</div>
+                <div style="font-weight:700;font-size:1.1rem;color:#059669;">Sjekket inn!</div>
+                <div style="font-size:0.85rem;color:#6B7280;margin-top:4px;">
+                    Du er na registrert pa <b>@(_projects.FirstOrDefault()?.Name ?? "Prosjekt")</b>
+                </div>
+            </div>
+        </MudStack>
+
+        <MudAlert Severity="Severity.Info" Dense="true" Class="mt-3">
+            Gjester far ingen tilgang til Solodoc — de registreres kun i personellregisteret pa byggeplassen.
+        </MudAlert>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => _showGuestPreview = false" Style="text-transform:none;">Lukk</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private List<ProjectListItemDto> _projects = [];
+    private List<SubcontractorAccessDto> _subcontractors = [];
+    private bool _loadingList = true;
+
+    // Invite form
+    private string _inviteEmail = "";
+    private Guid? _inviteProjectId;
+    private int _inviteAccessDays = 30;
+    private bool _inviteHoursEnabled = true;
+    private bool _inviting;
+    private string? _lastInviteUrl;
+    private string? _lastInviteFullUrl;
+
+    // Test/preview
+    private bool _showInvitePreview;
+    private bool _showGuestPreview;
+    private bool _creatingTest;
+    private Guid? _previewInviteId;
+    private TestInviteInfo? _testInviteDetails;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var projectsTask = ProjectService.GetActiveProjectsAsync();
+        var subsTask = GetSubcontractorsAsync();
+
+        _projects = await projectsTask;
+        _subcontractors = await subsTask ?? [];
+        _loadingList = false;
+    }
+
+    private async Task SendInvite()
+    {
+        if (string.IsNullOrWhiteSpace(_inviteEmail) || !_inviteProjectId.HasValue) return;
+        _inviting = true;
+        StateHasChanged();
+
+        try
+        {
+            var request = new InviteSubcontractorRequest(
+                _inviteEmail.Trim(), _inviteProjectId.Value,
+                _inviteAccessDays, _inviteHoursEnabled);
+
+            var r = await Api.PostAsJsonAsync("api/subcontractors/invite", request);
+            if (r.IsSuccessStatusCode)
+            {
+                var result = await r.Content.ReadFromJsonAsync<SubcontractorInviteDto>();
+                if (result is not null)
+                {
+                    _lastInviteUrl = result.InviteUrl;
+                    _lastInviteFullUrl = $"{Navigation.BaseUri.TrimEnd('/')}{result.InviteUrl}";
+                    Snackbar.Add($"Invitasjon sendt til {result.Email}!", Severity.Success);
+                    _inviteEmail = "";
+
+                    // Refresh list
+                    _subcontractors = await GetSubcontractorsAsync() ?? [];
+                }
+            }
+            else
+            {
+                var error = await r.Content.ReadFromJsonAsync<ErrorBody>();
+                Snackbar.Add(error?.Error ?? "Kunne ikke sende invitasjon", Severity.Error);
+            }
+        }
+        catch
+        {
+            Snackbar.Add("Feil ved sending av invitasjon", Severity.Error);
+        }
+
+        _inviting = false;
+    }
+
+    private async Task RevokeAccess(SubcontractorAccessDto sub)
+    {
+        var r = await Api.PostAsJsonAsync($"api/subcontractors/{sub.Id}/revoke", new { });
+        if (r.IsSuccessStatusCode)
+        {
+            Snackbar.Add($"{sub.PersonName} fjernet fra {sub.ProjectName}", Severity.Info);
+            _subcontractors = await GetSubcontractorsAsync() ?? [];
+        }
+    }
+
+    private async Task CopyInviteLink()
+    {
+        // Can't use clipboard API easily, just show snackbar
+        Snackbar.Add("Kopier lenken fra feltet over", Severity.Info);
+    }
+
+    private async Task CreateTestInvite()
+    {
+        if (_projects.Count == 0) return;
+        _creatingTest = true;
+        StateHasChanged();
+
+        try
+        {
+            var testEmail = $"test-ue-{Guid.NewGuid().ToString()[..6]}@test.no";
+            var project = _projects[0];
+            var request = new InviteSubcontractorRequest(testEmail, project.Id, 30, true);
+            var r = await Api.PostAsJsonAsync("api/subcontractors/invite", request);
+
+            if (r.IsSuccessStatusCode)
+            {
+                var result = await r.Content.ReadFromJsonAsync<SubcontractorInviteDto>();
+                if (result is not null)
+                {
+                    _previewInviteId = result.InvitationId;
+
+                    // Fetch full invite details for preview
+                    var detailR = await Api.GetAsync($"api/subcontractors/invite/{result.InvitationId}");
+                    if (detailR.IsSuccessStatusCode)
+                        _testInviteDetails = await detailR.Content.ReadFromJsonAsync<TestInviteInfo>();
+
+                    _showInvitePreview = true;
+                }
+            }
+        }
+        catch { }
+
+        _creatingTest = false;
+        StateHasChanged();
+    }
+
+    private async Task<List<SubcontractorAccessDto>> GetSubcontractorsAsync()
+    {
+        var r = await Api.GetAsync("api/subcontractors");
+        return r.IsSuccessStatusCode ? await r.Content.ReadFromJsonAsync<List<SubcontractorAccessDto>>() ?? [] : [];
+    }
+
+    private record ErrorBody(string? Error);
+    private record TestInviteInfo(
+        Guid Id, string Email, string TenantName, string? TenantAccentColor,
+        string ProjectName, string InvitedByName, DateTimeOffset ExpiresAt,
+        string State, bool IsExpired);
+}

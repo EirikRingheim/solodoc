@@ -50,6 +50,23 @@ public record CheckInHistoryDto(
     double? GpsLatIn,
     double? GpsLongIn);
 
+// ─── My check-in log ────────────────────────────────
+public record CheckInLogEntryDto(
+    Guid Id,
+    string SiteName,
+    string SiteType,
+    DateTimeOffset CheckInAt,
+    DateTimeOffset? CheckOutAt,
+    string Source,
+    int DurationMinutes);
+
+// ─── Guest check-in (no account needed) ─────────────
+public record GuestCheckInRequest(
+    string Name,
+    string? Company,
+    string? Phone,
+    string Slug);
+
 // ─── QR Code ─────────────────────────────────────────
 public record QrCodeInfoDto(
     string Slug,

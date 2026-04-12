@@ -81,7 +81,7 @@ else if (_showSummary)
                 }
                 else if (resp.IsIrrelevant)
                 {
-                    <MudIcon Icon="@Icons.Material.Filled.Remove" Color="Color.Default" Size="Size.Small" />
+                    <span style="background:#F3F4F6;color:#6B7280;padding:1px 6px;border-radius:4px;font-size:0.65rem;font-weight:700;">IR</span>
                 }
                 else if (isCompleted)
                 {
@@ -97,9 +97,13 @@ else if (_showSummary)
                 }
                 <div style="flex:1;">
                     <MudText Typo="Typo.body2" Style="font-weight:500;">@item.Label</MudText>
-                    @if (resp.IsIrrelevant && !string.IsNullOrWhiteSpace(resp.IrrelevantComment))
+                    @if (resp.IsIrrelevant)
                     {
-                        <MudText Typo="Typo.caption" Color="Color.Secondary">@resp.IrrelevantComment</MudText>
+                        <MudText Typo="Typo.caption" Style="color:#6B7280;font-weight:500;">Ikke relevant</MudText>
+                        @if (!string.IsNullOrWhiteSpace(resp.IrrelevantComment))
+                        {
+                            <MudText Typo="Typo.caption" Color="Color.Secondary" Style="font-style:italic;">@resp.IrrelevantComment</MudText>
+                        }
                     }
                     else if (!string.IsNullOrWhiteSpace(resp.Value))
                     {
@@ -108,6 +112,13 @@ else if (_showSummary)
                     else if (item.IsRequired && !isCompleted)
                     {
                         <MudText Typo="Typo.caption" Color="Color.Error">Ikke utfylt</MudText>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(resp.Comment))
+                    {
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Style="margin-top:2px;">
+                            <MudIcon Icon="@Icons.Material.Filled.ChatBubbleOutline" Size="Size.Small" Style="color:#9CA3AF;font-size:0.75rem;" />
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">@resp.Comment</MudText>
+                        </MudStack>
                     }
                 </div>
             </MudStack>
@@ -122,9 +133,11 @@ else if (_showSummary)
     }
 
     <MudButton Variant="Variant.Outlined" FullWidth="true" Class="mb-3"
-               StartIcon="@Icons.Material.Filled.Draw"
+               StartIcon="@(_signatureDataUrl is not null ? Icons.Material.Filled.Check : Icons.Material.Filled.Draw)"
+               Color="@(_signatureDataUrl is not null ? Color.Success : Color.Default)"
+               OnClick="OpenSignatureDialog"
                Style="text-transform:none;min-height:56px;border-radius:12px;">
-        Signer sjekkliste
+        @(_signatureDataUrl is not null ? "Signert" : "Signer sjekkliste")
     </MudButton>
 
     <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true"
@@ -286,14 +299,21 @@ else
                     break;
 
                 case "Signature":
-                    <MudButton Variant="Variant.Outlined" Color="Color.Primary"
-                               StartIcon="@Icons.Material.Filled.Draw"
-                               Style="text-transform:none;min-height:56px;width:100%;border-radius:12px;">
-                        Signer
-                    </MudButton>
                     @if (!string.IsNullOrWhiteSpace(currentResp.SignatureFileKey))
                     {
-                        <MudText Typo="Typo.caption" Color="Color.Success" Class="mt-1">Signert</MudText>
+                        <MudPaper Elevation="0" Style="border:1px solid #D1FAE5;border-radius:12px;background:#F0FDF4;padding:12px;text-align:center;">
+                            <MudIcon Icon="@Icons.Material.Filled.Check" Color="Color.Success" />
+                            <MudText Typo="Typo.body2" Style="color:#059669;font-weight:500;">Signert</MudText>
+                        </MudPaper>
+                    }
+                    else
+                    {
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.Draw"
+                                   OnClick="() => OpenItemSignature(currentItem)"
+                                   Style="text-transform:none;min-height:56px;width:100%;border-radius:12px;">
+                            Signer
+                        </MudButton>
                     }
                     break;
             }
@@ -485,14 +505,21 @@ else
                             break;
 
                         case "Signature":
-                            <MudButton Variant="Variant.Outlined" Color="Color.Primary"
-                                       StartIcon="@Icons.Material.Filled.Draw"
-                                       Style="text-transform:none;min-height:56px;width:100%;border-radius:12px;">
-                                Signer
-                            </MudButton>
                             @if (!string.IsNullOrWhiteSpace(resp.SignatureFileKey))
                             {
-                                <MudText Typo="Typo.caption" Color="Color.Success" Class="mt-1">Signert</MudText>
+                                <MudPaper Elevation="0" Style="border:1px solid #D1FAE5;border-radius:8px;background:#F0FDF4;padding:8px;text-align:center;">
+                                    <MudIcon Icon="@Icons.Material.Filled.Check" Color="Color.Success" Size="Size.Small" />
+                                    <MudText Typo="Typo.caption" Style="color:#059669;">Signert</MudText>
+                                </MudPaper>
+                            }
+                            else
+                            {
+                                <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                                           StartIcon="@Icons.Material.Filled.Draw"
+                                           OnClick="() => OpenItemSignature(item)"
+                                           Style="text-transform:none;min-height:48px;width:100%;border-radius:8px;">
+                                    Signer
+                                </MudButton>
                             }
                             break;
                     }
@@ -513,6 +540,31 @@ else
     }
 }
 
+@* ── Signature dialog ── *@
+<MudDialog @bind-Visible="_signatureOpen" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true })">
+    <TitleContent>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Filled.Draw" Color="Color.Primary" />
+            <MudText Typo="Typo.h6">Signer</MudText>
+        </MudStack>
+    </TitleContent>
+    <DialogContent>
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">Tegn signaturen din i feltet under</MudText>
+        <div style="border:2px solid #E9ECEF;border-radius:12px;overflow:hidden;touch-action:none;">
+            <canvas id="sig-canvas" style="width:100%;display:block;"></canvas>
+        </div>
+        <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="ClearSignature"
+                   Style="text-transform:none;margin-top:4px;" Color="Color.Secondary">
+            Slett og tegn pa nytt
+        </MudButton>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => _signatureOpen = false" Style="text-transform:none;">Avbryt</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveSignature"
+                   Style="text-transform:none;border-radius:8px;">Bekreft signatur</MudButton>
+    </DialogActions>
+</MudDialog>
+
 @code {
     [Parameter] public Guid Id { get; set; }
 
@@ -528,6 +580,11 @@ else
     private int _currentIndex;
     private string _duplicateLocation = string.Empty;
     private bool _savingItem;
+
+    // Signature
+    private bool _signatureOpen;
+    private string? _signatureDataUrl;
+    private Guid? _signatureTargetItemId; // null = whole checklist, set = specific item
 
     private double ProgressPercent => _items.Count > 0
         ? (double)CompletedCount / _items.Count * 100
@@ -843,25 +900,28 @@ else
 
         try
         {
+            // Read file once into memory
+            using var ms = new MemoryStream();
+            await using var stream = file.OpenReadStream(maxAllowedSize: 25 * 1024 * 1024);
+            await stream.CopyToAsync(ms);
+            var fileBytes = ms.ToArray();
+
             string? key = null;
             var isOnline = await OfflineStorage.IsOnlineAsync();
 
             if (isOnline)
             {
-                using var stream = file.OpenReadStream(maxAllowedSize: 25 * 1024 * 1024);
-                key = await FileUploadService.UploadPhotoAsync(stream, file.Name, file.ContentType);
+                var uploadStream = new MemoryStream(fileBytes);
+                key = await FileUploadService.UploadPhotoAsync(uploadStream, file.Name, file.ContentType);
             }
 
             // If offline or upload failed, store locally
             if (key is null)
             {
-                using var ms = new MemoryStream();
-                await using var stream2 = file.OpenReadStream(maxAllowedSize: 25 * 1024 * 1024);
-                await stream2.CopyToAsync(ms);
-                var base64 = Convert.ToBase64String(ms.ToArray());
+                var base64 = Convert.ToBase64String(fileBytes);
                 await OfflineStorage.SaveOfflinePhotoAsync("checklistItem", item.Id.ToString(), file.Name, base64, file.ContentType);
                 key = $"offline:{item.Id}";
-                Snackbar.Add("Bilde lagret lokalt", Severity.Info);
+                Snackbar.Add("Bilde lagret lokalt — synkroniseres nar du er online", Severity.Info);
             }
 
             if (key is not null)
@@ -884,6 +944,87 @@ else
         catch (Exception ex)
         {
             Snackbar.Add($"Feil: {ex.Message}", Severity.Error);
+        }
+    }
+
+    // ── Signature methods ──────────────────────────────
+
+    private async Task OpenSignatureDialog()
+    {
+        _signatureTargetItemId = null;
+        _signatureOpen = true;
+        StateHasChanged();
+        await Task.Delay(100);
+        await JS.InvokeVoidAsync("signaturePad.init", "sig-canvas");
+    }
+
+    private async Task OpenItemSignature(ChecklistInstanceItemDto item)
+    {
+        _signatureTargetItemId = item.Id;
+        _signatureOpen = true;
+        StateHasChanged();
+        await Task.Delay(100);
+        await JS.InvokeVoidAsync("signaturePad.init", "sig-canvas");
+    }
+
+    private async Task ClearSignature()
+    {
+        await JS.InvokeVoidAsync("signaturePad.clear");
+    }
+
+    private async Task SaveSignature()
+    {
+        var isEmpty = await JS.InvokeAsync<bool>("signaturePad.isEmpty");
+        if (isEmpty)
+        {
+            Snackbar.Add("Tegn signaturen din forst", Severity.Warning);
+            return;
+        }
+
+        var dataUrl = await JS.InvokeAsync<string?>("signaturePad.toDataUrl");
+        if (dataUrl is null) return;
+
+        try
+        {
+            // Convert data URL to file and upload
+            var base64 = dataUrl.Split(',')[1];
+            var bytes = Convert.FromBase64String(base64);
+            var content = new MultipartFormDataContent();
+            var stream = new ByteArrayContent(bytes);
+            stream.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("image/png");
+            content.Add(stream, "file", $"signature-{Guid.NewGuid():N}.png");
+
+            var fileKey = await FileUploadService.UploadFileAsync(content);
+            if (fileKey is not null)
+            {
+                if (_signatureTargetItemId.HasValue)
+                {
+                    // Item-level signature
+                    var resp = _responses.GetValueOrDefault(_signatureTargetItemId.Value);
+                    if (resp is not null)
+                    {
+                        resp.SignatureFileKey = fileKey;
+                        var targetItem = _items.FirstOrDefault(i => i.Id == _signatureTargetItemId.Value);
+                        if (targetItem is not null) await SaveItemAsync(targetItem);
+                    }
+                }
+                else
+                {
+                    // Checklist-level signature
+                    _signatureDataUrl = dataUrl;
+                }
+
+                _signatureOpen = false;
+                Snackbar.Add("Signatur lagret", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add("Kunne ikke laste opp signatur", Severity.Error);
+            }
+        }
+        catch
+        {
+            Snackbar.Add("Feil ved lagring av signatur", Severity.Error);
         }
     }
 }

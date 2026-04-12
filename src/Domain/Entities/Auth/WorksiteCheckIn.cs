@@ -4,7 +4,7 @@ namespace Solodoc.Domain.Entities.Auth;
 
 public class WorksiteCheckIn : BaseEntity
 {
-    public Guid PersonId { get; set; }
+    public Guid? PersonId { get; set; }
     public Guid TenantId { get; set; }
 
     // Where — one of these is set
@@ -19,6 +19,12 @@ public class WorksiteCheckIn : BaseEntity
     // How
     public string Source { get; set; } = "Manual"; // "Manual", "QrCode", "TimeClock"
     public bool AutoCheckedOut { get; set; }
+
+    // Guest check-in (no account required)
+    public bool IsGuest { get; set; }
+    public string? GuestName { get; set; }
+    public string? GuestCompany { get; set; }
+    public string? GuestPhone { get; set; }
 
     // GPS
     public double? Latitude { get; set; }

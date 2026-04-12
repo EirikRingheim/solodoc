@@ -1,0 +1,44 @@
+@inherits ErrorBoundary
+@inject SuperAdminService AdminService
+@inject NavigationManager Navigation
+
+@if (CurrentException is not null)
+{
+    <MudPaper Elevation="0" Style="background:#FEF2F2;border:1px solid #FECACA;border-radius:12px;margin:24px;padding:24px;">
+        <MudStack Spacing="2">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudIcon Icon="@Icons.Material.Filled.ErrorOutline" Color="Color.Error" />
+                <MudText Typo="Typo.h6" Style="font-weight:600;color:#991B1B;">Noe gikk galt</MudText>
+            </MudStack>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                En uventet feil oppsto. Feilen er rapportert automatisk.
+            </MudText>
+            <MudText Typo="Typo.caption" Style="color:#9CA3AF;font-family:monospace;white-space:pre-wrap;max-height:120px;overflow:auto;">
+                @CurrentException.Message
+            </MudText>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Recover"
+                       Style="text-transform:none;border-radius:8px;align-self:flex-start;">
+                Prov igjen
+            </MudButton>
+        </MudStack>
+    </MudPaper>
+}
+else
+{
+    @ChildContent
+}
+
+@code {
+    protected override async Task OnErrorAsync(Exception exception)
+    {
+        try
+        {
+            var page = Navigation.Uri;
+            await AdminService.ReportErrorAsync(
+                exception.Message,
+                exception.StackTrace,
+                page);
+        }
+        catch { }
+    }
+}

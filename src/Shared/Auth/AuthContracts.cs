@@ -29,3 +29,34 @@ public record AcceptInvitationResponse(
     string Email,
     Guid TenantId,
     AuthResponse Auth);
+
+// ── Subcontractor invite ────────────────────────────
+
+public record InviteSubcontractorRequest(
+    string Email,
+    Guid ProjectId,
+    int AccessDays,         // 1, 7, 30, 90, 365, 0=unlimited
+    bool HoursEnabled);
+
+public record SubcontractorInviteDto(
+    Guid InvitationId,
+    string Email,
+    string ProjectName,
+    string TenantName,
+    int AccessDays,
+    string Status,
+    DateTimeOffset ExpiresAt,
+    string InviteUrl);
+
+public record SubcontractorAccessDto(
+    Guid Id,
+    Guid PersonId,
+    string PersonName,
+    string? PersonEmail,
+    string? PersonCompany,
+    Guid ProjectId,
+    string ProjectName,
+    string State,
+    bool HoursEnabled,
+    DateTimeOffset? ExpiresAt,
+    DateTimeOffset CreatedAt);

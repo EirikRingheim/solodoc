@@ -111,7 +111,7 @@ builder.Services.AddRateLimiter(options =>
 
 // CORS for Blazor client
 var corsOrigins = builder.Configuration["Cors:Origins"]?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-    ?? ["http://localhost:5200", "https://localhost:5201", "http://localhost:5063", "https://localhost:7153"];
+    ?? ["http://localhost:5200", "https://localhost:5201", "http://localhost:5063", "https://localhost:7153", "http://192.168.1.226:5063"];
 
 builder.Services.AddCors(options =>
 {
@@ -829,6 +829,9 @@ app.MapRoleEndpoints();
 app.MapOnboardingEndpoints();
 app.MapChatbotEndpoints();
 app.MapMarketplaceEndpoints();
+app.MapSuperAdminEndpoints();
+app.MapSubcontractorEndpoints();
+app.MapCouponEndpoints();
 
 app.Run();
 

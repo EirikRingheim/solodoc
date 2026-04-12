@@ -29,10 +29,18 @@ public class TokenService(IConfiguration configuration) : ITokenService
             claims.Add(new Claim("tenantId", tenantId.Value.ToString()));
 
         if (!string.IsNullOrEmpty(role))
+        {
             claims.Add(new Claim(ClaimTypes.Role, role));
+            claims.Add(new Claim("role", role));
+        }
 
         if (person.SystemRole is not null)
+        {
             claims.Add(new Claim(ClaimTypes.Role, person.SystemRole.Value.ToString()));
+            claims.Add(new Claim("role", person.SystemRole.Value.ToString()));
+            // Dedicated non-array claim for reliable client-side detection
+            claims.Add(new Claim("sa", "1"));
+        }
 
         var accessMinutes = int.Parse(configuration["Jwt:AccessTokenMinutes"] ?? "15");
 

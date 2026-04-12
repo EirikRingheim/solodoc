@@ -19,7 +19,9 @@ public static class CheckInEndpoints
         app.MapGet("/api/checkin/on-site/{siteType}/{siteId:guid}", GetOnSite).RequireAuthorization();
         app.MapGet("/api/checkin/all-sites", GetAllSites).RequireAuthorization();
         app.MapGet("/api/checkin/history/{siteType}/{siteId:guid}", GetHistory).RequireAuthorization();
+        app.MapGet("/api/checkin/log", GetMyLog).RequireAuthorization();
         app.MapGet("/api/checkin/qr/{slug}", QrLanding).AllowAnonymous();
+        app.MapPost("/api/checkin/guest", GuestCheckIn).AllowAnonymous();
         app.MapGet("/api/checkin/qr-branding/{siteType}/{siteId:guid}", GetQrBranding).RequireAuthorization();
         app.MapPost("/api/checkin/generate-qr/{siteType}/{siteId:guid}", GenerateQrSlug).RequireAuthorization();
 
@@ -159,35 +161,32 @@ public static class CheckInEndpoints
         };
 
         var checkIns = await query
-            .Select(c => new { c.PersonId, c.CheckedInAt, c.Source })
+            .Select(c => new { c.PersonId, c.CheckedInAt, c.Source, c.IsGuest, c.GuestName, c.GuestCompany })
             .ToListAsync(ct);
 
-        var personIds = checkIns.Select(c => c.PersonId).Distinct().ToList();
-        var persons = await db.Persons
-            .Where(p => personIds.Contains(p.Id))
-            .ToDictionaryAsync(p => p.Id, p => p, ct);
-
-        var memberships = await db.TenantMemberships
-            .Where(m => personIds.Contains(m.PersonId) && m.TenantId == tp.TenantId.Value)
-            .ToDictionaryAsync(m => m.PersonId, m => m, ct);
+        var personIds = checkIns.Where(c => c.PersonId.HasValue).Select(c => c.PersonId!.Value).Distinct().ToList();
+        var persons = personIds.Count > 0
+            ? await db.Persons.Where(p => personIds.Contains(p.Id)).ToDictionaryAsync(p => p.Id, p => p, ct)
+            : new Dictionary<Guid, Person>();
+        var memberships = personIds.Count > 0
+            ? await db.TenantMemberships.Where(m => personIds.Contains(m.PersonId) && m.TenantId == tp.TenantId.Value).ToDictionaryAsync(m => m.PersonId, m => m, ct)
+            : new Dictionary<Guid, TenantMembership>();
 
         var result = checkIns.Select(c =>
         {
-            persons.TryGetValue(c.PersonId, out var person);
-            memberships.TryGetValue(c.PersonId, out var membership);
+            if (c.IsGuest)
+                return new OnSitePersonDto(Guid.Empty, c.GuestName ?? "Gjest", "Gjest", c.GuestCompany, c.CheckedInAt, c.Source);
+
+            var pid = c.PersonId!.Value;
+            persons.TryGetValue(pid, out var person);
+            memberships.TryGetValue(pid, out var membership);
             var role = membership?.Role switch
             {
                 TenantRole.TenantAdmin => "Admin",
                 TenantRole.ProjectLeader => "Prosjektleder",
                 _ => "Feltarbeider"
             };
-            return new OnSitePersonDto(
-                c.PersonId,
-                person?.FullName ?? "",
-                role,
-                null, // Company for subcontractors — TODO
-                c.CheckedInAt,
-                c.Source.ToString());
+            return new OnSitePersonDto(pid, person?.FullName ?? "", role, null, c.CheckedInAt, c.Source.ToString());
         }).OrderBy(p => p.CheckInAt).ToList();
 
         return Results.Ok(result);
@@ -204,21 +203,21 @@ public static class CheckInEndpoints
 
         var activeCheckIns = await db.WorksiteCheckIns
             .Where(c => c.TenantId == tp.TenantId.Value && c.CheckedOutAt == null)
-            .Select(c => new { c.PersonId, c.ProjectId, c.JobId, c.LocationId, c.CheckedInAt, c.Source })
+            .Select(c => new { c.PersonId, c.ProjectId, c.JobId, c.LocationId, c.CheckedInAt, c.Source, c.IsGuest, c.GuestName, c.GuestCompany })
             .ToListAsync(ct);
 
         if (activeCheckIns.Count == 0)
             return Results.Ok(new List<SiteOverviewDto>());
 
-        // Resolve all person names
-        var personIds = activeCheckIns.Select(c => c.PersonId).Distinct().ToList();
-        var persons = await db.Persons
-            .Where(p => personIds.Contains(p.Id))
-            .ToDictionaryAsync(p => p.Id, p => p.FullName, ct);
+        // Resolve registered person names
+        var personIds = activeCheckIns.Where(c => c.PersonId.HasValue).Select(c => c.PersonId!.Value).Distinct().ToList();
+        var persons = personIds.Count > 0
+            ? await db.Persons.Where(p => personIds.Contains(p.Id)).ToDictionaryAsync(p => p.Id, p => p.FullName, ct)
+            : new Dictionary<Guid, string>();
 
-        var memberships = await db.TenantMemberships
-            .Where(m => personIds.Contains(m.PersonId) && m.TenantId == tp.TenantId.Value)
-            .ToDictionaryAsync(m => m.PersonId, m => m.Role, ct);
+        var memberships = personIds.Count > 0
+            ? await db.TenantMemberships.Where(m => personIds.Contains(m.PersonId) && m.TenantId == tp.TenantId.Value).ToDictionaryAsync(m => m.PersonId, m => m.Role, ct)
+            : new Dictionary<Guid, TenantRole>();
 
         // Resolve site names
         var projectIds = activeCheckIns.Where(c => c.ProjectId.HasValue).Select(c => c.ProjectId!.Value).Distinct().ToList();
@@ -238,37 +237,35 @@ public static class CheckInEndpoints
         // Group by site
         var sites = new List<SiteOverviewDto>();
 
-        SiteOverviewDto BuildSite(Guid siteId, string siteName, string siteType,
-            IEnumerable<Guid> pids, IEnumerable<DateTimeOffset> times, IEnumerable<string> sources)
+        OnSitePersonDto MapPerson(Guid? personId, bool isGuest, string? guestName, string? guestCompany, DateTimeOffset checkedInAt, string source)
         {
-            var items = pids.Zip(times, (pid, t) => (pid, t)).Zip(sources, (pt, s) => (pt.pid, pt.t, s)).ToList();
-            var personList = items.Select(c =>
-            {
-                persons.TryGetValue(c.pid, out var pName);
-                memberships.TryGetValue(c.pid, out var role);
-                var roleStr = role switch { TenantRole.TenantAdmin => "Admin", TenantRole.ProjectLeader => "Prosjektleder", _ => "Feltarbeider" };
-                return new OnSitePersonDto(c.pid, pName ?? "", roleStr, null, c.t, c.s);
-            }).OrderBy(p => p.CheckInAt).ToList();
-            return new SiteOverviewDto(siteId, siteName, siteType, personList.Count, personList);
+            if (isGuest)
+                return new OnSitePersonDto(Guid.Empty, guestName ?? "Gjest", "Gjest", guestCompany, checkedInAt, source);
+            if (!personId.HasValue)
+                return new OnSitePersonDto(Guid.Empty, "Ukjent", "Ukjent", null, checkedInAt, source);
+            persons.TryGetValue(personId.Value, out var pName);
+            memberships.TryGetValue(personId.Value, out var role);
+            var roleStr = role switch { TenantRole.TenantAdmin => "Admin", TenantRole.ProjectLeader => "Prosjektleder", _ => "Feltarbeider" };
+            return new OnSitePersonDto(personId.Value, pName ?? "", roleStr, null, checkedInAt, source);
         }
 
         foreach (var g in activeCheckIns.Where(c => c.ProjectId.HasValue).GroupBy(c => c.ProjectId!.Value))
         {
             projectNames.TryGetValue(g.Key, out var n);
-            sites.Add(BuildSite(g.Key, n ?? "Prosjekt", "Prosjekt",
-                g.Select(c => c.PersonId), g.Select(c => c.CheckedInAt), g.Select(c => c.Source)));
+            var pList = g.Select(c => MapPerson(c.PersonId, c.IsGuest, c.GuestName, c.GuestCompany, c.CheckedInAt, c.Source)).OrderBy(p => p.CheckInAt).ToList();
+            sites.Add(new SiteOverviewDto(g.Key, n ?? "Prosjekt", "Prosjekt", pList.Count, pList));
         }
         foreach (var g in activeCheckIns.Where(c => c.JobId.HasValue && !c.ProjectId.HasValue).GroupBy(c => c.JobId!.Value))
         {
             jobDescs.TryGetValue(g.Key, out var n);
-            sites.Add(BuildSite(g.Key, n ?? "Oppdrag", "Oppdrag",
-                g.Select(c => c.PersonId), g.Select(c => c.CheckedInAt), g.Select(c => c.Source)));
+            var pList = g.Select(c => MapPerson(c.PersonId, c.IsGuest, c.GuestName, c.GuestCompany, c.CheckedInAt, c.Source)).OrderBy(p => p.CheckInAt).ToList();
+            sites.Add(new SiteOverviewDto(g.Key, n ?? "Oppdrag", "Oppdrag", pList.Count, pList));
         }
         foreach (var g in activeCheckIns.Where(c => c.LocationId.HasValue && !c.ProjectId.HasValue && !c.JobId.HasValue).GroupBy(c => c.LocationId!.Value))
         {
             locationNames.TryGetValue(g.Key, out var n);
-            sites.Add(BuildSite(g.Key, n ?? "Lokasjon", "Lokasjon",
-                g.Select(c => c.PersonId), g.Select(c => c.CheckedInAt), g.Select(c => c.Source)));
+            var pList = g.Select(c => MapPerson(c.PersonId, c.IsGuest, c.GuestName, c.GuestCompany, c.CheckedInAt, c.Source)).OrderBy(p => p.CheckInAt).ToList();
+            sites.Add(new SiteOverviewDto(g.Key, n ?? "Lokasjon", "Lokasjon", pList.Count, pList));
         }
 
         return Results.Ok(sites.OrderByDescending(s => s.PersonCount).ToList());
@@ -301,18 +298,18 @@ public static class CheckInEndpoints
 
         var checkIns = await query
             .OrderByDescending(c => c.CheckedInAt)
-            .Select(c => new { c.Id, c.PersonId, c.CheckedInAt, c.CheckedOutAt, c.Source, c.AutoCheckedOut, c.Latitude, c.Longitude })
+            .Select(c => new { c.Id, c.PersonId, c.CheckedInAt, c.CheckedOutAt, c.Source, c.AutoCheckedOut, c.Latitude, c.Longitude, c.IsGuest, c.GuestName })
             .Take(200)
             .ToListAsync(ct);
 
-        var personIds = checkIns.Select(c => c.PersonId).Distinct().ToList();
-        var persons = await db.Persons
-            .Where(p => personIds.Contains(p.Id))
-            .ToDictionaryAsync(p => p.Id, p => p.FullName, ct);
+        var personIds = checkIns.Where(c => c.PersonId.HasValue).Select(c => c.PersonId!.Value).Distinct().ToList();
+        var persons = personIds.Count > 0
+            ? await db.Persons.Where(p => personIds.Contains(p.Id)).ToDictionaryAsync(p => p.Id, p => p.FullName, ct)
+            : new Dictionary<Guid, string>();
 
         var result = checkIns.Select(c => new CheckInHistoryDto(
             c.Id,
-            persons.TryGetValue(c.PersonId, out var name) ? name : "",
+            c.IsGuest ? (c.GuestName ?? "Gjest") : (c.PersonId.HasValue && persons.TryGetValue(c.PersonId.Value, out var name) ? name : ""),
             null,
             c.CheckedInAt,
             c.CheckedOutAt,
@@ -323,6 +320,140 @@ public static class CheckInEndpoints
         )).ToList();
 
         return Results.Ok(result);
+    }
+
+    // ─── My Check-in Log ──────────────────────────────────────────
+
+    private static async Task<IResult> GetMyLog(
+        ClaimsPrincipal user,
+        SolodocDbContext db,
+        ITenantProvider tp,
+        CancellationToken ct,
+        int days = 30)
+    {
+        var (personId, valid) = GetPersonId(user);
+        if (!valid || tp.TenantId is null) return Results.Unauthorized();
+
+        var since = DateTimeOffset.UtcNow.AddDays(-days);
+
+        var checkIns = await db.WorksiteCheckIns
+            .Where(c => c.TenantId == tp.TenantId.Value && c.PersonId == personId!.Value && c.CheckedInAt >= since)
+            .OrderByDescending(c => c.CheckedInAt)
+            .Select(c => new { c.Id, c.ProjectId, c.JobId, c.LocationId, c.CheckedInAt, c.CheckedOutAt, c.Source })
+            .Take(100)
+            .ToListAsync(ct);
+
+        // Batch resolve site names
+        var projectIds = checkIns.Where(c => c.ProjectId.HasValue).Select(c => c.ProjectId!.Value).Distinct().ToList();
+        var jobIds = checkIns.Where(c => c.JobId.HasValue).Select(c => c.JobId!.Value).Distinct().ToList();
+        var locationIds = checkIns.Where(c => c.LocationId.HasValue).Select(c => c.LocationId!.Value).Distinct().ToList();
+
+        var projectNames = projectIds.Count > 0
+            ? await db.Projects.Where(p => projectIds.Contains(p.Id)).ToDictionaryAsync(p => p.Id, p => p.Name, ct)
+            : new Dictionary<Guid, string>();
+        var jobDescs = jobIds.Count > 0
+            ? await db.Jobs.Where(j => jobIds.Contains(j.Id)).ToDictionaryAsync(j => j.Id, j => j.Description ?? "", ct)
+            : new Dictionary<Guid, string>();
+        var locationNames = locationIds.Count > 0
+            ? await db.Locations.Where(l => locationIds.Contains(l.Id)).ToDictionaryAsync(l => l.Id, l => l.Name, ct)
+            : new Dictionary<Guid, string>();
+
+        var result = checkIns.Select(c =>
+        {
+            string siteName, siteType;
+            if (c.ProjectId.HasValue)
+            {
+                projectNames.TryGetValue(c.ProjectId.Value, out var n);
+                siteName = n ?? "Prosjekt";
+                siteType = "Prosjekt";
+            }
+            else if (c.JobId.HasValue)
+            {
+                jobDescs.TryGetValue(c.JobId.Value, out var n);
+                siteName = n ?? "Oppdrag";
+                siteType = "Oppdrag";
+            }
+            else if (c.LocationId.HasValue)
+            {
+                locationNames.TryGetValue(c.LocationId.Value, out var n);
+                siteName = n ?? "Lokasjon";
+                siteType = "Lokasjon";
+            }
+            else
+            {
+                siteName = "Ukjent";
+                siteType = "Ukjent";
+            }
+
+            var duration = c.CheckedOutAt.HasValue
+                ? (c.CheckedOutAt.Value - c.CheckedInAt).TotalMinutes
+                : (DateTimeOffset.UtcNow - c.CheckedInAt).TotalMinutes;
+
+            return new CheckInLogEntryDto(c.Id, siteName, siteType, c.CheckedInAt, c.CheckedOutAt, c.Source, (int)duration);
+        }).ToList();
+
+        return Results.Ok(result);
+    }
+
+    // ─── Guest Check-in (anonymous) ────────────────────────────────
+
+    private static async Task<IResult> GuestCheckIn(
+        GuestCheckInRequest request,
+        SolodocDbContext db,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(request.Name))
+            return Results.BadRequest(new { error = "Navn er pakrevd." });
+
+        // Find the site by slug
+        Guid? projectId = null, jobId = null, locationId = null;
+        Guid tenantId;
+
+        var project = await db.Projects
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(p => p.QrCodeSlug == request.Slug && !p.IsDeleted, ct);
+
+        if (project is not null)
+        {
+            projectId = project.Id;
+            tenantId = project.TenantId;
+        }
+        else
+        {
+            var location = await db.Locations
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(l => l.QrCodeSlug == request.Slug && !l.IsDeleted, ct);
+
+            if (location is not null)
+            {
+                locationId = location.Id;
+                tenantId = location.TenantId;
+            }
+            else
+            {
+                return Results.NotFound(new { error = "QR-kode ikke funnet." });
+            }
+        }
+
+        var checkIn = new WorksiteCheckIn
+        {
+            TenantId = tenantId,
+            PersonId = null,
+            ProjectId = projectId,
+            JobId = jobId,
+            LocationId = locationId,
+            CheckedInAt = DateTimeOffset.UtcNow,
+            Source = "QrCode",
+            IsGuest = true,
+            GuestName = request.Name.Trim(),
+            GuestCompany = request.Company?.Trim(),
+            GuestPhone = request.Phone?.Trim()
+        };
+
+        db.WorksiteCheckIns.Add(checkIn);
+        await db.SaveChangesAsync(ct);
+
+        return Results.Ok(new { id = checkIn.Id, name = checkIn.GuestName });
     }
 
     // ─── QR Landing ─────────────────────────────────────────────────

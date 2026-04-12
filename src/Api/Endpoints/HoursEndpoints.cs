@@ -278,13 +278,16 @@ public static class HoursEndpoints
             return Results.BadRequest(new { error = "Du har registrert fravær i dag. Slett fraværet forst." });
 
         var now = DateTimeOffset.UtcNow;
+        var clockStart = request.StartTime ?? now;
+        // Don't allow future start times
+        if (clockStart > now) clockStart = now;
         var entry = new TimeEntry
         {
             TenantId = tenantProvider.TenantId.Value,
             PersonId = personId!.Value,
-            Date = DateOnly.FromDateTime(now.UtcDateTime),
-            ClockIn = now,
-            StartTime = now,
+            Date = DateOnly.FromDateTime(clockStart.UtcDateTime),
+            ClockIn = clockStart,
+            StartTime = clockStart,
             Category = ParseCategory(request.Category),
             Status = TimeEntryStatus.Draft,
             ProjectId = request.ProjectId,

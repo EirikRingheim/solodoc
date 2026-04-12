@@ -66,29 +66,20 @@ else if (_info is not null)
                     </div>
                     <MudText Typo="Typo.h6" Style="font-weight:600;" Class="mb-2">Sjekket inn!</MudText>
                     <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
-                        Du er nå registrert pa @_info.SiteName.
+                        Du er na registrert pa @_info.SiteName.
                     </MudText>
-                    <MudButton Variant="Variant.Outlined" Href="/"
-                               Style="@($"border-radius:24px;text-transform:none;border-color:{accent};color:{accent};")">
-                        Til dashboard
-                    </MudButton>
+                    @if (_isAuthenticated)
+                    {
+                        <MudButton Variant="Variant.Outlined" Href="/"
+                                   Style="@($"border-radius:24px;text-transform:none;border-color:{accent};color:{accent};")">
+                            Til dashboard
+                        </MudButton>
+                    }
                 }
-                else if (!_isAuthenticated)
-                {
-                    <MudText Typo="Typo.body1" Class="mb-4">
-                        Logg inn for a sjekke inn på denne lokasjonen.
-                    </MudText>
-                    <MudButton Variant="Variant.Filled"
-                               StartIcon="@Icons.Material.Filled.Login"
-                               OnClick="GoToLogin"
-                               Style="@($"border-radius:24px;text-transform:none;background:{accent};color:#fff;width:100%;height:52px;font-size:1rem;")">
-                        Logg inn og sjekk inn
-                    </MudButton>
-                }
-                else
+                else if (_isAuthenticated)
                 {
                     <MudText Typo="Typo.body1" Color="Color.Secondary" Class="mb-4">
-                        Trykk for a registrere deg på byggeplassen.
+                        Trykk for a registrere deg pa byggeplassen.
                     </MudText>
                     <MudButton Variant="Variant.Filled"
                                StartIcon="@Icons.Material.Filled.Login"
@@ -101,6 +92,37 @@ else if (_info is not null)
                         }
                         Sjekk inn
                     </MudButton>
+                }
+                else
+                {
+                    @* ── Guest check-in form ── *@
+                    <MudStack Spacing="3" Style="width:100%;text-align:left;">
+                        <MudText Typo="Typo.body2" Color="Color.Secondary" Style="text-align:center;">
+                            Registrer deg for a sjekke inn pa byggeplassen
+                        </MudText>
+                        <MudTextField T="string" @bind-Value="_guestName" Label="Fullt navn" Variant="Variant.Outlined"
+                                      Required="true" Immediate="true" Placeholder="Ola Nordmann" />
+                        <MudTextField T="string" @bind-Value="_guestCompany" Label="Firma" Variant="Variant.Outlined"
+                                      Placeholder="Firmanavn AS" />
+                        <MudTextField T="string" @bind-Value="_guestPhone" Label="Telefon" Variant="Variant.Outlined"
+                                      Placeholder="400 00 000" InputType="InputType.Telephone" />
+                        <MudButton Variant="Variant.Filled"
+                                   StartIcon="@Icons.Material.Filled.Login"
+                                   OnClick="DoGuestCheckIn"
+                                   Disabled="@(_submitting || string.IsNullOrWhiteSpace(_guestName))"
+                                   Style="@($"border-radius:24px;text-transform:none;background:{accent};color:#fff;width:100%;height:52px;font-size:1rem;")">
+                            @if (_submitting)
+                            {
+                                <MudProgressCircular Indeterminate="true" Size="Size.Small" Color="Color.Surface" Class="mr-2" />
+                            }
+                            Sjekk inn som gjest
+                        </MudButton>
+                        <MudDivider />
+                        <MudButton Variant="Variant.Text" OnClick="GoToLogin"
+                                   Style="@($"text-transform:none;color:{accent};font-size:0.85rem;")">
+                            Har du konto? Logg inn her
+                        </MudButton>
+                    </MudStack>
                 }
             </div>
         </MudPaper>
@@ -121,6 +143,9 @@ else if (_info is not null)
     private bool _isAuthenticated;
     private bool _submitting;
     private bool _checkInDone;
+    private string _guestName = "";
+    private string _guestCompany = "";
+    private string _guestPhone = "";
 
     protected override async Task OnInitializedAsync()
     {
@@ -159,6 +184,30 @@ else if (_info is not null)
         else
         {
             Snackbar.Add("Kunne ikke sjekke inn. Prøv igjen.", Severity.Error);
+        }
+    }
+
+    private async Task DoGuestCheckIn()
+    {
+        if (string.IsNullOrWhiteSpace(_guestName)) return;
+        _submitting = true;
+
+        var request = new GuestCheckInRequest(
+            _guestName.Trim(),
+            string.IsNullOrWhiteSpace(_guestCompany) ? null : _guestCompany.Trim(),
+            string.IsNullOrWhiteSpace(_guestPhone) ? null : _guestPhone.Trim(),
+            Slug);
+
+        var ok = await CheckInService.GuestCheckInAsync(request);
+        _submitting = false;
+
+        if (ok)
+        {
+            _checkInDone = true;
+        }
+        else
+        {
+            Snackbar.Add("Kunne ikke sjekke inn. Prov igjen.", Severity.Error);
         }
     }
 

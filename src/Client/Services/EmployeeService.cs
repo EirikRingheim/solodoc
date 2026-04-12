@@ -29,11 +29,18 @@ public class EmployeeService(ApiHttpClient api)
         return null;
     }
 
-    public async Task<bool> InviteAsync(InviteEmployeeRequest request)
+    public async Task<Guid?> InviteAsync(InviteEmployeeRequest request)
     {
         var response = await api.PostAsJsonAsync("api/employees/invite", request);
-        return response.IsSuccessStatusCode;
+        if (response.IsSuccessStatusCode)
+        {
+            var result = await response.Content.ReadFromJsonAsync<InviteResult>();
+            return result?.Id;
+        }
+        return null;
     }
+
+    private record InviteResult(Guid Id);
 
     public async Task<bool> SuspendAsync(Guid personId)
     {

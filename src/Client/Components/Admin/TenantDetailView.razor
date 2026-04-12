@@ -1,0 +1,159 @@
+@using Solodoc.Shared.Admin
+@using Solodoc.Shared.Onboarding
+
+@if (Detail is null)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+}
+else
+{
+    var o = Detail.Overview;
+
+    @* ── Header ── *@
+    <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;" Class="pa-5 mb-4">
+        <MudStack Row="true" AlignItems="AlignItems.Start" Justify="Justify.SpaceBetween" Style="flex-wrap:wrap;gap:16px;">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
+                <div style="@($"width:56px;height:56px;border-radius:12px;background:{(o.AccentColor ?? "#4361EE")};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1.5rem;")">
+                    @o.Name[0]
+                </div>
+                <div>
+                    <MudText Typo="Typo.h5" Style="font-weight:700;">@o.Name</MudText>
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Org: @o.OrgNumber @(o.BusinessAddress is not null ? $" | {o.BusinessAddress}" : "")</MudText>
+                    <MudStack Row="true" Spacing="1" Class="mt-1">
+                        @{
+                            var tierColor = o.SubscriptionTier switch { "trial" => "#F59E0B", "basic" => "#4361EE", "pro" => "#059669", _ => "#6B7280" };
+                            var tierLabel = o.SubscriptionTier switch { "trial" => "Proveperiode", "basic" => "Basis", "pro" => "Pro", "enterprise" => "Enterprise", _ => o.SubscriptionTier };
+                        }
+                        <span style="@($"background:{tierColor}20;color:{tierColor};padding:2px 10px;border-radius:4px;font-weight:600;font-size:0.75rem;")">@tierLabel</span>
+                        @if (o.HasCoupon)
+                        {
+                            <span style="background:#D1FAE5;color:#059669;padding:2px 10px;border-radius:4px;font-size:0.75rem;">@o.CouponCode (@(o.CouponTrialDays) dager)</span>
+                        }
+                        @if (o.IndustryType is not null)
+                        {
+                            <span style="background:#F3F4F6;color:#6B7280;padding:2px 10px;border-radius:4px;font-size:0.75rem;">@o.IndustryType</span>
+                        }
+                        @if (o.IsFrozen)
+                        {
+                            <span style="background:#FEE2E2;color:#DC2626;padding:2px 10px;border-radius:4px;font-size:0.75rem;font-weight:600;">Frosset</span>
+                        }
+                    </MudStack>
+                </div>
+            </MudStack>
+            <MudStack Spacing="1">
+                @if (o.IsFrozen)
+                {
+                    <MudButton Variant="Variant.Filled" Color="Color.Success" Size="Size.Small"
+                               OnClick="OnUnfreeze" Style="text-transform:none;border-radius:8px;">Aktiver igjen</MudButton>
+                }
+                else
+                {
+                    <MudButton Variant="Variant.Outlined" Color="Color.Error" Size="Size.Small"
+                               OnClick="OnFreeze" Style="text-transform:none;border-radius:8px;">Frys bedrift</MudButton>
+                }
+            </MudStack>
+        </MudStack>
+    </MudPaper>
+
+    @* ── Stats grid ── *@
+    <MudGrid Spacing="2" Class="mb-4">
+        <MudItem xs="6" sm="4" md="2">
+            <StatCard Label="Ansatte" Value="@o.EmployeeCount.ToString()" Sub="@($"{o.AdminCount}A / {o.ProjectLeaderCount}PL / {o.FieldWorkerCount}F")" Color="#4361EE" />
+        </MudItem>
+        <MudItem xs="6" sm="4" md="2">
+            <StatCard Label="Prosjekter" Value="@o.ProjectCount.ToString()" Color="#7C3AED" />
+        </MudItem>
+        <MudItem xs="6" sm="4" md="2">
+            <StatCard Label="Oppdrag" Value="@o.JobCount.ToString()" Color="#059669" />
+        </MudItem>
+        <MudItem xs="6" sm="4" md="2">
+            <StatCard Label="Sjekklister" Value="@($"{o.ChecklistInstanceCount}")" Sub="@($"{o.ChecklistTemplateCount} maler")" Color="#D97706" />
+        </MudItem>
+        <MudItem xs="6" sm="4" md="2">
+            <StatCard Label="Avvik" Value="@o.DeviationCount.ToString()" Sub="@($"{o.OpenDeviationCount} apne")" Color="#DC2626" />
+        </MudItem>
+        <MudItem xs="6" sm="4" md="2">
+            <StatCard Label="Timer logget" Value="@o.TotalHoursLogged.ToString("N0")" Color="#0891B2" />
+        </MudItem>
+        <MudItem xs="6" sm="4" md="2">
+            <StatCard Label="Kjemikalier" Value="@o.ChemicalCount.ToString()" Color="#6366F1" />
+        </MudItem>
+        <MudItem xs="6" sm="4" md="2">
+            <StatCard Label="Maskiner" Value="@o.EquipmentCount.ToString()" Color="#EA580C" />
+        </MudItem>
+        <MudItem xs="6" sm="4" md="2">
+            <StatCard Label="Maler kjopt" Value="@o.MarketplacePurchaseCount.ToString()" Color="#059669" />
+        </MudItem>
+        <MudItem xs="6" sm="4" md="2">
+            <StatCard Label="MRR" Value="@($"kr {o.MonthlyEstimateKr}")" Color="#4361EE" />
+        </MudItem>
+        <MudItem xs="6" sm="4" md="2">
+            <StatCard Label="Registrert" Value="@o.CreatedAt.ToLocalTime().ToString("dd.MM.yy")" Color="#6B7280" />
+        </MudItem>
+        <MudItem xs="6" sm="4" md="2">
+            <StatCard Label="Prove utloper" Value="@(o.TrialEndsAt?.ToLocalTime().ToString("dd.MM.yy") ?? "-")" Color="#F59E0B" />
+        </MudItem>
+    </MudGrid>
+
+    @* ── Employees table ── *@
+    <MudText Typo="Typo.subtitle1" Style="font-weight:600;" Class="mb-2">Ansatte (@Detail.Employees.Count)</MudText>
+    <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;overflow:hidden;" Class="mb-4">
+        <MudSimpleTable Dense="true" Hover="true" Style="font-size:0.85rem;">
+            <thead>
+                <tr style="background:#F8F9FA;">
+                    <th>Navn</th><th>E-post</th><th>Rolle</th><th style="text-align:right;">Timer denne mnd</th><th>Lagt til</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var emp in Detail.Employees)
+                {
+                    <tr>
+                        <td style="font-weight:500;">@emp.FullName</td>
+                        <td style="color:#6B7280;">@emp.Email</td>
+                        <td>@emp.Role</td>
+                        <td style="text-align:right;">@emp.HoursThisMonth.ToString("N1") t</td>
+                        <td style="font-size:0.75rem;color:#9CA3AF;">@emp.JoinedAt.ToLocalTime().ToString("dd.MM.yy")</td>
+                    </tr>
+                }
+            </tbody>
+        </MudSimpleTable>
+    </MudPaper>
+
+    @* ── Invoices ── *@
+    @if (Detail.Invoices.Count > 0)
+    {
+        <MudText Typo="Typo.subtitle1" Style="font-weight:600;" Class="mb-2">Fakturaer (@Detail.Invoices.Count)</MudText>
+        <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;overflow:hidden;">
+            <MudSimpleTable Dense="true" Hover="true" Style="font-size:0.85rem;">
+                <thead>
+                    <tr style="background:#F8F9FA;">
+                        <th>Nummer</th><th>Periode</th><th style="text-align:right;">Totalt</th><th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var inv in Detail.Invoices)
+                    {
+                        <tr>
+                            <td style="font-family:monospace;">@inv.InvoiceNumber</td>
+                            <td>@inv.Month/@inv.Year</td>
+                            <td style="text-align:right;font-weight:600;">kr @inv.TotalIncVatKr</td>
+                            <td>
+                                @{
+                                    var sc = inv.Status switch { "Draft" => "#F59E0B", "Sent" => "#4361EE", "Paid" => "#059669", _ => "#6B7280" };
+                                    var sl = inv.Status switch { "Draft" => "Utkast", "Sent" => "Sendt", "Paid" => "Betalt", _ => inv.Status };
+                                }
+                                <span style="@($"color:{sc};font-weight:600;")">@sl</span>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </MudSimpleTable>
+        </MudPaper>
+    }
+}
+
+@code {
+    [Parameter] public TenantDetailDto? Detail { get; set; }
+    [Parameter] public EventCallback OnFreeze { get; set; }
+    [Parameter] public EventCallback OnUnfreeze { get; set; }
+}

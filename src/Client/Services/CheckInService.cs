@@ -39,6 +39,18 @@ public class CheckInService(ApiHttpClient api, OfflineAwareApiClient offlineApi)
         return r.IsSuccessStatusCode ? await r.Content.ReadFromJsonAsync<List<CheckInHistoryDto>>() ?? [] : [];
     }
 
+    public async Task<List<CheckInLogEntryDto>> GetMyLogAsync(int days = 30)
+    {
+        var r = await api.GetAsync($"api/checkin/log?days={days}");
+        return r.IsSuccessStatusCode ? await r.Content.ReadFromJsonAsync<List<CheckInLogEntryDto>>() ?? [] : [];
+    }
+
+    public async Task<bool> GuestCheckInAsync(GuestCheckInRequest request)
+    {
+        var r = await api.PostAsJsonAsync("api/checkin/guest", request);
+        return r.IsSuccessStatusCode;
+    }
+
     public async Task<string?> GenerateQrSlugAsync(string siteType, Guid siteId)
     {
         var r = await api.PostAsync($"api/checkin/generate-qr/{siteType}/{siteId}");

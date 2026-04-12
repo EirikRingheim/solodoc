@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Solodoc.Application.Common;
 using Solodoc.Domain.Common;
 using Solodoc.Domain.Entities.Audit;
+using Solodoc.Domain.Entities.Billing;
 using Solodoc.Domain.Entities.Auth;
 using Solodoc.Domain.Entities.Calendar;
 using Solodoc.Domain.Entities.Chemicals;
@@ -175,6 +176,12 @@ public class SolodocDbContext : DbContext
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<Announcement> Announcements => Set<Announcement>();
     public DbSet<AnnouncementAcknowledgment> AnnouncementAcknowledgments => Set<AnnouncementAcknowledgment>();
+
+    // Billing
+    public DbSet<CouponCode> CouponCodes => Set<CouponCode>();
+    public DbSet<CouponRedemption> CouponRedemptions => Set<CouponRedemption>();
+    public DbSet<Invoice> Invoices => Set<Invoice>();
+    public DbSet<ClientError> ClientErrors => Set<ClientError>();
 
     // Expose current tenant for use in query filters (EF Core evaluates this per query)
     private Guid? CurrentTenantId => _tenantProvider?.TenantId;

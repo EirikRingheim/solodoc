@@ -18,6 +18,29 @@ public class SeedDataService(
     {
         if (await db.Tenants.AnyAsync(ct))
         {
+            // Ensure admin has SuperAdmin system role
+            var existingAdmin = await db.Persons.FirstOrDefaultAsync(p => p.Email == "admin@solodoc.dev", ct);
+            if (existingAdmin is not null && existingAdmin.SystemRole is null)
+            {
+                existingAdmin.SystemRole = SystemRole.SuperAdmin;
+                await db.SaveChangesAsync(ct);
+                logger.LogInformation("Set SuperAdmin role on admin@solodoc.dev");
+            }
+            // Ensure Solotrial365 coupon exists
+            if (!await db.CouponCodes.AnyAsync(c => c.Code == "SOLOTRIAL365", ct))
+            {
+                db.CouponCodes.Add(new Solodoc.Domain.Entities.Billing.CouponCode
+                {
+                    Code = "SOLOTRIAL365",
+                    Description = "1 ar gratis proveperiode for beta-testere",
+                    TrialDays = 365,
+                    MaxRedemptions = 0, // unlimited
+                    IsActive = true
+                });
+                await db.SaveChangesAsync(ct);
+                logger.LogInformation("Created SOLOTRIAL365 coupon code");
+            }
+
             logger.LogInformation("Seed data already exists, skipping");
             return;
         }
@@ -46,7 +69,8 @@ public class SeedDataService(
             PasswordHash = passwordHasher.Hash("Admin1234!"),
             State = PersonState.Active,
             EmailVerified = true,
-            TimeZoneId = "Europe/Oslo"
+            TimeZoneId = "Europe/Oslo",
+            SystemRole = SystemRole.SuperAdmin
         };
         db.Persons.Add(admin);
 

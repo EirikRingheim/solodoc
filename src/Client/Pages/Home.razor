@@ -69,6 +69,12 @@
             Sjekk inn
         </MudButton>
     }
+    <MudButton Variant="Variant.Text" Size="Size.Small"
+               StartIcon="@Icons.Material.Filled.History"
+               Href="/checkin/log"
+               Style="border-radius:24px;text-transform:none;color:#059669;">
+        Logg
+    </MudButton>
     <MudButton Variant="Variant.Outlined"
                StartIcon="@Icons.Material.Filled.Add"
                Href="/jobs/new"
@@ -473,31 +479,94 @@ else if (_announcements.Count > 0)
 
 @* ── Check-in dialog ── *@
 <MudDialog @bind-Visible="_checkInDialogOpen" Options="_checkInDlgOpts">
-    <TitleContent><MudText Typo="Typo.h6">Sjekk inn</MudText></TitleContent>
+    <TitleContent>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Filled.Login" Style="color:#059669;" />
+            <MudText Typo="Typo.h6" Style="font-weight:600;">Sjekk inn</MudText>
+        </MudStack>
+    </TitleContent>
     <DialogContent>
         <MudStack Spacing="3">
-            <MudText Typo="Typo.body2" Color="Color.Secondary">Velg hvor du sjekker inn:</MudText>
-            <MudSelect T="string" @bind-Value="_checkInTargetKey" Label="Prosjekt / Oppdrag / Lokasjon" Variant="Variant.Outlined">
+            <MudText Typo="Typo.caption" Color="Color.Secondary">Velg hvor du sjekker inn</MudText>
+
+            @* Prosjekt *@
+            <MudSelect T="Guid?" Value="_ciProjectId" ValueChanged="OnCiProjectChanged" Label="Prosjekt" Variant="Variant.Outlined"
+                       Clearable="true" AdornmentIcon="@Icons.Material.Filled.Folder"
+                       Placeholder="Velg prosjekt...">
                 @foreach (var p in _checkInProjects)
                 {
-                    <MudSelectItem T="string" Value="@($"p:{p.Id}")">@p.Name (Prosjekt)</MudSelectItem>
-                }
-                @foreach (var j in _checkInJobs)
-                {
-                    <MudSelectItem T="string" Value="@($"j:{j.Id}")">@j.Description (Oppdrag)</MudSelectItem>
-                }
-                @foreach (var l in _checkInLocations)
-                {
-                    <MudSelectItem T="string" Value="@($"l:{l.Id}")">@l.Name (Lokasjon)</MudSelectItem>
+                    <MudSelectItem T="Guid?" Value="@((Guid?)p.Id)">@p.Name</MudSelectItem>
                 }
             </MudSelect>
+
+            @* Oppdrag *@
+            <MudSelect T="Guid?" Value="_ciJobId" ValueChanged="OnCiJobChanged" Label="Oppdrag" Variant="Variant.Outlined"
+                       Clearable="true" AdornmentIcon="@Icons.Material.Filled.Handyman"
+                       Placeholder="Velg oppdrag...">
+                @foreach (var j in _checkInJobs)
+                {
+                    <MudSelectItem T="Guid?" Value="@((Guid?)j.Id)">@j.Description</MudSelectItem>
+                }
+            </MudSelect>
+
+            @* Lokasjon *@
+            <MudSelect T="Guid?" Value="_ciLocationId" ValueChanged="OnCiLocationChanged" Label="Lokasjon" Variant="Variant.Outlined"
+                       Clearable="true" AdornmentIcon="@Icons.Material.Filled.LocationOn"
+                       Placeholder="Velg lokasjon...">
+                @foreach (var l in _checkInLocations)
+                {
+                    <MudSelectItem T="Guid?" Value="@((Guid?)l.Id)">@l.Name</MudSelectItem>
+                }
+            </MudSelect>
+
+            @* ── Start timer toggle ── *@
+            @if (_activeClock is null)
+            {
+                <MudDivider />
+                <MudPaper Elevation="0" Style="@($"border:1px solid {(_ciAlsoStartClock ? "#4361EE" : "#E9ECEF")};border-radius:10px;background:{(_ciAlsoStartClock ? "#EBF0FF" : "#F9FAFB")};cursor:pointer;")"
+                          Class="pa-3" @onclick="() => _ciAlsoStartClock = !_ciAlsoStartClock">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudIcon Icon="@Icons.Material.Filled.Schedule" Size="Size.Small"
+                                     Style="@($"color:{(_ciAlsoStartClock ? "#4361EE" : "#9CA3AF")};")"/>
+                            <div>
+                                <div style="@($"font-weight:{(_ciAlsoStartClock ? "600" : "400")};font-size:0.85rem;color:{(_ciAlsoStartClock ? "#4361EE" : "#374151")};")">
+                                    Start timeregistrering ogsa
+                                </div>
+                                <div style="font-size:0.7rem;color:#9CA3AF;">Timer starter nar du sjekker inn</div>
+                            </div>
+                        </MudStack>
+                        <MudSwitch T="bool" Value="_ciAlsoStartClock" Color="Color.Primary"
+                                   Style="margin:0;" />
+                    </MudStack>
+                </MudPaper>
+
+                @if (_ciAlsoStartClock)
+                {
+                    <MudStack Spacing="2" Style="padding-left:12px;border-left:3px solid #4361EE;">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                            Startet du egentlig tidligere? Juster starttid:
+                        </MudText>
+                        <MudTimePicker @bind-Time="_ciClockStartTime" Label="Starttid" Variant="Variant.Outlined"
+                                       Editable="true" AmPm="false" />
+                        <MudSelect T="string" @bind-Value="_ciClockCategory" Label="Kategori" Variant="Variant.Outlined" Dense="true">
+                            <MudSelectItem T="string" Value="@("Arbeid")">Arbeid</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("Reise")">Reise</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("Kontorarbeid")">Kontorarbeid</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("Lagerarbeid")">Lagerarbeid</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("Kurs")">Kurs/opplaering</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("Annet")">Annet</MudSelectItem>
+                        </MudSelect>
+                    </MudStack>
+                }
+            }
         </MudStack>
     </DialogContent>
     <DialogActions>
         <MudButton OnClick="() => _checkInDialogOpen = false" Style="text-transform:none;">Avbryt</MudButton>
-        <MudButton Variant="Variant.Filled" Color="Color.Success" OnClick="ExecuteCheckIn"
-                   Disabled="@(string.IsNullOrEmpty(_checkInTargetKey))"
-                   Style="text-transform:none;border-radius:8px;">Sjekk inn</MudButton>
+        <MudButton Variant="Variant.Filled" OnClick="ExecuteCheckIn"
+                   Disabled="@(!_ciProjectId.HasValue && !_ciJobId.HasValue && !_ciLocationId.HasValue)"
+                   Style="text-transform:none;background:#059669;color:#fff;border-radius:8px;">Sjekk inn</MudButton>
     </DialogActions>
 </MudDialog>
 
@@ -519,7 +588,12 @@ else if (_announcements.Count > 0)
     // Check-in state
     private MyCheckInStatusDto? _checkInStatus;
     private bool _checkInDialogOpen;
-    private string? _checkInTargetKey;
+    private Guid? _ciProjectId;
+    private Guid? _ciJobId;
+    private Guid? _ciLocationId;
+    private bool _ciAlsoStartClock;
+    private TimeSpan? _ciClockStartTime;
+    private string _ciClockCategory = "Arbeid";
     private List<ProjectListItemDto> _checkInProjects = [];
     private List<JobListItemDto> _checkInJobs = [];
     private List<LocationListItemDto> _checkInLocations = [];
@@ -534,16 +608,20 @@ else if (_announcements.Count > 0)
     {
         // Determine user role
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
-        var roleClaim = authState.User.FindFirst("role")?.Value
-                        ?? authState.User.FindFirst(ClaimTypes.Role)?.Value;
-        if (!string.IsNullOrEmpty(roleClaim))
+        if (authState.User.HasClaim("sa", "1"))
+            _userRole = "admin";
+        else
         {
-            _userRole = roleClaim.ToLowerInvariant() switch
-            {
-                "tenantadmin" or "admin" or "super-admin" => "admin",
-                "projectleader" or "prosjektleder" => "project-leader",
-                _ => "field-worker"
-            };
+            var roleValues = authState.User.Claims
+                .Where(c => c.Type == "role" || c.Type.Contains("/role"))
+                .Select(c => c.Value.ToLowerInvariant())
+                .ToHashSet();
+            if (roleValues.Contains("tenant-admin") || roleValues.Contains("tenantadmin") || roleValues.Contains("admin"))
+                _userRole = "admin";
+            else if (roleValues.Contains("project-leader") || roleValues.Contains("projectleader"))
+                _userRole = "project-leader";
+            else
+                _userRole = "field-worker";
         }
 
         var summaryTask = DashboardService.GetSummaryAsync();
@@ -738,7 +816,12 @@ else if (_announcements.Count > 0)
 
     private async Task OpenCheckInDialog()
     {
-        _checkInTargetKey = null;
+        _ciProjectId = null;
+        _ciJobId = null;
+        _ciLocationId = null;
+        _ciAlsoStartClock = false;
+        _ciClockStartTime = DateTimeOffset.Now.TimeOfDay;
+        _ciClockCategory = "Arbeid";
 
         // Load projects, jobs, locations in parallel
         var projectsTask = ProjectService.GetActiveProjectsAsync();
@@ -754,20 +837,20 @@ else if (_announcements.Count > 0)
         _checkInDialogOpen = true;
     }
 
+    private void OnCiProjectChanged(Guid? val) { _ciProjectId = val; if (val.HasValue) { _ciJobId = null; _ciLocationId = null; } }
+    private void OnCiJobChanged(Guid? val) { _ciJobId = val; if (val.HasValue) { _ciProjectId = null; _ciLocationId = null; } }
+    private void OnCiLocationChanged(Guid? val) { _ciLocationId = val; if (val.HasValue) { _ciProjectId = null; _ciJobId = null; } }
+
     private async Task ExecuteCheckIn()
     {
-        if (string.IsNullOrEmpty(_checkInTargetKey)) return;
+        if (!_ciProjectId.HasValue && !_ciJobId.HasValue && !_ciLocationId.HasValue) return;
 
         try
         {
-            var parts = _checkInTargetKey.Split(':', 2);
-            var type = parts[0];
-            var id = Guid.Parse(parts[1]);
-
             var request = new CheckInRequest(
-                ProjectId: type == "p" ? id : null,
-                JobId: type == "j" ? id : null,
-                LocationId: type == "l" ? id : null,
+                ProjectId: _ciProjectId,
+                JobId: _ciJobId,
+                LocationId: _ciLocationId,
                 Source: "Manual",
                 Latitude: null,
                 Longitude: null);
@@ -779,7 +862,38 @@ else if (_announcements.Count > 0)
             {
                 _checkInStatus = await CheckInService.GetMyStatusAsync();
                 _siteOverview = await CheckInService.GetAllSitesAsync();
-                Snackbar.Add("Sjekket inn!", Severity.Success);
+
+                // Also start clock if toggled
+                if (_ciAlsoStartClock && _activeClock is null)
+                {
+                    // Calculate actual start time from time picker
+                    DateTimeOffset? startTime = null;
+                    if (_ciClockStartTime.HasValue)
+                    {
+                        var today = DateTimeOffset.Now.Date;
+                        var local = today.Add(_ciClockStartTime.Value);
+                        startTime = new DateTimeOffset(local, DateTimeOffset.Now.Offset).ToUniversalTime();
+                    }
+
+                    var clockReq = new ClockInRequest(
+                        _ciProjectId, _ciJobId,
+                        _ciClockCategory, null, null, startTime);
+                    var clockId = await HoursService.ClockInAsync(clockReq);
+                    if (clockId.HasValue)
+                    {
+                        _activeClock = await HoursService.GetActiveClockAsync();
+                        StartElapsedTimer();
+                        Snackbar.Add("Sjekket inn og timer startet!", Severity.Success);
+                    }
+                    else
+                    {
+                        Snackbar.Add("Sjekket inn! (Kunne ikke starte timer)", Severity.Warning);
+                    }
+                }
+                else
+                {
+                    Snackbar.Add("Sjekket inn!", Severity.Success);
+                }
             }
             else
             {
@@ -803,7 +917,28 @@ else if (_announcements.Count > 0)
             {
                 _checkInStatus = await CheckInService.GetMyStatusAsync();
                 _siteOverview = await CheckInService.GetAllSitesAsync();
-                Snackbar.Add("Sjekket ut!", Severity.Success);
+
+                // Also clock out if running
+                if (_activeClock is not null)
+                {
+                    var clockResult = await HoursService.ClockOutAsync(new ClockOutRequest(null, null));
+                    if (clockResult is not null)
+                    {
+                        _activeClock = null;
+                        _elapsedTimer?.Dispose();
+                        _elapsedTimer = null;
+                        try { _summary = await DashboardService.GetSummaryAsync() ?? _summary; } catch { }
+                        Snackbar.Add($"Sjekket ut og timer stoppet! {clockResult.Hours:0.#} timer registrert.", Severity.Success);
+                    }
+                    else
+                    {
+                        Snackbar.Add("Sjekket ut! (Kunne ikke stoppe timer)", Severity.Warning);
+                    }
+                }
+                else
+                {
+                    Snackbar.Add("Sjekket ut!", Severity.Success);
+                }
             }
             else
             {

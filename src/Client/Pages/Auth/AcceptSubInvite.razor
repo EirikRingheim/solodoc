@@ -1,0 +1,226 @@
+@page "/invite/sub/{InvitationId:guid}"
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+@inject Blazored.LocalStorage.ILocalStorageService LocalStorage
+@inject AuthenticationStateProvider AuthStateProvider
+@using Solodoc.Shared.Auth
+@using System.Net.Http.Json
+
+<PageTitle>Solodoc - Bli med som underentreprenor</PageTitle>
+
+<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px;background:#F8F9FA;">
+    @if (_loading)
+    {
+        <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Large" />
+    }
+    else if (_error is not null)
+    {
+        <MudPaper Elevation="3" Style="border-radius:20px;max-width:420px;width:100%;padding:40px;text-align:center;">
+            <MudIcon Icon="@Icons.Material.Filled.ErrorOutline" Size="Size.Large" Color="Color.Error" Class="mb-4" />
+            <MudText Typo="Typo.h6" Style="font-weight:600;" Class="mb-2">Invitasjon ugyldig</MudText>
+            <MudText Typo="Typo.body1" Color="Color.Secondary" Class="mb-4">@_error</MudText>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/login"
+                       Style="border-radius:12px;text-transform:none;">Til innlogging</MudButton>
+        </MudPaper>
+    }
+    else if (_accepted)
+    {
+        <MudPaper Elevation="3" Style="border-radius:20px;max-width:420px;width:100%;padding:40px;text-align:center;">
+            <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Large"
+                     Style="@($"color:{_accentColor};font-size:64px;")" Class="mb-4" />
+            <MudText Typo="Typo.h5" Style="font-weight:700;" Class="mb-2">Velkommen!</MudText>
+            <MudText Typo="Typo.body1" Color="Color.Secondary" Class="mb-2">
+                Du har na tilgang til <b>@_projectName</b> hos @_tenantName.
+            </MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+                Du kan fylle ut sjekklister, rapportere avvik og sjekke inn pa byggeplassen.
+            </MudText>
+            <MudButton Variant="Variant.Filled" Href="/"
+                       Style="@($"border-radius:12px;text-transform:none;background:{_accentColor};color:#fff;width:100%;height:48px;font-size:1rem;")">
+                Ga til prosjektet
+            </MudButton>
+        </MudPaper>
+    }
+    else
+    {
+        <MudPaper Elevation="3" Style="@($"border-radius:20px;max-width:420px;width:100%;overflow:hidden;border-top:6px solid {_accentColor};")" Class="pa-0">
+            @* Header *@
+            <div style="@($"background:linear-gradient(135deg, {_accentColor}15, {_accentColor}08);padding:32px 24px 20px;text-align:center;")">
+                <MudText Typo="Typo.h6" Style="@($"font-weight:700;color:{_accentColor};")">@_tenantName</MudText>
+                <div style="@($"display:inline-block;padding:4px 14px;border-radius:20px;background:{_accentColor};color:#fff;font-size:0.75rem;font-weight:600;margin-top:8px;")">
+                    UNDERENTREPRENOR
+                </div>
+                <MudText Typo="Typo.h5" Style="font-weight:700;margin-top:12px;">@_projectName</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-2">
+                    @_invitedBy har invitert deg til dette prosjektet
+                </MudText>
+            </div>
+
+            @* Form *@
+            <div style="padding:24px;">
+                <MudStack Spacing="3">
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Opprett konto for a fa tilgang</MudText>
+
+                    <MudTextField T="string" @bind-Value="_fullName" Label="Fullt navn" Variant="Variant.Outlined"
+                                  Required="true" Immediate="true" Placeholder="Ola Nordmann" />
+
+                    <MudTextField T="string" Value="@_email" Label="E-post" Variant="Variant.Outlined"
+                                  Disabled="true" />
+
+                    <MudTextField T="string" @bind-Value="_password" Label="Passord" Variant="Variant.Outlined"
+                                  InputType="InputType.Password" Required="true" Immediate="true"
+                                  Placeholder="Minst 8 tegn, 1 stor bokstav, 1 tall" />
+
+                    <MudTextField T="string" @bind-Value="_confirmPassword" Label="Bekreft passord" Variant="Variant.Outlined"
+                                  InputType="InputType.Password" Required="true" Immediate="true" />
+
+                    @if (!string.IsNullOrEmpty(_formError))
+                    {
+                        <MudAlert Severity="Severity.Error" Dense="true">@_formError</MudAlert>
+                    }
+
+                    <MudButton Variant="Variant.Filled" FullWidth="true"
+                               OnClick="Accept" Disabled="@(_submitting || !IsFormValid)"
+                               Style="@($"text-transform:none;background:{_accentColor};color:#fff;border-radius:12px;height:48px;font-size:1rem;")">
+                        @if (_submitting) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> }
+                        Opprett konto og bli med
+                    </MudButton>
+
+                    <MudText Typo="Typo.caption" Color="Color.Secondary" Style="text-align:center;">
+                        Har du allerede konto? <MudLink Href="/login" Style="@($"color:{_accentColor};")">Logg inn</MudLink>
+                    </MudText>
+                </MudStack>
+            </div>
+        </MudPaper>
+    }
+</div>
+
+@code {
+    [Parameter] public Guid InvitationId { get; set; }
+
+    private bool _loading = true;
+    private string? _error;
+    private bool _accepted;
+    private bool _submitting;
+    private string? _formError;
+
+    // Invite details
+    private string _email = "";
+    private string _tenantName = "";
+    private string _projectName = "";
+    private string _invitedBy = "";
+    private string _accentColor = "#4361EE";
+
+    // Form
+    private string _fullName = "";
+    private string _password = "";
+    private string _confirmPassword = "";
+
+    private bool IsFormValid =>
+        !string.IsNullOrWhiteSpace(_fullName) &&
+        _password.Length >= 8 &&
+        _password == _confirmPassword;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var r = await Http.GetAsync($"api/subcontractors/invite/{InvitationId}");
+            if (!r.IsSuccessStatusCode)
+            {
+                _error = "Invitasjonen ble ikke funnet eller er utlopt.";
+                _loading = false;
+                return;
+            }
+
+            var data = await r.Content.ReadFromJsonAsync<InviteDetailResponse>();
+            if (data is null || data.State != "Pending")
+            {
+                _error = data?.State == "Accepted" ? "Denne invitasjonen er allerede brukt." : "Invitasjonen er ugyldig.";
+                _loading = false;
+                return;
+            }
+
+            if (data.IsExpired)
+            {
+                _error = "Invitasjonen har utlopt.";
+                _loading = false;
+                return;
+            }
+
+            _email = data.Email;
+            _tenantName = data.TenantName;
+            _projectName = data.ProjectName;
+            _invitedBy = data.InvitedByName;
+            _accentColor = data.TenantAccentColor ?? "#4361EE";
+        }
+        catch
+        {
+            _error = "Kunne ikke laste invitasjonen.";
+        }
+
+        _loading = false;
+    }
+
+    private async Task Accept()
+    {
+        _formError = null;
+
+        if (_password != _confirmPassword)
+        {
+            _formError = "Passordene er ikke like.";
+            return;
+        }
+
+        if (_password.Length < 8)
+        {
+            _formError = "Passordet ma vaere minst 8 tegn.";
+            return;
+        }
+
+        _submitting = true;
+        StateHasChanged();
+
+        try
+        {
+            var request = new AcceptInvitationRequest(_fullName.Trim(), _password);
+            var r = await Http.PostAsJsonAsync($"api/subcontractors/invite/{InvitationId}/accept", request);
+
+            if (r.IsSuccessStatusCode)
+            {
+                var response = await r.Content.ReadFromJsonAsync<AcceptInvitationResponse>();
+                if (response is not null)
+                {
+                    // Store tokens and log in
+                    await LocalStorage.SetItemAsStringAsync("accessToken", response.Auth.AccessToken);
+                    await LocalStorage.SetItemAsStringAsync("refreshToken", response.Auth.RefreshToken);
+                    await LocalStorage.SetItemAsStringAsync("selectedTenantId", response.TenantId.ToString());
+
+                    if (AuthStateProvider is Solodoc.Client.Services.JwtAuthStateProvider jwt)
+                        jwt.NotifyAuthStateChanged();
+
+                    _accepted = true;
+                }
+            }
+            else
+            {
+                var errorBody = await r.Content.ReadFromJsonAsync<ErrorBody>();
+                _formError = errorBody?.Error ?? "Noe gikk galt. Prov igjen.";
+            }
+        }
+        catch
+        {
+            _formError = "Nettverksfeil. Prov igjen.";
+        }
+
+        _submitting = false;
+    }
+
+    private record InviteDetailResponse(
+        Guid Id, string Email, string TenantName, string? TenantAccentColor,
+        string ProjectName, string InvitedByName, DateTimeOffset ExpiresAt,
+        string State, bool IsExpired);
+
+    private record ErrorBody(string? Error);
+}

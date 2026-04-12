@@ -13,8 +13,11 @@ builder.RootComponents.Add<HeadOutlet>("head::after");
 
 // In production, Client and API are behind the same Caddy reverse proxy (same origin).
 // In development, API runs on a separate port.
+// Use same host as browser for API (replace client port 5063 with API port 5078)
+var browserHost = new Uri(builder.HostEnvironment.BaseAddress).Host;
+var devApiUrl = browserHost == "localhost" ? "http://localhost:5078" : $"http://{browserHost}:5078";
 var apiBaseUrl = builder.Configuration["ApiBaseUrl"]
-    ?? (builder.HostEnvironment.IsDevelopment() ? "http://localhost:5078" : builder.HostEnvironment.BaseAddress);
+    ?? (builder.HostEnvironment.IsDevelopment() ? devApiUrl : builder.HostEnvironment.BaseAddress);
 
 // Plain HttpClient for unauthenticated calls (login, register)
 builder.Services.AddScoped(sp => new HttpClient
@@ -62,6 +65,7 @@ builder.Services.AddScoped<RoleService>();
 builder.Services.AddScoped<OnboardingService>();
 builder.Services.AddScoped<ChatbotService>();
 builder.Services.AddScoped<MarketplaceService>();
+builder.Services.AddScoped<SuperAdminService>();
 builder.Services.AddScoped<OfflineStorageService>();
 builder.Services.AddScoped<SyncService>();
 builder.Services.AddScoped<OfflineAwareApiClient>();

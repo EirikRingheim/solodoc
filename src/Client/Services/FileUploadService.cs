@@ -21,6 +21,17 @@ public class FileUploadService(ApiHttpClient api)
         return null;
     }
 
+    public async Task<string?> UploadFileAsync(MultipartFormDataContent content)
+    {
+        var response = await api.PostAsync("api/files/upload", content);
+        if (response.IsSuccessStatusCode)
+        {
+            var result = await response.Content.ReadFromJsonAsync<UploadResult>();
+            return result?.Key;
+        }
+        return null;
+    }
+
     public async Task<string?> GetFileUrlAsync(string key)
     {
         var response = await api.GetAsync($"api/files/{key}");

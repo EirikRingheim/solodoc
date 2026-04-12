@@ -26,7 +26,7 @@
             <MudSelect T="Guid?" @bind-Value="_customerId" Label="Kunde (valgfritt)"
                        Variant="Variant.Outlined" Clearable="true"
                        AnchorOrigin="Origin.BottomCenter">
-                @foreach (var contact in _contacts.Where(c => c.Type is "Bedrift" or "Privat"))
+                @foreach (var contact in _contacts.Where(c => c.Type is "Kunde" or "Leverandor" or "Annet"))
                 {
                     <MudSelectItem T="Guid?" Value="@((Guid?)contact.Id)">
                         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">

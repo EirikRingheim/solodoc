@@ -1,7 +1,9 @@
 @using Solodoc.Shared.Hours
 @using Solodoc.Shared.Projects
+@using Solodoc.Shared.Locations
 @inject ProjectService ProjectService
 @inject JobService JobService
+@inject LocationService LocationService
 
 <MudDialog>
     <TitleContent>
@@ -19,76 +21,57 @@
         }
         else
         {
-            @* Target: Project or Job *@
-            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2">Hva jobber du med?</MudText>
+            <MudStack Spacing="3">
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Velg hva du jobber med</MudText>
 
-            @* Recent items (last 3) *@
-            @if (_recentItems.Count > 0)
-            {
-                <MudStack Spacing="1" Class="mb-3">
-                    @foreach (var item in _recentItems)
-                    {
-                        var captured = item;
-                        var isSelected = (_targetType == captured.Type && _targetId == captured.Id);
-                        <MudPaper Elevation="0"
-                                  Style="@($"border:1px solid {(isSelected ? "#4361EE" : "#E9ECEF")};border-radius:8px;cursor:pointer;{(isSelected ? "background:#EBF0FF;" : "")}")"
-                                  Class="pa-3"
-                                  @onclick="() => SelectTarget(captured)">
-                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                                <MudIcon Icon="@(captured.Type == "project" ? Icons.Material.Filled.Folder : Icons.Material.Filled.Build)"
-                                         Size="Size.Small" Color="@(isSelected ? Color.Primary : Color.Default)" />
-                                <MudStack Spacing="0">
-                                    <MudText Typo="Typo.body2" Style="font-weight:500;">@captured.Name</MudText>
-                                    <MudText Typo="Typo.caption" Color="Color.Secondary">
-                                        @(captured.Type == "project" ? "Prosjekt" : "Oppdrag")
-                                    </MudText>
-                                </MudStack>
-                            </MudStack>
-                        </MudPaper>
-                    }
-                </MudStack>
-            }
-
-            @* Full project/job selector *@
-            <MudSelect T="string" Label="Eller velg prosjekt/oppdrag" @bind-Value="_selectedTargetKey"
-                       Variant="Variant.Outlined" Clearable="true" Class="mb-3">
-                @if (_projects.Count > 0)
-                {
-                    <MudSelectItem T="string" Value="@("")" Disabled="true">
-                        <MudText Typo="Typo.caption" Style="font-weight:600;">PROSJEKTER</MudText>
-                    </MudSelectItem>
+                @* Prosjekt *@
+                <MudSelect T="Guid?" Value="_selectedProjectId" ValueChanged="OnProjectChanged" Label="Prosjekt" Variant="Variant.Outlined"
+                           Clearable="true" AdornmentIcon="@Icons.Material.Filled.Folder"
+                           Placeholder="Velg prosjekt...">
                     @foreach (var p in _projects)
                     {
-                        <MudSelectItem T="string" Value="@($"project:{p.Id}")">@p.Name</MudSelectItem>
+                        <MudSelectItem T="Guid?" Value="@((Guid?)p.Id)">@p.Name</MudSelectItem>
                     }
-                }
-                @if (_jobs.Count > 0)
-                {
-                    <MudSelectItem T="string" Value="@("")" Disabled="true">
-                        <MudText Typo="Typo.caption" Style="font-weight:600;">OPPDRAG</MudText>
-                    </MudSelectItem>
+                </MudSelect>
+
+                @* Oppdrag *@
+                <MudSelect T="Guid?" Value="_selectedJobId" ValueChanged="OnJobChanged" Label="Oppdrag" Variant="Variant.Outlined"
+                           Clearable="true" AdornmentIcon="@Icons.Material.Filled.Handyman"
+                           Placeholder="Velg oppdrag...">
                     @foreach (var j in _jobs)
                     {
-                        <MudSelectItem T="string" Value="@($"job:{j.Id}")">@j.Description</MudSelectItem>
+                        <MudSelectItem T="Guid?" Value="@((Guid?)j.Id)">@j.Description</MudSelectItem>
                     }
-                }
-            </MudSelect>
+                </MudSelect>
 
-            @* Category *@
-            <MudSelect T="string" Label="Kategori" @bind-Value="_selectedCategory"
-                       Variant="Variant.Outlined">
-                <MudSelectItem T="string" Value="@("Arbeid")">Arbeid</MudSelectItem>
-                <MudSelectItem T="string" Value="@("Reise")">Reise</MudSelectItem>
-                <MudSelectItem T="string" Value="@("Kontorarbeid")">Kontorarbeid</MudSelectItem>
-                <MudSelectItem T="string" Value="@("Lagerarbeid")">Lagerarbeid</MudSelectItem>
-                <MudSelectItem T="string" Value="@("Kurs")">Kurs/opplæring</MudSelectItem>
-                <MudSelectItem T="string" Value="@("Annet")">Annet</MudSelectItem>
-            </MudSelect>
+                @* Lokasjon *@
+                <MudSelect T="Guid?" Value="_selectedLocationId" ValueChanged="OnLocationChanged" Label="Lokasjon" Variant="Variant.Outlined"
+                           Clearable="true" AdornmentIcon="@Icons.Material.Filled.LocationOn"
+                           Placeholder="Velg lokasjon...">
+                    @foreach (var l in _locations)
+                    {
+                        <MudSelectItem T="Guid?" Value="@((Guid?)l.Id)">@l.Name</MudSelectItem>
+                    }
+                </MudSelect>
+
+                <MudDivider />
+
+                @* Kategori *@
+                <MudSelect T="string" Label="Kategori" @bind-Value="_selectedCategory"
+                           Variant="Variant.Outlined" AdornmentIcon="@Icons.Material.Filled.Category">
+                    <MudSelectItem T="string" Value="@("Arbeid")">Arbeid</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("Reise")">Reise</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("Kontorarbeid")">Kontorarbeid</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("Lagerarbeid")">Lagerarbeid</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("Kurs")">Kurs/opplaering</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("Annet")">Annet</MudSelectItem>
+                </MudSelect>
+            </MudStack>
         }
     </DialogContent>
     <DialogActions>
         <MudButton OnClick="Cancel" Style="text-transform:none;">Avbryt</MudButton>
-        <MudButton OnClick="Submit" Variant="Variant.Filled" Disabled="_loading"
+        <MudButton OnClick="Submit" Variant="Variant.Filled" Disabled="@(_loading || !HasSelection)"
                    Style="text-transform:none;background:#4361EE;color:#fff;border-radius:8px;">
             Stemple inn
         </MudButton>
@@ -101,79 +84,44 @@
 
     private List<ProjectListItemDto> _projects = [];
     private List<JobListItemDto> _jobs = [];
+    private List<LocationListItemDto> _locations = [];
     private bool _loading = true;
     private string _selectedCategory = "Arbeid";
 
-    // Target selection
-    private string _targetType = "";   // "project" or "job"
-    private Guid? _targetId;
+    private Guid? _selectedProjectId;
+    private Guid? _selectedJobId;
+    private Guid? _selectedLocationId;
 
-    // Dropdown key format: "project:{guid}" or "job:{guid}"
-    private string? _selectedTargetKey
-    {
-        get => _targetType switch
-        {
-            "project" => $"project:{_targetId}",
-            "job" => $"job:{_targetId}",
-            _ => null
-        };
-        set
-        {
-            if (string.IsNullOrEmpty(value))
-            {
-                _targetType = "";
-                _targetId = null;
-            }
-            else if (value.StartsWith("project:") && Guid.TryParse(value[8..], out var pid))
-            {
-                _targetType = "project";
-                _targetId = pid;
-            }
-            else if (value.StartsWith("job:") && Guid.TryParse(value[4..], out var jid))
-            {
-                _targetType = "job";
-                _targetId = jid;
-            }
-        }
-    }
-
-    // Recent items — last 3 projects/jobs this worker clocked into
-    private List<RecentItem> _recentItems = [];
+    private bool HasSelection => _selectedProjectId.HasValue || _selectedJobId.HasValue || _selectedLocationId.HasValue;
 
     protected override async Task OnInitializedAsync()
     {
         var projectsTask = ProjectService.GetActiveProjectsAsync();
-        var jobsTask = JobService.GetJobsAsync(1, 50, null, null, false);
-        _projects = await projectsTask;
-        _jobs = (await jobsTask).Items.Where(j => j.Status == "Aktiv").ToList();
+        var jobsTask = JobService.GetJobsAsync(1, 100, null, null, false);
+        var locationsTask = LocationService.GetLocationsAsync();
 
-        // Build recent list: combine and take last 3 by creation date
-        // For now, take first project + first job as "recent" (true recent tracking needs server support)
-        _recentItems = [];
-        foreach (var p in _projects.Take(2))
-            _recentItems.Add(new RecentItem(p.Id, p.Name, "project"));
-        foreach (var j in _jobs.Take(1))
-            _recentItems.Add(new RecentItem(j.Id, j.Description, "job"));
+        try { await Task.WhenAll(projectsTask, jobsTask, locationsTask); } catch { }
+
+        _projects = projectsTask.IsCompletedSuccessfully ? projectsTask.Result : [];
+        _jobs = jobsTask.IsCompletedSuccessfully
+            ? jobsTask.Result.Items.Where(j => j.Status == "Aktiv").ToList()
+            : [];
+        _locations = locationsTask.IsCompletedSuccessfully ? locationsTask.Result : [];
 
         _loading = false;
     }
 
-    private void SelectTarget(RecentItem item)
-    {
-        _targetType = item.Type;
-        _targetId = item.Id;
-    }
+    private void OnProjectChanged(Guid? val) { _selectedProjectId = val; if (val.HasValue) { _selectedJobId = null; _selectedLocationId = null; } }
+    private void OnJobChanged(Guid? val) { _selectedJobId = val; if (val.HasValue) { _selectedProjectId = null; _selectedLocationId = null; } }
+    private void OnLocationChanged(Guid? val) { _selectedLocationId = val; if (val.HasValue) { _selectedProjectId = null; _selectedJobId = null; } }
 
     private void Cancel() => MudDialog.Cancel();
 
     private void Submit()
     {
-        Guid? projectId = _targetType == "project" ? _targetId : null;
-        Guid? jobId = _targetType == "job" ? _targetId : null;
-
-        var request = new ClockInRequest(projectId, jobId, _selectedCategory, null, null);
+        var request = new ClockInRequest(
+            _selectedProjectId, _selectedJobId,
+            _selectedCategory, null, null);
         MudDialog.Close(DialogResult.Ok(request));
     }
-
-    private record RecentItem(Guid Id, string Name, string Type);
 }

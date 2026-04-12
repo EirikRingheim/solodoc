@@ -30,7 +30,7 @@
         </div>
         <div class="nav-actions">
             <a href="#contact" class="btn btn-outline btn-sm">Kontakt oss</a>
-            <a href="https://app.solodoc.no" class="btn btn-primary btn-sm">Kom i gang</a>
+            <a href="https://solodoc.app" class="btn btn-primary btn-sm">Kom i gang</a>
         </div>
         <button class="mobile-menu-btn" id="menuBtn" aria-label="Meny">
             <span></span><span></span><span></span>
@@ -808,7 +808,7 @@ function sendContact(e) {
         message: document.getElementById('cf-message').value
     };
 
-    fetch('https://app.solodoc.no/api/contact', {
+    fetch('https://solodoc.app/api/contact', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)

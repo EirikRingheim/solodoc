@@ -373,9 +373,7 @@ else
         try
         {
             var auth = await AuthStateProvider.GetAuthenticationStateAsync();
-            var role = auth.User.FindFirst("role")?.Value
-                       ?? auth.User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
-            _isSuperAdmin = role is "super-admin" or "tenant-admin";
+            _isSuperAdmin = auth.User.HasClaim("sa", "1");
         }
         catch { }
     }

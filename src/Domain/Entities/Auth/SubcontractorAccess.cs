@@ -10,6 +10,7 @@ public class SubcontractorAccess : BaseEntity
     public Guid ProjectId { get; set; }
     public SubcontractorAccessState State { get; set; } = SubcontractorAccessState.Active;
     public bool HoursRegistrationEnabled { get; set; }
+    public DateTimeOffset? ExpiresAt { get; set; }
     public DateTimeOffset? RevokedAt { get; set; }
     public Guid? RevokedBy { get; set; }
 

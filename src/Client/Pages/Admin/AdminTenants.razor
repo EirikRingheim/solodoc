@@ -1,73 +1,623 @@
 @page "/admin/tenants"
 @attribute [Authorize]
-@inject AuthHttpService AuthService
+@inject SuperAdminService AdminService
 @inject NavigationManager Navigation
+@inject ISnackbar Snackbar
 @inject Blazored.LocalStorage.ILocalStorageService LocalStorage
-@using Solodoc.Shared.Auth
+@using Solodoc.Shared.Admin
+@using Solodoc.Shared.Onboarding
 
-<PageTitle>Solodoc - Alle bedrifter</PageTitle>
+<PageTitle>Solodoc - Kundeoversikt</PageTitle>
 
-<MudText Typo="Typo.h5" Class="mb-4" Style="font-weight:700;">Alle bedrifter</MudText>
+<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4" Style="flex-wrap:wrap;gap:8px;">
+    <MudText Typo="Typo.h5" Style="font-weight:700;">Kundeoversikt</MudText>
+    <MudStack Row="true" Spacing="2" Style="flex-wrap:wrap;">
+        <MudButton Variant="Variant.Outlined" Size="Size.Small"
+                   StartIcon="@Icons.Material.Filled.BugReport"
+                   OnClick="() => _tab = 3"
+                   Style="@($"text-transform:none;border-radius:8px;{(_errorCount > 0 ? "border-color:#DC2626;color:#DC2626;" : "")}")">
+            Feillogg @(_errorCount > 0 ? $"({_errorCount})" : "")
+        </MudButton>
+        <MudButton Variant="Variant.Outlined" Size="Size.Small"
+                   StartIcon="@Icons.Material.Filled.ConfirmationNumber"
+                   OnClick="() => _showCoupons = true"
+                   Style="text-transform:none;border-radius:8px;">Kupongkoder</MudButton>
+        <MudButton Variant="Variant.Outlined" Size="Size.Small"
+                   StartIcon="@Icons.Material.Filled.Receipt"
+                   OnClick="() => _showInvoices = true"
+                   Style="text-transform:none;border-radius:8px;">Fakturaer</MudButton>
+    </MudStack>
+</MudStack>
 
 @if (_loading)
 {
     <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
 }
-else if (_tenants.Count == 0)
+else if (_selectedTenant is not null)
 {
-    <MudAlert Severity="Severity.Info">Ingen bedrifter funnet.</MudAlert>
+    <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.ArrowBack"
+               OnClick="() => _selectedTenant = null" Style="text-transform:none;" Class="mb-3">
+        Tilbake til oversikt
+    </MudButton>
+    <TenantDetailView Detail="_selectedDetail" OnFreeze="HandleFreeze" OnUnfreeze="HandleUnfreeze" />
 }
 else
 {
-    <MudGrid Spacing="3">
-        @foreach (var tenant in _tenants)
+    @* ── KPI cards ── *@
+    <MudGrid Spacing="2" Class="mb-4">
+        <MudItem xs="6" sm="4" md="2">
+            <div style="background:#EBF0FF;border-radius:10px;padding:14px;text-align:center;">
+                <div style="font-size:1.6rem;font-weight:700;color:#4361EE;">@_tenants.Count</div>
+                <div style="font-size:0.7rem;color:#6B7280;">Bedrifter</div>
+            </div>
+        </MudItem>
+        <MudItem xs="6" sm="4" md="2">
+            <div style="background:#D1FAE5;border-radius:10px;padding:14px;text-align:center;">
+                <div style="font-size:1.6rem;font-weight:700;color:#059669;">@_tenants.Sum(t => t.EmployeeCount)</div>
+                <div style="font-size:0.7rem;color:#6B7280;">Ansatte totalt</div>
+            </div>
+        </MudItem>
+        <MudItem xs="6" sm="4" md="2">
+            <div style="background:#FEF3C7;border-radius:10px;padding:14px;text-align:center;">
+                <div style="font-size:1.6rem;font-weight:700;color:#D97706;">kr @Mrr.ToString("N0")</div>
+                <div style="font-size:0.7rem;color:#6B7280;">MRR</div>
+            </div>
+        </MudItem>
+        <MudItem xs="6" sm="4" md="2">
+            <div style="background:#EDE9FE;border-radius:10px;padding:14px;text-align:center;">
+                <div style="font-size:1.6rem;font-weight:700;color:#7C3AED;">kr @((Mrr * 12).ToString("N0"))</div>
+                <div style="font-size:0.7rem;color:#6B7280;">ARR</div>
+            </div>
+        </MudItem>
+        <MudItem xs="6" sm="4" md="2">
+            <div style="background:#FEE2E2;border-radius:10px;padding:14px;text-align:center;">
+                <div style="font-size:1.6rem;font-weight:700;color:#DC2626;">@TrialCount</div>
+                <div style="font-size:0.7rem;color:#6B7280;">Proveperiode</div>
+            </div>
+        </MudItem>
+        <MudItem xs="6" sm="4" md="2">
+            <div style="background:#DBEAFE;border-radius:10px;padding:14px;text-align:center;">
+                <div style="font-size:1.6rem;font-weight:700;color:#2563EB;">@PaidCount</div>
+                <div style="font-size:0.7rem;color:#6B7280;">Betalende</div>
+            </div>
+        </MudItem>
+    </MudGrid>
+
+    @* ── Subscription breakdown bar ── *@
+    <div style="display:flex;height:24px;border-radius:8px;overflow:hidden;margin-bottom:16px;border:1px solid #e9ecef;">
+        @if (PaidPct > 0) { <div style="@($"width:{PaidPct}%;background:#4361EE;display:flex;align-items:center;justify-content:center;color:#fff;font-size:0.65rem;font-weight:600;")">Betalt @PaidCount</div> }
+        @if (CouponPct > 0) { <div style="@($"width:{CouponPct}%;background:#10B981;display:flex;align-items:center;justify-content:center;color:#fff;font-size:0.65rem;font-weight:600;")">Kupong @CouponCount</div> }
+        @if (TrialPct > 0) { <div style="@($"width:{TrialPct}%;background:#F59E0B;display:flex;align-items:center;justify-content:center;color:#fff;font-size:0.65rem;font-weight:600;")">Prove @TrialCount</div> }
+    </div>
+
+    @* ── Expiring trials warning ── *@
+    @if (ExpiringTrials.Count > 0)
+    {
+        <MudPaper Elevation="0" Style="background:#FEF3C7;border:1px solid #FDE68A;border-radius:10px;" Class="pa-3 mb-4">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudIcon Icon="@Icons.Material.Filled.Warning" Size="Size.Small" Style="color:#D97706;" />
+                <MudText Typo="Typo.body2" Style="color:#92400E;font-weight:500;">
+                    @ExpiringTrials.Count proveperiode(r) utloper innen 14 dager:
+                    @string.Join(", ", ExpiringTrials.Select(t => $"{t.Name} ({t.TrialEndsAt!.Value.ToLocalTime():dd.MM})"))
+                </MudText>
+            </MudStack>
+        </MudPaper>
+    }
+
+    @* ── Tabs: Customers / Signup timeline / Errors ── *@
+    <div style="display:flex;gap:4px;margin-bottom:12px;">
+        @foreach (var (idx, label) in new[] { (0, "Kunder"), (1, "Registreringstidslinje"), (3, $"Feillogg{(_errorCount > 0 ? $" ({_errorCount})" : "")}") })
         {
-            var isActive = tenant.Id.ToString() == _currentTenantId;
-            <MudItem xs="12" sm="6" md="4">
-                <MudPaper Elevation="0" Class="pa-5"
-                          Style="@($"border:2px solid {(isActive ? "#4361EE" : "#e9ecef")};border-radius:12px;cursor:pointer;height:100%;{(isActive ? "background:#F0F4FF;" : "")}")"
-                          @onclick="() => SwitchToTenant(tenant)">
-                    <MudStack Spacing="2">
-                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                            <MudAvatar Style="@($"background:{(tenant.AccentColor ?? "#4361EE")};color:#fff;")"
-                                       Size="Size.Medium" Rounded="true">
-                                @tenant.Name[0]
-                            </MudAvatar>
-                            <div>
-                                <MudText Typo="Typo.h6" Style="font-weight:600;">@tenant.Name</MudText>
-                                <MudText Typo="Typo.caption" Color="Color.Secondary">Org: @tenant.OrgNumber</MudText>
-                            </div>
-                        </MudStack>
-                        <MudStack Row="true" Spacing="2">
-                            <MudChip T="string" Size="Size.Small" Style="height:22px;">@tenant.Role</MudChip>
-                            @if (isActive)
+            var captured = idx;
+            <button style="@($"padding:6px 16px;border-radius:8px;border:1px solid {(_tab == captured ? "#4361EE" : "#e9ecef")};background:{(_tab == captured ? "#EBF0FF" : "#fff")};color:{(_tab == captured ? "#4361EE" : "#6B7280")};font-weight:{(_tab == captured ? "600" : "400")};font-size:0.8rem;cursor:pointer;")"
+                    @onclick="() => SwitchTab(captured)">@label</button>
+        }
+    </div>
+
+    @if (_tab == 0)
+    {
+        @* ── Customer table ── *@
+        <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;overflow:hidden;">
+            <div style="overflow-x:auto;">
+                <MudSimpleTable Dense="true" Hover="true" Style="font-size:0.8rem;min-width:900px;">
+                    <thead>
+                        <tr style="background:#F8F9FA;">
+                            <th>Bedrift</th>
+                            <th>Org.nr</th>
+                            <th>Abonnement</th>
+                            <th>Proveperiode</th>
+                            <th style="text-align:right;">Ansatte</th>
+                            <th style="text-align:right;">MRR</th>
+                            <th style="text-align:right;">ARR</th>
+                            <th>Sist aktiv</th>
+                            <th>Registrert</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var t in _tenants)
+                        {
+                            var capturedT = t;
+                            var tierColor = t.SubscriptionTier switch { "trial" => "#F59E0B", "basic" => "#4361EE", "pro" => "#059669", "enterprise" => "#7C3AED", _ => "#6B7280" };
+                            var tierLabel = t.SubscriptionTier switch { "trial" => "Prove", "basic" => "Basis", "pro" => "Pro", "enterprise" => "Enterprise", _ => t.SubscriptionTier };
+                            var tenantMrr = t.HasCoupon ? 0 : t.MonthlyEstimateKr;
+                            var trialExpired = t.TrialEndsAt.HasValue && t.TrialEndsAt.Value < DateTimeOffset.UtcNow;
+                            var trialDaysLeft = t.TrialEndsAt.HasValue ? (int)(t.TrialEndsAt.Value - DateTimeOffset.UtcNow).TotalDays : (int?)null;
+                            <tr style="cursor:pointer;" @onclick="() => SelectTenant(capturedT)">
+                                <td>
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                        <div style="@($"width:26px;height:26px;border-radius:6px;background:{(t.AccentColor ?? "#4361EE")};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.65rem;flex-shrink:0;")">
+                                            @t.Name[0]
+                                        </div>
+                                        <div>
+                                            <div style="font-weight:600;font-size:0.8rem;">@t.Name</div>
+                                            <div style="font-size:0.65rem;color:#9CA3AF;">@(t.IndustryType ?? "-") · @(t.CompanySize ?? "-")</div>
+                                        </div>
+                                    </MudStack>
+                                </td>
+                                <td style="font-family:monospace;font-size:0.75rem;color:#6B7280;">@t.OrgNumber</td>
+                                <td>
+                                    <span style="@($"background:{tierColor}20;color:{tierColor};padding:2px 8px;border-radius:4px;font-weight:600;font-size:0.7rem;")">@tierLabel</span>
+                                    @if (t.HasCoupon)
+                                    {
+                                        <span style="background:#D1FAE5;color:#059669;padding:2px 6px;border-radius:4px;font-size:0.6rem;margin-left:4px;">@t.CouponCode</span>
+                                    }
+                                    @if (t.IsFrozen)
+                                    {
+                                        <span style="background:#FEE2E2;color:#DC2626;padding:2px 6px;border-radius:4px;font-size:0.6rem;margin-left:4px;">Frosset</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (t.SubscriptionTier == "trial" && t.TrialEndsAt.HasValue)
+                                    {
+                                        @if (trialExpired)
+                                        {
+                                            <span style="color:#DC2626;font-weight:600;font-size:0.75rem;">Utlopt</span>
+                                        }
+                                        else
+                                        {
+                                            var daysColor = trialDaysLeft < 7 ? "#DC2626" : trialDaysLeft < 14 ? "#D97706" : "#059669";
+                                            <span style="@($"color:{daysColor};font-weight:500;font-size:0.75rem;")">@trialDaysLeft d igjen</span>
+                                            <div style="font-size:0.6rem;color:#9CA3AF;">@t.TrialEndsAt.Value.ToLocalTime().ToString("dd.MM.yy")</div>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <span style="font-size:0.7rem;color:#9CA3AF;">-</span>
+                                    }
+                                </td>
+                                <td style="text-align:right;">
+                                    <span style="font-weight:600;">@t.EmployeeCount</span>
+                                    <div style="font-size:0.6rem;color:#9CA3AF;">@t.AdminCount A / @t.ProjectLeaderCount PL / @t.FieldWorkerCount F</div>
+                                </td>
+                                <td style="text-align:right;font-weight:600;">
+                                    @if (tenantMrr == 0)
+                                    {
+                                        <span style="color:#059669;">Gratis</span>
+                                    }
+                                    else
+                                    {
+                                        <span>kr @tenantMrr</span>
+                                    }
+                                </td>
+                                <td style="text-align:right;">
+                                    <span style="font-size:0.75rem;color:#6B7280;">kr @((tenantMrr * 12).ToString("N0"))</span>
+                                </td>
+                                <td>
+                                    @if (t.LastActivityAt.HasValue)
+                                    {
+                                        var daysAgo = (int)(DateTimeOffset.UtcNow - t.LastActivityAt.Value).TotalDays;
+                                        var actColor = daysAgo == 0 ? "#059669" : daysAgo < 7 ? "#4361EE" : daysAgo < 30 ? "#D97706" : "#DC2626";
+                                        <span style="@($"color:{actColor};font-size:0.75rem;font-weight:500;")">
+                                            @(daysAgo == 0 ? "I dag" : daysAgo == 1 ? "I gar" : $"{daysAgo}d siden")
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span style="color:#9CA3AF;font-size:0.75rem;">Aldri</span>
+                                    }
+                                </td>
+                                <td style="font-size:0.7rem;color:#9CA3AF;">@t.CreatedAt.ToLocalTime().ToString("dd.MM.yy")</td>
+                                <td><MudIconButton Icon="@Icons.Material.Filled.ChevronRight" Size="Size.Small" /></td>
+                            </tr>
+                        }
+                    </tbody>
+                </MudSimpleTable>
+            </div>
+        </MudPaper>
+    }
+    else if (_tab == 1)
+    {
+        @* ── Registration timeline ── *@
+        <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;" Class="pa-4">
+            <MudText Typo="Typo.subtitle2" Style="font-weight:600;" Class="mb-3">Nye bedrifter over tid</MudText>
+            @{
+                var byMonth = _tenants
+                    .GroupBy(t => new { t.CreatedAt.Year, t.CreatedAt.Month })
+                    .OrderBy(g => g.Key.Year).ThenBy(g => g.Key.Month)
+                    .Select(g => new { Label = $"{g.Key.Month:D2}/{g.Key.Year}", Count = g.Count(), Cumulative = 0 })
+                    .ToList();
+                var cumulative = 0;
+                for (int i = 0; i < byMonth.Count; i++)
+                {
+                    cumulative += byMonth[i].Count;
+                    byMonth[i] = byMonth[i] with { Cumulative = cumulative };
+                }
+            }
+            <div style="display:flex;align-items:flex-end;gap:8px;height:200px;padding:0 4px;">
+                @foreach (var m in byMonth)
+                {
+                    var maxCount = byMonth.Max(x => x.Count);
+                    var barHeight = maxCount > 0 ? (int)(m.Count * 160.0 / maxCount) : 0;
+                    <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;">
+                        <span style="font-size:0.65rem;font-weight:600;color:#4361EE;">@m.Count</span>
+                        <div style="@($"width:100%;height:{Math.Max(barHeight, 4)}px;background:#4361EE;border-radius:4px 4px 0 0;min-width:20px;")"></div>
+                        <span style="font-size:0.6rem;color:#9CA3AF;">@m.Label</span>
+                    </div>
+                }
+            </div>
+            <div style="margin-top:12px;display:flex;gap:16px;">
+                <span style="font-size:0.75rem;color:#6B7280;">Totalt: <b>@_tenants.Count</b> bedrifter</span>
+                @if (byMonth.Count > 0)
+                {
+                    <span style="font-size:0.75rem;color:#6B7280;">Siste maned: <b>@byMonth.Last().Count</b> nye</span>
+                }
+            </div>
+        </MudPaper>
+    }
+    else if (_tab == 3)
+    {
+        @* ── Error log ── *@
+        <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;" Class="pa-4">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
+                <MudText Typo="Typo.subtitle2" Style="font-weight:600;">Feil rapportert fra brukere</MudText>
+                <MudSwitch T="bool" @bind-Value="_showResolvedErrors" Label="Vis loste" Color="Color.Primary" />
+            </MudStack>
+            @if (_errors.Count == 0)
+            {
+                <MudStack AlignItems="AlignItems.Center" Spacing="2" Class="pa-8">
+                    <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Large" Color="Color.Success" />
+                    <MudText Color="Color.Secondary">Ingen uloste feil</MudText>
+                </MudStack>
+            }
+            else
+            {
+                @foreach (var err in _errors)
+                {
+                    var capturedErr = err;
+                    <MudPaper Elevation="0" Class="pa-3 mb-2"
+                              Style="@($"border:1px solid {(err.IsResolved ? "#D1FAE5" : "#FECACA")};border-radius:8px;background:{(err.IsResolved ? "#F0FDF4" : "#FEF2F2")};")">
+                        <MudStack Spacing="1">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                    <MudIcon Icon="@(err.IsResolved ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.Error)"
+                                             Size="Size.Small"
+                                             Color="@(err.IsResolved ? Color.Success : Color.Error)" />
+                                    <span style="font-weight:600;font-size:0.8rem;">@err.Message</span>
+                                </MudStack>
+                                @if (!err.IsResolved)
+                                {
+                                    <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Success"
+                                               OnClick="() => ResolveError(capturedErr.Id)"
+                                               Style="text-transform:none;font-size:0.7rem;">Merk som lost</MudButton>
+                                }
+                            </MudStack>
+                            <MudStack Row="true" Spacing="3" Style="flex-wrap:wrap;">
+                                <span style="font-size:0.7rem;color:#6B7280;">@err.CreatedAt.ToLocalTime().ToString("dd.MM.yy HH:mm")</span>
+                                @if (err.UserEmail is not null)
+                                {
+                                    <span style="font-size:0.7rem;color:#6B7280;">Bruker: @err.UserEmail</span>
+                                }
+                                @if (err.Page is not null)
+                                {
+                                    <span style="font-size:0.7rem;color:#4361EE;">@(new Uri(err.Page).PathAndQuery)</span>
+                                }
+                            </MudStack>
+                            @if (err.StackTrace is not null)
                             {
-                                <MudChip T="string" Size="Size.Small" Color="Color.Primary" Style="height:22px;">Aktiv</MudChip>
+                                <details>
+                                    <summary style="font-size:0.7rem;color:#9CA3AF;cursor:pointer;">Vis stack trace</summary>
+                                    <pre style="font-size:0.6rem;color:#6B7280;white-space:pre-wrap;max-height:200px;overflow:auto;margin-top:4px;background:#F9FAFB;padding:8px;border-radius:4px;">@err.StackTrace</pre>
+                                </details>
                             }
                         </MudStack>
-                    </MudStack>
-                </MudPaper>
-            </MudItem>
-        }
-    </MudGrid>
+                    </MudPaper>
+                }
+            }
+        </MudPaper>
+    }
 }
 
+@* ── Coupon dialog ── *@
+<MudDialog @bind-Visible="_showCoupons" Options="@(new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true })">
+    <TitleContent><MudText Typo="Typo.h6">Kupongkoder</MudText></TitleContent>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.End" Style="flex-wrap:wrap;">
+                <MudTextField T="string" @bind-Value="_newCouponCode" Label="Kode" Variant="Variant.Outlined"
+                              Placeholder="F.eks. SOLOTRIAL365" Style="flex:1;min-width:140px;" />
+                <MudNumericField T="int" @bind-Value="_newCouponDays" Label="Dager" Variant="Variant.Outlined"
+                                 Min="1" Max="3650" Style="width:100px;" />
+                <MudNumericField T="int" @bind-Value="_newCouponMax" Label="Maks (0=ubegrenset)" Variant="Variant.Outlined"
+                                 Min="0" Style="width:140px;" />
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="CreateCoupon"
+                           Disabled="@(string.IsNullOrWhiteSpace(_newCouponCode))"
+                           Style="text-transform:none;border-radius:8px;min-height:40px;">Opprett</MudButton>
+            </MudStack>
+            @if (_coupons.Count > 0)
+            {
+                <MudSimpleTable Dense="true" Hover="true">
+                    <thead>
+                        <tr><th>Kode</th><th>Dager</th><th>Brukt</th><th>Maks</th><th>Status</th><th></th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var c in _coupons)
+                        {
+                            var capturedC = c;
+                            <tr>
+                                <td style="font-weight:600;font-family:monospace;">@c.Code</td>
+                                <td>@c.TrialDays</td>
+                                <td>@c.TimesRedeemed</td>
+                                <td>@(c.MaxRedemptions == 0 ? "Ubegrenset" : c.MaxRedemptions.ToString())</td>
+                                <td>
+                                    @if (c.IsActive) { <span style="color:#059669;font-weight:500;">Aktiv</span> }
+                                    else { <span style="color:#DC2626;">Deaktivert</span> }
+                                </td>
+                                <td>
+                                    <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
+                                                   Color="Color.Error" OnClick="() => DeleteCoupon(capturedC)" />
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </MudSimpleTable>
+            }
+            else
+            {
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Ingen kupongkoder opprettet enna.</MudText>
+            }
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => _showCoupons = false" Style="text-transform:none;">Lukk</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@* ── Invoice dialog ── *@
+<MudDialog @bind-Visible="_showInvoices" Options="@(new DialogOptions { MaxWidth = MaxWidth.Large, FullWidth = true })">
+    <TitleContent><MudText Typo="Typo.h6">Fakturaer</MudText></TitleContent>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.End">
+                <MudNumericField T="int" @bind-Value="_invoiceYear" Label="Ar" Variant="Variant.Outlined" Style="width:100px;" />
+                <MudNumericField T="int" @bind-Value="_invoiceMonth" Label="Maned" Variant="Variant.Outlined" Min="1" Max="12" Style="width:100px;" />
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="GenerateInvoices"
+                           Style="text-transform:none;border-radius:8px;">Generer fakturaer</MudButton>
+            </MudStack>
+            @if (_invoices.Count > 0)
+            {
+                <MudSimpleTable Dense="true" Hover="true" Style="font-size:0.85rem;">
+                    <thead>
+                        <tr>
+                            <th>Nr</th><th>Kunde</th><th>Periode</th>
+                            <th style="text-align:right;">Ex. MVA</th>
+                            <th style="text-align:right;">MVA</th>
+                            <th style="text-align:right;">Totalt</th>
+                            <th>Status</th><th>Kupong</th><th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var inv in _invoices)
+                        {
+                            var capturedInv = inv;
+                            <tr>
+                                <td style="font-family:monospace;font-size:0.75rem;">@inv.InvoiceNumber</td>
+                                <td style="font-weight:500;">@inv.CustomerName</td>
+                                <td>@inv.Month/@inv.Year</td>
+                                <td style="text-align:right;">kr @inv.TotalExVatKr</td>
+                                <td style="text-align:right;">kr @inv.VatKr</td>
+                                <td style="text-align:right;font-weight:600;">kr @inv.TotalIncVatKr</td>
+                                <td>
+                                    @{
+                                        var sColor = inv.Status switch { "Draft" => "#F59E0B", "Sent" => "#4361EE", "Paid" => "#059669", "Overdue" => "#DC2626", _ => "#6B7280" };
+                                        var sLabel = inv.Status switch { "Draft" => "Utkast", "Approved" => "Godkjent", "Sent" => "Sendt", "Paid" => "Betalt", "Overdue" => "Forfalt", _ => inv.Status };
+                                    }
+                                    <span style="@($"color:{sColor};font-weight:600;font-size:0.75rem;")">@sLabel</span>
+                                </td>
+                                <td>
+                                    @if (inv.IsCouponApplied) { <span style="color:#059669;font-size:0.7rem;">Gratis</span> }
+                                </td>
+                                <td>
+                                    <MudStack Row="true" Spacing="1">
+                                        @if (inv.Status == "Draft")
+                                        {
+                                            <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Primary"
+                                                       OnClick="@(() => UpdateStatus(capturedInv.Id, "Sent"))"
+                                                       Style="text-transform:none;font-size:0.7rem;">Send</MudButton>
+                                        }
+                                        @if (inv.Status == "Sent")
+                                        {
+                                            <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Success"
+                                                       OnClick="@(() => UpdateStatus(capturedInv.Id, "Paid"))"
+                                                       Style="text-transform:none;font-size:0.7rem;">Betalt</MudButton>
+                                        }
+                                        <MudIconButton Icon="@Icons.Material.Filled.Code" Size="Size.Small"
+                                                       OnClick="() => DownloadEhf(capturedInv)" Title="Last ned EHF XML" />
+                                    </MudStack>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </MudSimpleTable>
+                <MudStack Row="true" Spacing="4" Style="padding:12px;background:#F8F9FA;border-radius:8px;">
+                    <div><span style="font-size:0.75rem;color:#6B7280;">Totalt ex. MVA:</span> <b>kr @_invoices.Sum(i => i.TotalExVatKr)</b></div>
+                    <div><span style="font-size:0.75rem;color:#6B7280;">MVA:</span> <b>kr @_invoices.Sum(i => i.VatKr)</b></div>
+                    <div><span style="font-size:0.75rem;color:#6B7280;">Inkl. MVA:</span> <b style="color:#059669;">kr @_invoices.Sum(i => i.TotalIncVatKr)</b></div>
+                </MudStack>
+            }
+            else
+            {
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Ingen fakturaer. Velg periode og klikk "Generer fakturaer".</MudText>
+            }
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => _showInvoices = false" Style="text-transform:none;">Lukk</MudButton>
+    </DialogActions>
+</MudDialog>
+
 @code {
-    private List<TenantDto> _tenants = [];
-    private string _currentTenantId = "";
+    private List<TenantOverviewDto> _tenants = [];
+    private TenantOverviewDto? _selectedTenant;
+    private TenantDetailDto? _selectedDetail;
     private bool _loading = true;
+    private int _tab = 0;
+
+    // Computed KPIs
+    private int Mrr => _tenants.Where(t => !t.HasCoupon && t.SubscriptionTier != "trial").Sum(t => t.MonthlyEstimateKr);
+    private int TrialCount => _tenants.Count(t => t.SubscriptionTier == "trial");
+    private int PaidCount => _tenants.Count(t => t.SubscriptionTier != "trial" && !t.HasCoupon);
+    private int CouponCount => _tenants.Count(t => t.HasCoupon);
+    private int PaidPct => _tenants.Count > 0 ? (int)(PaidCount * 100.0 / _tenants.Count) : 0;
+    private int CouponPct => _tenants.Count > 0 ? (int)(CouponCount * 100.0 / _tenants.Count) : 0;
+    private int TrialPct => Math.Max(0, 100 - PaidPct - CouponPct);
+    private List<TenantOverviewDto> ExpiringTrials => _tenants
+        .Where(t => t.TrialEndsAt.HasValue && t.TrialEndsAt.Value < DateTimeOffset.UtcNow.AddDays(14)
+            && t.TrialEndsAt.Value > DateTimeOffset.UtcNow && t.SubscriptionTier == "trial").ToList();
+
+    // Errors
+    private List<ClientErrorDto> _errors = [];
+    private int _errorCount;
+    private bool _showResolvedErrors;
+
+    // Coupons
+    private bool _showCoupons;
+    private List<CouponCodeDto> _coupons = [];
+    private string _newCouponCode = "";
+    private int _newCouponDays = 365;
+    private int _newCouponMax = 0;
+
+    // Invoices
+    private bool _showInvoices;
+    private List<TenantInvoiceDto> _invoices = [];
+    private int _invoiceYear = DateTimeOffset.UtcNow.Year;
+    private int _invoiceMonth = DateTimeOffset.UtcNow.Month;
 
     protected override async Task OnInitializedAsync()
     {
-        _tenants = await AuthService.GetTenantsAsync();
-        var stored = await LocalStorage.GetItemAsStringAsync("selectedTenantId");
-        _currentTenantId = stored?.Trim('"') ?? (_tenants.FirstOrDefault()?.Id.ToString() ?? "");
+        var tenantsTask = AdminService.GetTenantsAsync();
+        var errorsTask = AdminService.GetErrorsAsync();
+        _tenants = await tenantsTask;
+        _errors = await errorsTask;
+        _errorCount = _errors.Count(e => !e.IsResolved);
         _loading = false;
     }
 
-    private async Task SwitchToTenant(TenantDto tenant)
+    private async Task SelectTenant(TenantOverviewDto tenant)
     {
-        await LocalStorage.SetItemAsStringAsync("selectedTenantId", tenant.Id.ToString());
-        Navigation.NavigateTo("/", forceLoad: true);
+        _selectedTenant = tenant;
+        _selectedDetail = await AdminService.GetTenantDetailAsync(tenant.Id);
+    }
+
+    private async Task SwitchTab(int tab)
+    {
+        _tab = tab;
+        if (tab == 3)
+        {
+            _errors = await AdminService.GetErrorsAsync(_showResolvedErrors);
+            _errorCount = _errors.Count(e => !e.IsResolved);
+        }
+    }
+
+    private async Task ResolveError(Guid id)
+    {
+        if (await AdminService.ResolveErrorAsync(id))
+        {
+            _errors = await AdminService.GetErrorsAsync(_showResolvedErrors);
+            _errorCount = _errors.Count(e => !e.IsResolved);
+        }
+    }
+
+    // Coupons
+    private bool _couponsLoaded;
+    private async Task CreateCoupon()
+    {
+        var result = await AdminService.CreateCouponAsync(new(_newCouponCode, null, _newCouponDays, _newCouponMax));
+        if (result is not null)
+        {
+            Snackbar.Add($"Kupongkode {result.Code} opprettet!", Severity.Success);
+            _coupons = await AdminService.GetCouponsAsync();
+            _newCouponCode = "";
+        }
+        else
+            Snackbar.Add("Kunne ikke opprette kupongkode", Severity.Error);
+    }
+
+    private async Task DeleteCoupon(CouponCodeDto coupon)
+    {
+        if (await AdminService.DeleteCouponAsync(coupon.Id))
+        {
+            Snackbar.Add("Kupongkode slettet", Severity.Info);
+            _coupons = await AdminService.GetCouponsAsync();
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_showCoupons && !_couponsLoaded)
+        {
+            _coupons = await AdminService.GetCouponsAsync();
+            _couponsLoaded = true;
+            StateHasChanged();
+        }
+        if (!_showCoupons) _couponsLoaded = false;
+
+        if (_showInvoices && _invoices.Count == 0)
+        {
+            _invoices = await AdminService.GetInvoicesAsync();
+            StateHasChanged();
+        }
+    }
+
+    // Invoices
+    private async Task GenerateInvoices()
+    {
+        var count = await AdminService.GenerateInvoicesAsync(_invoiceYear, _invoiceMonth);
+        Snackbar.Add($"{count} fakturaer generert for {_invoiceMonth}/{_invoiceYear}", Severity.Success);
+        _invoices = await AdminService.GetInvoicesAsync();
+    }
+
+    private async Task UpdateStatus(Guid id, string status)
+    {
+        if (await AdminService.UpdateInvoiceStatusAsync(id, status))
+        {
+            Snackbar.Add("Status oppdatert", Severity.Success);
+            _invoices = await AdminService.GetInvoicesAsync();
+        }
+    }
+
+    private async Task DownloadEhf(TenantInvoiceDto inv)
+    {
+        var xml = await AdminService.GetEhfXmlAsync(inv.Id);
+        if (xml is not null)
+            Snackbar.Add($"EHF XML for {inv.InvoiceNumber} generert", Severity.Info);
+    }
+
+    private async Task HandleFreeze()
+    {
+        if (_selectedTenant is null) return;
+        await AdminService.FreezeTenantAsync(_selectedTenant.Id);
+        _tenants = await AdminService.GetTenantsAsync();
+        _selectedDetail = await AdminService.GetTenantDetailAsync(_selectedTenant.Id);
+        Snackbar.Add("Bedrift frosset", Severity.Warning);
+    }
+
+    private async Task HandleUnfreeze()
+    {
+        if (_selectedTenant is null) return;
+        await AdminService.UnfreezeTenantAsync(_selectedTenant.Id);
+        _tenants = await AdminService.GetTenantsAsync();
+        _selectedDetail = await AdminService.GetTenantDetailAsync(_selectedTenant.Id);
+        Snackbar.Add("Bedrift aktivert igjen", Severity.Success);
     }
 }

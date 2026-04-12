@@ -1,0 +1,241 @@
+@page "/checkin/scan"
+@attribute [Authorize]
+@inject IJSRuntime JS
+@inject NavigationManager Navigation
+@inject CheckInService CheckInService
+@inject ISnackbar Snackbar
+@using Solodoc.Shared.CheckIn
+@implements IAsyncDisposable
+
+<PageTitle>Solodoc - Skann QR</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-4">
+    <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Href="/" />
+    <MudText Typo="Typo.h5" Style="font-weight:700;">Skann QR-kode</MudText>
+</MudStack>
+
+@if (_result is not null)
+{
+    @* ── Scan result ── *@
+    <MudPaper Elevation="0" Style="border:2px solid #059669;border-radius:12px;background:#F0FDF4;" Class="pa-5">
+        <MudStack AlignItems="AlignItems.Center" Spacing="3">
+            <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Large" Style="color:#059669;" />
+            <MudText Typo="Typo.h6" Style="font-weight:700;color:#059669;">@_result.SiteName</MudText>
+            <MudText Typo="Typo.body2" Color="Color.Secondary">@_result.SiteType @(_result.TenantName is not null ? $" — {_result.TenantName}" : "")</MudText>
+
+            @if (_checkedIn)
+            {
+                <MudPaper Elevation="0" Style="background:#D1FAE5;border-radius:8px;" Class="pa-3">
+                    <MudText Typo="Typo.body1" Style="font-weight:600;color:#059669;">Sjekket inn!</MudText>
+                </MudPaper>
+            }
+            else
+            {
+                <MudButton Variant="Variant.Filled" Size="Size.Large"
+                           OnClick="DoCheckIn" Disabled="_checkingIn"
+                           Style="text-transform:none;background:#059669;color:#fff;border-radius:10px;min-width:200px;">
+                    @if (_checkingIn) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> }
+                    Sjekk inn her
+                </MudButton>
+            }
+
+            <MudButton Variant="Variant.Text" OnClick="StartScanning"
+                       Style="text-transform:none;color:#6B7280;">
+                Skann en ny kode
+            </MudButton>
+        </MudStack>
+    </MudPaper>
+}
+else if (_error is not null)
+{
+    <MudPaper Elevation="0" Style="border:1px solid #FECACA;border-radius:12px;background:#FEF2F2;" Class="pa-5">
+        <MudStack AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Filled.Error" Color="Color.Error" Size="Size.Large" />
+            <MudText Color="Color.Error" Style="font-weight:500;">@_error</MudText>
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="StartScanning"
+                       Style="text-transform:none;border-radius:8px;">Prov igjen</MudButton>
+        </MudStack>
+    </MudPaper>
+}
+else
+{
+    @* ── Camera view ── *@
+    <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;overflow:hidden;position:relative;" Class="mb-4">
+        @if (!_cameraReady)
+        {
+            <div style="padding:60px 24px;text-align:center;">
+                <MudProgressCircular Indeterminate="true" Color="Color.Primary" Class="mb-3" />
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Starter kamera...</MudText>
+            </div>
+        }
+        <div id="qr-scanner-container" style="@($"min-height:{(_cameraReady ? "0" : "1")}px;")"></div>
+        @if (_cameraReady)
+        {
+            <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:200px;height:200px;border:3px solid #059669;border-radius:12px;pointer-events:none;opacity:0.6;"></div>
+        }
+    </MudPaper>
+
+    <MudText Typo="Typo.body2" Color="Color.Secondary" Style="text-align:center;">
+        Hold QR-koden innenfor rammen
+    </MudText>
+
+    @if (_cameraFailed)
+    {
+        <MudPaper Elevation="0" Style="border:1px solid #FDE68A;border-radius:8px;background:#FFFBEB;" Class="pa-3 mt-3">
+            <MudText Typo="Typo.body2" Style="color:#92400E;">
+                Kunne ikke starte kamera. Sjekk at du har gitt tilgang til kamera i nettleseren.
+            </MudText>
+        </MudPaper>
+    }
+
+    @* ── Manual slug entry ── *@
+    <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;" Class="pa-4 mt-4">
+        <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2">Eller skriv inn kode manuelt</MudText>
+        <MudStack Row="true" Spacing="2" AlignItems="AlignItems.End">
+            <MudTextField T="string" @bind-Value="_manualSlug" Label="QR-kode" Variant="Variant.Outlined"
+                          Placeholder="f.eks. a1b2c3d4" Style="flex:1;" />
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="LookupManualSlug"
+                       Disabled="@(string.IsNullOrWhiteSpace(_manualSlug))"
+                       Style="text-transform:none;border-radius:8px;min-height:40px;">Sok</MudButton>
+        </MudStack>
+    </MudPaper>
+}
+
+@code {
+    private DotNetObjectReference<QrScanner>? _dotNetRef;
+    private bool _cameraReady;
+    private bool _cameraFailed;
+    private QrCodeInfoDto? _result;
+    private string? _error;
+    private bool _checkedIn;
+    private bool _checkingIn;
+    private string _manualSlug = "";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await StartScanning();
+        }
+    }
+
+    private async Task StartScanning()
+    {
+        _result = null;
+        _error = null;
+        _checkedIn = false;
+        _cameraReady = false;
+        _cameraFailed = false;
+        StateHasChanged();
+
+        _dotNetRef = DotNetObjectReference.Create(this);
+        await Task.Delay(100); // Let the container render
+
+        var started = await JS.InvokeAsync<bool>("qrScanner.start", _dotNetRef, "qr-scanner-container");
+        if (started)
+        {
+            _cameraReady = true;
+        }
+        else
+        {
+            _cameraFailed = true;
+        }
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public async Task OnQrScanned(string value)
+    {
+        // Extract slug from URL — could be full URL or just the slug
+        string? slug = null;
+
+        if (value.Contains("checkin/qr/"))
+        {
+            var idx = value.IndexOf("checkin/qr/");
+            slug = value[(idx + 11)..].Trim('/').Split('?')[0];
+        }
+        else if (value.Length <= 20 && !value.Contains('/'))
+        {
+            slug = value; // Assume it's a raw slug
+        }
+
+        if (string.IsNullOrWhiteSpace(slug))
+        {
+            _error = $"Ukjent QR-kode: {value}";
+            StateHasChanged();
+            return;
+        }
+
+        await LookupSlug(slug);
+    }
+
+    private async Task LookupManualSlug()
+    {
+        if (string.IsNullOrWhiteSpace(_manualSlug)) return;
+        await StopCamera();
+        await LookupSlug(_manualSlug.Trim());
+    }
+
+    private async Task LookupSlug(string slug)
+    {
+        var info = await CheckInService.GetQrLandingInfoAsync(slug);
+        if (info is not null)
+        {
+            _result = info;
+            _error = null;
+        }
+        else
+        {
+            _error = $"QR-koden '{slug}' ble ikke funnet.";
+        }
+        StateHasChanged();
+    }
+
+    private async Task DoCheckIn()
+    {
+        if (_result is null) return;
+        _checkingIn = true;
+        StateHasChanged();
+
+        try
+        {
+            var siteType = _result.SiteType?.ToLowerInvariant();
+            var request = new CheckInRequest(
+                ProjectId: siteType == "prosjekt" ? _result.SiteId : null,
+                JobId: siteType == "oppdrag" ? _result.SiteId : null,
+                LocationId: siteType == "lokasjon" ? _result.SiteId : null,
+                Source: "QrCode",
+                Latitude: null,
+                Longitude: null);
+
+            var ok = await CheckInService.CheckInAsync(request);
+            if (ok)
+            {
+                _checkedIn = true;
+                Snackbar.Add($"Sjekket inn pa {_result.SiteName}!", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add("Kunne ikke sjekke inn", Severity.Error);
+            }
+        }
+        catch
+        {
+            Snackbar.Add("Feil ved innsjekking", Severity.Error);
+        }
+
+        _checkingIn = false;
+        StateHasChanged();
+    }
+
+    private async Task StopCamera()
+    {
+        try { await JS.InvokeVoidAsync("qrScanner.stop"); } catch { }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await StopCamera();
+        _dotNetRef?.Dispose();
+    }
+}

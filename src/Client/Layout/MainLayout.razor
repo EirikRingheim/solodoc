@@ -10,6 +10,8 @@
 @implements IAsyncDisposable
 
 <MudLayout>
+  @if (_hasTenant)
+  {
     @* Desktop: sidebar *@
     <MudDrawer @bind-Open="_drawerOpen" Elevation="0" Variant="DrawerVariant.Responsive"
                Breakpoint="Breakpoint.Md" Class="sidebar-drawer">
@@ -73,28 +75,6 @@
             }
         }
 
-        @* ── Super Admin Panel ── *@
-        @if (_isSuperAdmin)
-        {
-            <div style="margin:0 12px 8px;padding:10px 12px;background:linear-gradient(135deg,#1B2A4A,#243352);border-radius:10px;color:#fff;">
-                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mb-2">
-                    <MudIcon Icon="@Icons.Material.Filled.Shield" Size="Size.Small" Style="color:#F59E0B;" />
-                    <span style="font-weight:700;color:#F59E0B;font-size:0.7rem;letter-spacing:0.5px;">VIS SOM</span>
-                </MudStack>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">
-                    @foreach (var role in _impersonationRoles)
-                    {
-                        var isActive = _viewAsRole == role.Key;
-                        var capturedRole = role;
-                        <button style="@($"background:{(isActive ? "#4361EE" : "#2D3B55")};color:{(isActive ? "#fff" : "#9CA3AF")};border:1px solid {(isActive ? "#4361EE" : "#4B5563")};border-radius:6px;padding:5px 6px;font-size:0.7rem;cursor:pointer;font-weight:{(isActive ? "600" : "400")};transition:all 0.15s;")"
-                                @onclick="() => SetImpersonationRole(capturedRole.Key)">
-                            @role.Value
-                        </button>
-                    }
-                </div>
-            </div>
-        }
-
         <MudDivider Class="mb-2" />
 
         <MudNavMenu Bordered="true" Color="Color.Primary" Class="px-2">
@@ -120,6 +100,8 @@
                     }
                 </div>
             </MudNavLink>
+            <MudNavLink Href="/checkin/scan" Match="NavLinkMatch.Prefix"
+                        Icon="@Icons.Material.Filled.QrCodeScanner">Skann QR</MudNavLink>
             <MudNavLink Href="/forefallende" Match="NavLinkMatch.Prefix"
                         Icon="@Icons.Material.Filled.AssignmentLate">
                 Forefallende
@@ -181,6 +163,8 @@
                             Icon="@Icons.Material.Filled.CalendarViewMonth">Skiftplanlegger</MudNavLink>
                 <MudNavLink Href="/admin/roles" Match="NavLinkMatch.Prefix"
                             Icon="@Icons.Material.Filled.ManageAccounts">Roller</MudNavLink>
+                <MudNavLink Href="/admin/subcontractors" Match="NavLinkMatch.Prefix"
+                            Icon="@Icons.Material.Filled.GroupAdd">Underentreprenorer</MudNavLink>
                 <MudNavLink Href="/admin/settings" Match="NavLinkMatch.Prefix"
                             Icon="@Icons.Material.Filled.Settings">Innstillinger</MudNavLink>
             }
@@ -202,6 +186,10 @@
                 <MudNavLink Href="/welcome" Match="NavLinkMatch.Prefix"
                             Icon="@Icons.Material.Filled.Slideshow" Style="color:#F59E0B;">
                     Test velkomstsider
+                </MudNavLink>
+                <MudNavLink Href="/admin/subcontractors" Match="NavLinkMatch.Prefix"
+                            Icon="@Icons.Material.Filled.GroupAdd" Style="color:#F59E0B;">
+                    Test UE-invitasjon
                 </MudNavLink>
             }
         </MudNavMenu>
@@ -259,9 +247,42 @@
             }
         </div>
     </MudAppBar>
+  } @* end _hasTenant *@
 
     @* Main content *@
     <MudMainContent Class="main-content">
+        @* Super admin banner *@
+        @if (_isSuperAdmin)
+        {
+            <div style="background:linear-gradient(90deg,#1B2A4A,#243352);padding:8px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                <div style="display:flex;align-items:center;gap:6px;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="#F59E0B" stroke="none"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>
+                    <span style="color:#F59E0B;font-weight:700;font-size:0.75rem;letter-spacing:0.5px;">SUPER ADMIN</span>
+                </div>
+                <div style="display:flex;gap:4px;align-items:center;">
+                    <span style="color:#9CA3AF;font-size:0.7rem;margin-right:4px;">Vis som:</span>
+                    @foreach (var role in _impersonationRoles)
+                    {
+                        var isActive = _viewAsRole == role.Key;
+                        var capturedRole = role;
+                        <button style="@($"background:{(isActive ? "#4361EE" : "transparent")};color:{(isActive ? "#fff" : "#9CA3AF")};border:1px solid {(isActive ? "#4361EE" : "#4B5563")};border-radius:6px;padding:3px 10px;font-size:0.7rem;cursor:pointer;font-weight:{(isActive ? "600" : "400")};transition:all 0.15s;")"
+                                @onclick="() => SetImpersonationRole(capturedRole.Key)">
+                            @role.Value
+                        </button>
+                    }
+                </div>
+                <div style="margin-left:auto;display:flex;gap:8px;align-items:center;">
+                    <a href="/admin/tenants" style="color:#F59E0B;font-size:0.7rem;text-decoration:none;display:flex;align-items:center;gap:4px;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                        Alle bedrifter
+                    </a>
+                    <a href="/templates/marketplace" style="color:#F59E0B;font-size:0.7rem;text-decoration:none;display:flex;align-items:center;gap:4px;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+                        Malbutikk
+                    </a>
+                </div>
+            </div>
+        }
         @if (!_syncOnline)
         {
             <MudPaper Elevation="0" Style="background:#FEF2F2;border-bottom:1px solid #FECACA;padding:8px 16px;">
@@ -290,6 +311,8 @@
     </MudMainContent>
 
     @* Mobile: bottom navigation bar *@
+    @if (_hasTenant)
+    {
     <MudPaper Class="d-flex d-md-none bottom-nav" Elevation="0">
         <MudStack Row="true" Justify="Justify.SpaceAround" AlignItems="AlignItems.Center"
                   Class="bottom-nav-inner">
@@ -305,6 +328,7 @@
             }
         </MudStack>
     </MudPaper>
+    }
 
     @* Notification popover *@
     @if (_notificationsOpen)
@@ -355,6 +379,8 @@
     private string _userInitials = "";
     private string _tenantName = "Bedrift";
     private bool _isSuperAdmin;
+    private bool _isTenantAdmin;
+    private bool _hasTenant;
     private string _viewAsRole = "admin";
     private string _selectedTenantId = "";
     private List<TenantDto> _tenants = [];
@@ -393,12 +419,28 @@
                     _userEmail = user.FindFirst("email")?.Value ?? "";
                     _userInitials = GetInitials(_userName);
 
-                    var roleClaim = user.FindFirst("role")?.Value
-                                    ?? user.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value;
-                    _isSuperAdmin = roleClaim is "super-admin" or "tenant-admin";
+                    // "sa" = "1" is a dedicated non-array claim added for super admins
+                    _isSuperAdmin = user.HasClaim("sa", "1");
+                    // Tenant admin: check all role claims
+                    var roleValues = user.Claims
+                        .Where(c => c.Type == "role" || c.Type.Contains("/role"))
+                        .Select(c => c.Value)
+                        .ToHashSet(StringComparer.OrdinalIgnoreCase);
+                    _isTenantAdmin = _isSuperAdmin || roleValues.Contains("tenant-admin") || roleValues.Contains("TenantAdmin");
 
                     // Load tenants
                     _tenants = await AuthService.GetTenantsAsync();
+
+                    _hasTenant = _tenants.Count > 0;
+
+                    // No tenant = new user, redirect to getting started
+                    var currentPath = new Uri(Navigation.Uri).AbsolutePath;
+                    if (_tenants.Count == 0 && !currentPath.StartsWith("/getting-started") && !currentPath.StartsWith("/onboarding") && !currentPath.StartsWith("/invite"))
+                    {
+                        Navigation.NavigateTo("/getting-started");
+                        return;
+                    }
+
                     var storedTenantId = await LocalStorage.GetItemAsStringAsync("selectedTenantId");
                     if (!string.IsNullOrWhiteSpace(storedTenantId))
                         _selectedTenantId = storedTenantId.Trim('"');
@@ -407,10 +449,26 @@
 
                     _tenantName = _tenants.FirstOrDefault(t => t.Id.ToString() == _selectedTenantId)?.Name ?? "Bedrift";
 
-                    // Load view-as role from storage
-                    var storedRole = await LocalStorage.GetItemAsStringAsync("viewAsRole");
-                    if (!string.IsNullOrWhiteSpace(storedRole))
-                        _viewAsRole = storedRole.Trim('"');
+                    // Set view role from actual JWT role (not default admin)
+                    if (_isSuperAdmin)
+                    {
+                        // Super admins get VIS SOM — load from storage or default to admin
+                        var storedRole = await LocalStorage.GetItemAsStringAsync("viewAsRole");
+                        if (!string.IsNullOrWhiteSpace(storedRole))
+                            _viewAsRole = storedRole.Trim('"');
+                    }
+                    else if (_isTenantAdmin)
+                    {
+                        _viewAsRole = "admin";
+                    }
+                    else if (roleValues.Contains("project-leader") || roleValues.Contains("ProjectLeader"))
+                    {
+                        _viewAsRole = "project-leader";
+                    }
+                    else
+                    {
+                        _viewAsRole = "field-worker";
+                    }
 
                     _openDeviationCount = await DeviationService.GetOpenCountAsync();
                     _notifications = await NotificationService.GetNotificationsAsync();
@@ -509,7 +567,7 @@
     private async Task MarkAllRead()
     {
         await NotificationService.MarkAllReadAsync();
-        _notifications.ForEach(n => n = n with { IsRead = true });
+        _notifications = _notifications.Select(n => n with { IsRead = true }).ToList();
         _unreadNotifications = 0;
         StateHasChanged();
     }

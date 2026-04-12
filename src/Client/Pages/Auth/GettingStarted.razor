@@ -1,0 +1,169 @@
+@page "/getting-started"
+@attribute [Authorize]
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthStateProvider
+@inject Blazored.LocalStorage.ILocalStorageService LocalStorage
+@inject ISnackbar Snackbar
+@inject HttpClient Http
+@using System.Net.Http.Json
+@using Solodoc.Shared.Auth
+
+<PageTitle>Solodoc - Kom i gang</PageTitle>
+
+<div style="display:flex;align-items:center;justify-content:center;min-height:85vh;padding:24px;">
+    <div style="max-width:500px;width:100%;">
+
+        <div style="text-align:center;margin-bottom:32px;">
+            <div style="font-size:2rem;font-weight:800;color:#4361EE;margin-bottom:4px;">Solodoc</div>
+            <MudText Typo="Typo.h5" Style="font-weight:700;">Velkommen, @_userName!</MudText>
+            <MudText Typo="Typo.body1" Color="Color.Secondary" Class="mt-1">Hva vil du gjore?</MudText>
+        </div>
+
+        @if (!_showCoupon)
+        {
+            @* ── Two paths ── *@
+            <MudStack Spacing="3">
+                @* Path 1: Create company *@
+                <MudPaper Elevation="0" @onclick="GoToOnboarding"
+                          Style="border:2px solid #4361EE;border-radius:16px;cursor:pointer;transition:all 0.15s;" Class="pa-5">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
+                        <div style="width:48px;height:48px;border-radius:12px;background:#EBF0FF;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                            <MudIcon Icon="@Icons.Material.Filled.Business" Style="color:#4361EE;" />
+                        </div>
+                        <div>
+                            <MudText Typo="Typo.subtitle1" Style="font-weight:600;">Opprett bedrift</MudText>
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                Jeg vil sette opp Solodoc for min bedrift. Jeg blir administrator.
+                            </MudText>
+                        </div>
+                        <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Color="Color.Primary" />
+                    </MudStack>
+                </MudPaper>
+
+                @* Path 2: I was invited *@
+                <MudPaper Elevation="0" @onclick="() => _showCoupon = true"
+                          Style="border:2px solid #E9ECEF;border-radius:16px;cursor:pointer;transition:all 0.15s;" Class="pa-5">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
+                        <div style="width:48px;height:48px;border-radius:12px;background:#F0FDF4;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                            <MudIcon Icon="@Icons.Material.Filled.GroupAdd" Style="color:#059669;" />
+                        </div>
+                        <div>
+                            <MudText Typo="Typo.subtitle1" Style="font-weight:600;">Jeg er invitert</MudText>
+                            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                                Min arbeidsgiver bruker allerede Solodoc. Jeg har fatt en invitasjonslenke eller kupongkode.
+                            </MudText>
+                        </div>
+                        <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Color="Color.Secondary" />
+                    </MudStack>
+                </MudPaper>
+            </MudStack>
+        }
+        else
+        {
+            @* ── Invited / coupon entry ── *@
+            <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:16px;" Class="pa-5">
+                <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.ArrowBack"
+                           OnClick="() => _showCoupon = false" Style="text-transform:none;margin-bottom:12px;">
+                    Tilbake
+                </MudButton>
+
+                <MudText Typo="Typo.subtitle1" Style="font-weight:600;" Class="mb-3">Vent pa invitasjon</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+                    Be din arbeidsgiver sende deg en invitasjonslenke via Solodoc.
+                    Nar du apner lenken, far du automatisk tilgang til riktig bedrift og prosjekt.
+                </MudText>
+
+                <MudDivider Class="mb-4" />
+
+                <MudText Typo="Typo.subtitle2" Style="font-weight:600;" Class="mb-2">Har du en kupongkode?</MudText>
+                <MudStack Row="true" Spacing="2" AlignItems="AlignItems.End">
+                    <MudTextField T="string" @bind-Value="_couponCode" Label="Kupongkode" Variant="Variant.Outlined"
+                                  Placeholder="F.eks. SOLOTRIAL365" Style="flex:1;" Immediate="true" />
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                               OnClick="RedeemCoupon"
+                               Disabled="@(_redeeming || string.IsNullOrWhiteSpace(_couponCode))"
+                               Style="text-transform:none;border-radius:8px;min-height:40px;">
+                        @if (_redeeming) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> }
+                        Los inn
+                    </MudButton>
+                </MudStack>
+
+                @if (_couponError is not null)
+                {
+                    <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">@_couponError</MudAlert>
+                }
+                @if (_couponSuccess)
+                {
+                    <MudAlert Severity="Severity.Success" Dense="true" Class="mt-2">
+                        Kupongkode aktivert! Du har fatt utvidet proveperiode.
+                    </MudAlert>
+                }
+            </MudPaper>
+        }
+
+        <MudText Typo="Typo.caption" Color="Color.Secondary" Style="text-align:center;margin-top:24px;">
+            Logget inn som @_userEmail
+        </MudText>
+    </div>
+</div>
+
+@code {
+    private string _userName = "";
+    private string _userEmail = "";
+    private bool _showCoupon;
+    private string _couponCode = "";
+    private bool _redeeming;
+    private string? _couponError;
+    private bool _couponSuccess;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthStateProvider.GetAuthenticationStateAsync();
+        _userName = auth.User.FindFirst("fullName")?.Value ?? "bruker";
+        _userEmail = auth.User.FindFirst("email")?.Value
+                     ?? auth.User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value ?? "";
+    }
+
+    private void GoToOnboarding()
+    {
+        Navigation.NavigateTo("/onboarding");
+    }
+
+    private async Task RedeemCoupon()
+    {
+        _couponError = null;
+        _couponSuccess = false;
+        _redeeming = true;
+        StateHasChanged();
+
+        try
+        {
+            var r = await Http.PostAsJsonAsync("api/coupons/redeem", new { code = _couponCode.Trim() });
+            if (r.IsSuccessStatusCode)
+            {
+                var result = await r.Content.ReadFromJsonAsync<RedeemResult>();
+                if (result?.Success == true)
+                {
+                    _couponSuccess = true;
+                    Snackbar.Add($"Kupongkode aktivert! {result.TrialDays} dager gratis.", Severity.Success);
+                }
+                else
+                {
+                    _couponError = result?.Error ?? "Ugyldig kupongkode.";
+                }
+            }
+            else
+            {
+                _couponError = "Kunne ikke lose inn kupongkode. Prov igjen.";
+            }
+        }
+        catch
+        {
+            _couponError = "Nettverksfeil. Prov igjen.";
+        }
+
+        _redeeming = false;
+    }
+
+    private record RedeemResult(bool Success, string? Error, int? TrialDays);
+}

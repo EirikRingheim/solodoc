@@ -5,6 +5,8 @@
 @inject JobService JobService
 @inject ISnackbar Snackbar
 @inject ShiftService ShiftService
+@inject CheckInService CheckInService
+@using Solodoc.Shared.CheckIn
 
 <PageTitle>Solodoc - Timer</PageTitle>
 
@@ -374,6 +376,36 @@
             <MudTextField T="string" @bind-Value="_dlgDateStr" Label="Dato"
                           Variant="Variant.Outlined" Placeholder="dd.MM.yyyy" />
 
+            @* ── Check-in reference ── *@
+            @if (_dlgCheckIns.Count > 0)
+            {
+                <MudPaper Elevation="0" Style="border:1px solid #D1FAE5;border-radius:8px;background:#F0FDF4;" Class="pa-3">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Class="mb-1">
+                        <MudIcon Icon="@Icons.Material.Filled.Login" Size="Size.Small" Style="color:#059669;" />
+                        <MudText Typo="Typo.caption" Style="font-weight:600;color:#059669;">Innsjekkinger denne dagen</MudText>
+                    </MudStack>
+                    @foreach (var ci in _dlgCheckIns)
+                    {
+                        var capturedCi = ci;
+                        var ciIn = ci.CheckInAt.ToLocalTime();
+                        var ciOut = ci.CheckOutAt?.ToLocalTime();
+                        <div @onclick="() => ApplyCheckInTimes(capturedCi)"
+                             style="display:flex;align-items:center;gap:8px;padding:4px 8px;border-radius:6px;cursor:pointer;font-size:0.8rem;margin-bottom:2px;background:#fff;border:1px solid #E9ECEF;"
+                             title="Klikk for a bruke disse tidene">
+                            <span style="font-weight:600;color:#059669;">@ciIn.ToString("HH:mm")</span>
+                            <span style="color:#9CA3AF;">-</span>
+                            <span style="font-weight:600;color:@(ciOut.HasValue ? "#059669" : "#D97706");">@(ciOut?.ToString("HH:mm") ?? "aktiv")</span>
+                            <span style="color:#6B7280;font-size:0.7rem;flex:1;">@ci.SiteName</span>
+                            <span style="background:@(ci.SiteType == "Prosjekt" ? "#4361EE15" : ci.SiteType == "Oppdrag" ? "#D9770615" : "#05966915");color:@(ci.SiteType == "Prosjekt" ? "#4361EE" : ci.SiteType == "Oppdrag" ? "#D97706" : "#059669");padding:1px 6px;border-radius:3px;font-size:0.6rem;">@ci.SiteType</span>
+                            <MudIcon Icon="@Icons.Material.Filled.ContentCopy" Size="Size.Small" Style="color:#9CA3AF;font-size:0.7rem;" />
+                        </div>
+                    }
+                    <MudText Typo="Typo.caption" Color="Color.Secondary" Style="font-size:0.65rem;margin-top:2px;">
+                        Klikk for a bruke inn/ut-tid
+                    </MudText>
+                </MudPaper>
+            }
+
             <MudGrid Spacing="2">
                 <MudItem xs="5">
                     <MudTextField T="string" Value="@_dlgStartStr" Label="Fra"
@@ -564,6 +596,9 @@
     private List<AllowanceRuleDto> _operationRules = [];
     private bool _lookupsLoaded;
 
+    // Check-in reference for dialog
+    private List<CheckInLogEntryDto> _dlgCheckIns = [];
+
     // Dialog
     private bool _dialogOpen;
     private readonly DialogOptions _dialogOptions = new() { MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true };
@@ -671,6 +706,14 @@
         _dlgDateStr = day.ToString("dd.MM.yyyy");
         _dlgNotes = null;
         _dlgAllowanceIds.Clear();
+
+        // Load check-ins for this day as reference
+        try
+        {
+            var allLog = await CheckInService.GetMyLogAsync(60);
+            _dlgCheckIns = allLog.Where(c => DateOnly.FromDateTime(c.CheckInAt.ToLocalTime().DateTime) == day).ToList();
+        }
+        catch { _dlgCheckIns = []; }
 
         var lastEntry = _entries
             .Where(e => e.Date == day && e.EndTime.HasValue)
@@ -834,6 +877,32 @@
     }
 
     private void CloseDialog() => _dialogOpen = false;
+
+    private void ApplyCheckInTimes(CheckInLogEntryDto ci)
+    {
+        var inTime = ci.CheckInAt.ToLocalTime().TimeOfDay;
+        _dlgStartStr = $"{inTime.Hours:D2}:{inTime.Minutes:D2}";
+
+        if (ci.CheckOutAt.HasValue)
+        {
+            var outTime = ci.CheckOutAt.Value.ToLocalTime().TimeOfDay;
+            _dlgEndStr = $"{outTime.Hours:D2}:{outTime.Minutes:D2}";
+        }
+
+        // Also set project/job if the check-in had one
+        // Match by site name in available projects/jobs
+        var matchProject = _projects.FirstOrDefault(p => p.Name == ci.SiteName);
+        if (matchProject is not null)
+            _dlgTargetKey = $"project:{matchProject.Id}";
+        else
+        {
+            var matchJob = _jobs.FirstOrDefault(j => j.Description == ci.SiteName);
+            if (matchJob is not null)
+                _dlgTargetKey = $"job:{matchJob.Id}";
+        }
+
+        StateHasChanged();
+    }
     private void ToggleDlgAllowance(Guid id) { if (!_dlgAllowanceIds.Remove(id)) _dlgAllowanceIds.Add(id); }
     private void ChoosePayout() => _dlgOvertimeChoice = "payout";
     private void ChooseBank() { _dlgOvertimeChoice = "bank"; _dlgBankHoursStr = ""; }

@@ -54,7 +54,8 @@ public record ClockInRequest(
     Guid? JobId,
     string? Category,
     double? Latitude,
-    double? Longitude);
+    double? Longitude,
+    DateTimeOffset? StartTime = null);
 
 public record ClockOutRequest(
     double? Latitude,

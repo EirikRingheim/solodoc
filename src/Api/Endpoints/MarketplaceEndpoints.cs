@@ -18,6 +18,7 @@ public static class MarketplaceEndpoints
         app.MapGet("/api/marketplace/purchases", GetMyPurchases).RequireAuthorization();
         app.MapPut("/api/marketplace/{id:guid}", UpdateMarketplaceTemplate).RequireAuthorization();
         app.MapDelete("/api/marketplace/{id:guid}", UnpublishFromMarketplace).RequireAuthorization();
+        app.MapPost("/api/marketplace/{id:guid}/republish", RepublishTemplate).RequireAuthorization();
 
         return app;
     }
@@ -27,15 +28,19 @@ public static class MarketplaceEndpoints
     private static async Task<IResult> ListMarketplaceTemplates(
         SolodocDbContext db,
         ITenantProvider tp,
-        CancellationToken ct)
+        CancellationToken ct,
+        bool includeHidden = false)
     {
-        var templates = await db.MarketplaceTemplates
-            .Where(m => m.IsPublished && !m.IsDeleted)
+        var query = db.MarketplaceTemplates.Where(m => !m.IsDeleted);
+        if (!includeHidden)
+            query = query.Where(m => m.IsPublished);
+
+        var templates = await query
             .OrderBy(m => m.Category)
             .ThenBy(m => m.Name)
             .Select(m => new MarketplaceListItemDto(
                 m.Id, m.Name, m.Description, m.Category, m.Color,
-                m.ItemCount, m.PriceKr, m.PurchaseCount))
+                m.ItemCount, m.PriceKr, m.PurchaseCount, false, !m.IsPublished))
             .ToListAsync(ct);
 
         // Mark which ones this tenant already purchased
@@ -241,14 +246,22 @@ public static class MarketplaceEndpoints
         return Results.Ok(purchases);
     }
 
+    private static bool IsSuperAdmin(ClaimsPrincipal user)
+    {
+        var roles = user.FindAll(ClaimTypes.Role).Select(c => c.Value).ToHashSet();
+        return roles.Contains("SuperAdmin") || roles.Contains("super-admin");
+    }
+
     // ─── Update marketplace template ─────────────────────
 
     private static async Task<IResult> UpdateMarketplaceTemplate(
         Guid id,
         PublishToMarketplaceRequest request,
+        ClaimsPrincipal user,
         SolodocDbContext db,
         CancellationToken ct)
     {
+        if (!IsSuperAdmin(user)) return Results.Forbid();
         var mp = await db.MarketplaceTemplates.FirstOrDefaultAsync(m => m.Id == id && !m.IsDeleted, ct);
         if (mp is null) return Results.NotFound();
 
@@ -262,13 +275,32 @@ public static class MarketplaceEndpoints
         return Results.Ok();
     }
 
+    // ─── Republish (super admin) ────────────────────────
+
+    private static async Task<IResult> RepublishTemplate(
+        Guid id,
+        ClaimsPrincipal user,
+        SolodocDbContext db,
+        CancellationToken ct)
+    {
+        if (!IsSuperAdmin(user)) return Results.Forbid();
+        var mp = await db.MarketplaceTemplates.FirstOrDefaultAsync(m => m.Id == id && !m.IsDeleted, ct);
+        if (mp is null) return Results.NotFound();
+
+        mp.IsPublished = true;
+        await db.SaveChangesAsync(ct);
+        return Results.Ok();
+    }
+
     // ─── Unpublish (super admin) ────────────────────────
 
     private static async Task<IResult> UnpublishFromMarketplace(
         Guid id,
+        ClaimsPrincipal user,
         SolodocDbContext db,
         CancellationToken ct)
     {
+        if (!IsSuperAdmin(user)) return Results.Forbid();
         var mp = await db.MarketplaceTemplates.FirstOrDefaultAsync(m => m.Id == id, ct);
         if (mp is null) return Results.NotFound();
 

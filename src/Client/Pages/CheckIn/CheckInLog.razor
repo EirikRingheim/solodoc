@@ -1,0 +1,147 @@
+@page "/checkin/log"
+@attribute [Authorize]
+@inject CheckInService CheckInService
+@inject ISnackbar Snackbar
+@using Solodoc.Shared.CheckIn
+
+<PageTitle>Solodoc - Innsjekkingslogg</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-4">
+    <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Href="/" />
+    <MudText Typo="Typo.h5" Style="font-weight:700;">Innsjekkingslogg</MudText>
+    <MudSpacer />
+    <MudSelect T="int" Value="_days" ValueChanged="OnDaysChanged" Variant="Variant.Outlined"
+               Style="width:140px;" Dense="true">
+        <MudSelectItem T="int" Value="7">Siste 7 dager</MudSelectItem>
+        <MudSelectItem T="int" Value="30">Siste 30 dager</MudSelectItem>
+        <MudSelectItem T="int" Value="90">Siste 90 dager</MudSelectItem>
+    </MudSelect>
+</MudStack>
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+}
+else if (_log.Count == 0)
+{
+    <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;" Class="pa-8">
+        <MudStack AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Filled.Login" Size="Size.Large" Color="Color.Secondary" />
+            <MudText Color="Color.Secondary">Ingen innsjekkinger siste @_days dager.</MudText>
+        </MudStack>
+    </MudPaper>
+}
+else
+{
+    @* Summary *@
+    <MudGrid Spacing="2" Class="mb-4">
+        <MudItem xs="6" sm="3">
+            <div style="background:#D1FAE5;border-radius:10px;padding:14px;text-align:center;">
+                <div style="font-size:1.5rem;font-weight:700;color:#059669;">@_log.Count</div>
+                <div style="font-size:0.7rem;color:#6B7280;">Innsjekkinger</div>
+            </div>
+        </MudItem>
+        <MudItem xs="6" sm="3">
+            <div style="background:#EBF0FF;border-radius:10px;padding:14px;text-align:center;">
+                <div style="font-size:1.5rem;font-weight:700;color:#4361EE;">@_log.Select(l => l.SiteName).Distinct().Count()</div>
+                <div style="font-size:0.7rem;color:#6B7280;">Ulike steder</div>
+            </div>
+        </MudItem>
+        <MudItem xs="6" sm="3">
+            <div style="background:#FEF3C7;border-radius:10px;padding:14px;text-align:center;">
+                <div style="font-size:1.5rem;font-weight:700;color:#D97706;">@FormatDuration(_log.Where(l => l.CheckOutAt.HasValue).Sum(l => l.DurationMinutes))</div>
+                <div style="font-size:0.7rem;color:#6B7280;">Total tid</div>
+            </div>
+        </MudItem>
+        <MudItem xs="6" sm="3">
+            <div style="background:#EDE9FE;border-radius:10px;padding:14px;text-align:center;">
+                <div style="font-size:1.5rem;font-weight:700;color:#7C3AED;">@(_log.Any(l => !l.CheckOutAt.HasValue) ? "Aktiv" : "-")</div>
+                <div style="font-size:0.7rem;color:#6B7280;">Status na</div>
+            </div>
+        </MudItem>
+    </MudGrid>
+
+    @* Log table *@
+    <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;overflow:hidden;">
+        <MudSimpleTable Dense="true" Hover="true" Style="font-size:0.85rem;">
+            <thead>
+                <tr style="background:#F8F9FA;">
+                    <th>Sted</th>
+                    <th>Type</th>
+                    <th>Inn</th>
+                    <th>Ut</th>
+                    <th>Varighet</th>
+                    <th>Kilde</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var entry in _log)
+                {
+                    var isActive = !entry.CheckOutAt.HasValue;
+                    var typeColor = entry.SiteType switch { "Prosjekt" => "#4361EE", "Oppdrag" => "#D97706", "Lokasjon" => "#059669", _ => "#6B7280" };
+                    <tr style="@(isActive ? "background:#F0FDF4;" : "")">
+                        <td style="font-weight:500;">@entry.SiteName</td>
+                        <td>
+                            <span style="@($"background:{typeColor}15;color:{typeColor};padding:2px 8px;border-radius:4px;font-size:0.7rem;font-weight:600;")">
+                                @entry.SiteType
+                            </span>
+                        </td>
+                        <td>@entry.CheckInAt.ToLocalTime().ToString("dd.MM HH:mm")</td>
+                        <td>
+                            @if (isActive)
+                            {
+                                <span style="color:#059669;font-weight:600;font-size:0.75rem;">Aktiv</span>
+                            }
+                            else
+                            {
+                                @entry.CheckOutAt!.Value.ToLocalTime().ToString("dd.MM HH:mm")
+                            }
+                        </td>
+                        <td>
+                            @if (isActive)
+                            {
+                                var elapsed = (int)(DateTimeOffset.UtcNow - entry.CheckInAt).TotalMinutes;
+                                <span style="color:#059669;font-weight:500;">@FormatDuration(elapsed)</span>
+                            }
+                            else
+                            {
+                                @FormatDuration(entry.DurationMinutes)
+                            }
+                        </td>
+                        <td style="font-size:0.75rem;color:#9CA3AF;">
+                            @(entry.Source switch { "QrCode" => "QR", "Manual" => "Manuell", _ => entry.Source })
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </MudSimpleTable>
+    </MudPaper>
+}
+
+@code {
+    private List<CheckInLogEntryDto> _log = [];
+    private bool _loading = true;
+    private int _days = 30;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _log = await CheckInService.GetMyLogAsync(_days);
+        _loading = false;
+    }
+
+    private async Task OnDaysChanged(int days)
+    {
+        _days = days;
+        _loading = true;
+        _log = await CheckInService.GetMyLogAsync(_days);
+        _loading = false;
+    }
+
+    private static string FormatDuration(int minutes)
+    {
+        if (minutes < 60) return $"{minutes}m";
+        var h = minutes / 60;
+        var m = minutes % 60;
+        return m > 0 ? $"{h}t {m}m" : $"{h}t";
+    }
+}

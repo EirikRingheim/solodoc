@@ -2,7 +2,7 @@ namespace Solodoc.Shared.Marketplace;
 
 public record MarketplaceListItemDto(
     Guid Id, string Name, string? Description, string Category, string? Color,
-    int ItemCount, int PriceKr, int PurchaseCount, bool AlreadyPurchased = false);
+    int ItemCount, int PriceKr, int PurchaseCount, bool AlreadyPurchased = false, bool IsHidden = false);
 
 public record PublishToMarketplaceRequest(
     string? Name, string? Description, string? Category, string? Color, int? PriceKr);

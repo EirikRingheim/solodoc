@@ -5,8 +5,10 @@ using Solodoc.Application.Common;
 using Solodoc.Application.Services;
 using Solodoc.Domain.Entities.Auth;
 using Solodoc.Domain.Enums;
+using Solodoc.Application.Auth;
 using Solodoc.Infrastructure.Auth;
 using Solodoc.Infrastructure.Persistence;
+using Solodoc.Shared.Auth;
 using Solodoc.Shared.Onboarding;
 
 namespace Solodoc.Api.Endpoints;
@@ -61,6 +63,7 @@ public static class OnboardingEndpoints
         CreateTenantOnboardingRequest request,
         ClaimsPrincipal user,
         SolodocDbContext db,
+        ITokenService tokenService,
         CancellationToken ct)
     {
         var personIdClaim = user.FindFirstValue(ClaimTypes.NameIdentifier) ?? user.FindFirstValue("sub");
@@ -98,7 +101,24 @@ public static class OnboardingEndpoints
 
         await db.SaveChangesAsync(ct);
 
-        return Results.Ok(new { tenantId = tenant.Id });
+        // Generate new tokens with tenant-admin role so client immediately has correct permissions
+        var person = await db.Persons.FirstAsync(p => p.Id == personId, ct);
+        var accessToken = tokenService.GenerateAccessToken(person, tenant.Id, "tenant-admin");
+        var refreshTokenValue = tokenService.GenerateRefreshToken();
+        db.RefreshTokens.Add(new RefreshToken
+        {
+            PersonId = personId,
+            Token = refreshTokenValue,
+            ExpiresAt = DateTimeOffset.UtcNow.AddDays(7)
+        });
+        await db.SaveChangesAsync(ct);
+
+        return Results.Ok(new
+        {
+            tenantId = tenant.Id,
+            accessToken,
+            refreshToken = refreshTokenValue
+        });
     }
 
     private static async Task<IResult> SaveStep1(

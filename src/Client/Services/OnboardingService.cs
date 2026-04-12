@@ -1,9 +1,10 @@
 using System.Net.Http.Json;
+using Blazored.LocalStorage;
 using Solodoc.Shared.Onboarding;
 
 namespace Solodoc.Client.Services;
 
-public class OnboardingService(ApiHttpClient api)
+public class OnboardingService(ApiHttpClient api, ILocalStorageService localStorage)
 {
     public async Task<OnboardingStatusDto?> GetStatusAsync()
     {
@@ -17,12 +18,22 @@ public class OnboardingService(ApiHttpClient api)
         if (r.IsSuccessStatusCode)
         {
             var result = await r.Content.ReadFromJsonAsync<TenantCreatedResult>();
-            return result?.TenantId;
+            if (result is not null)
+            {
+                // Store new tokens with tenant-admin role
+                if (!string.IsNullOrEmpty(result.AccessToken))
+                {
+                    await localStorage.SetItemAsStringAsync("accessToken", result.AccessToken);
+                    await localStorage.SetItemAsStringAsync("refreshToken", result.RefreshToken ?? "");
+                    await localStorage.SetItemAsStringAsync("selectedTenantId", result.TenantId.ToString());
+                }
+                return result.TenantId;
+            }
         }
         return null;
     }
 
-    private record TenantCreatedResult(Guid TenantId);
+    private record TenantCreatedResult(Guid TenantId, string? AccessToken = null, string? RefreshToken = null);
 
     public async Task<bool> SaveStep1Async(SaveOnboardingStep1Request request)
         => (await api.PostAsJsonAsync("api/onboarding/step1", request)).IsSuccessStatusCode;

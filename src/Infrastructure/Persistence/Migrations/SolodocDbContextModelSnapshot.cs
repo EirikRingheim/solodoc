@@ -611,6 +611,10 @@ namespace Solodoc.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("deleted_by");
 
+                    b.Property<DateTimeOffset?>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
                     b.Property<bool>("HoursRegistrationEnabled")
                         .HasColumnType("boolean")
                         .HasColumnName("hours_registration_enabled");
@@ -905,9 +909,25 @@ namespace Solodoc.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("deleted_by");
 
+                    b.Property<string>("GuestCompany")
+                        .HasColumnType("text")
+                        .HasColumnName("guest_company");
+
+                    b.Property<string>("GuestName")
+                        .HasColumnType("text")
+                        .HasColumnName("guest_name");
+
+                    b.Property<string>("GuestPhone")
+                        .HasColumnType("text")
+                        .HasColumnName("guest_phone");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean")
                         .HasColumnName("is_deleted");
+
+                    b.Property<bool>("IsGuest")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_guest");
 
                     b.Property<Guid?>("JobId")
                         .HasColumnType("uuid")
@@ -937,7 +957,7 @@ namespace Solodoc.Infrastructure.Persistence.Migrations
                         .HasColumnType("double precision")
                         .HasColumnName("longitude_out");
 
-                    b.Property<Guid>("PersonId")
+                    b.Property<Guid?>("PersonId")
                         .HasColumnType("uuid")
                         .HasColumnName("person_id");
 
@@ -971,6 +991,384 @@ namespace Solodoc.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_worksite_check_ins_project_id_checked_in_at");
 
                     b.ToTable("worksite_check_ins", (string)null);
+                });
+
+            modelBuilder.Entity("Solodoc.Domain.Entities.Billing.ClientError", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("AdditionalInfo")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("additional_info");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("deleted_by");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_deleted");
+
+                    b.Property<bool>("IsResolved")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_resolved");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("message");
+
+                    b.Property<string>("Page")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("page");
+
+                    b.Property<Guid?>("PersonId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("person_id");
+
+                    b.Property<string>("StackTrace")
+                        .HasMaxLength(8000)
+                        .HasColumnType("character varying(8000)")
+                        .HasColumnName("stack_trace");
+
+                    b.Property<Guid?>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<string>("UserAgent")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("user_agent");
+
+                    b.Property<string>("UserEmail")
+                        .HasMaxLength(254)
+                        .HasColumnType("character varying(254)")
+                        .HasColumnName("user_email");
+
+                    b.HasKey("Id")
+                        .HasName("pk_client_errors");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_client_errors_tenant_id");
+
+                    b.HasIndex("IsResolved", "CreatedAt")
+                        .HasDatabaseName("ix_client_errors_is_resolved_created_at");
+
+                    b.ToTable("client_errors", (string)null);
+                });
+
+            modelBuilder.Entity("Solodoc.Domain.Entities.Billing.CouponCode", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("code");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("deleted_by");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("description");
+
+                    b.Property<DateTimeOffset?>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_deleted");
+
+                    b.Property<int>("MaxRedemptions")
+                        .HasColumnType("integer")
+                        .HasColumnName("max_redemptions");
+
+                    b.Property<int>("TimesRedeemed")
+                        .HasColumnType("integer")
+                        .HasColumnName("times_redeemed");
+
+                    b.Property<int>("TrialDays")
+                        .HasColumnType("integer")
+                        .HasColumnName("trial_days");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_coupon_codes");
+
+                    b.HasIndex("Code")
+                        .IsUnique()
+                        .HasDatabaseName("ix_coupon_codes_code");
+
+                    b.ToTable("coupon_codes", (string)null);
+                });
+
+            modelBuilder.Entity("Solodoc.Domain.Entities.Billing.CouponRedemption", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("CouponCodeId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("coupon_code_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("deleted_by");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_deleted");
+
+                    b.Property<DateTimeOffset>("RedeemedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("redeemed_at");
+
+                    b.Property<Guid>("RedeemedById")
+                        .HasColumnType("uuid")
+                        .HasColumnName("redeemed_by_id");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_coupon_redemptions");
+
+                    b.HasIndex("CouponCodeId")
+                        .HasDatabaseName("ix_coupon_redemptions_coupon_code_id");
+
+                    b.HasIndex("TenantId", "CouponCodeId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_coupon_redemptions_tenant_id_coupon_code_id");
+
+                    b.ToTable("coupon_redemptions", (string)null);
+                });
+
+            modelBuilder.Entity("Solodoc.Domain.Entities.Billing.Invoice", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<int>("AdminCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("admin_count");
+
+                    b.Property<int>("BasePriceKr")
+                        .HasColumnType("integer")
+                        .HasColumnName("base_price_kr");
+
+                    b.Property<string>("CouponCode")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("coupon_code");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CustomerAddress")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("customer_address");
+
+                    b.Property<string>("CustomerName")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("customer_name");
+
+                    b.Property<string>("CustomerOrgNumber")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("customer_org_number");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("deleted_by");
+
+                    b.Property<int>("DiscountKr")
+                        .HasColumnType("integer")
+                        .HasColumnName("discount_kr");
+
+                    b.Property<string>("DiscountReason")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("discount_reason");
+
+                    b.Property<DateTimeOffset?>("DueDate")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("due_date");
+
+                    b.Property<string>("EhfFileKey")
+                        .HasColumnType("text")
+                        .HasColumnName("ehf_file_key");
+
+                    b.Property<string>("EhfXml")
+                        .HasColumnType("text")
+                        .HasColumnName("ehf_xml");
+
+                    b.Property<int>("ExtraUsersKr")
+                        .HasColumnType("integer")
+                        .HasColumnName("extra_users_kr");
+
+                    b.Property<string>("InvoiceNumber")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("invoice_number");
+
+                    b.Property<bool>("IsCouponApplied")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_coupon_applied");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_deleted");
+
+                    b.Property<int>("Month")
+                        .HasColumnType("integer")
+                        .HasColumnName("month");
+
+                    b.Property<DateTimeOffset?>("PaidAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("paid_at");
+
+                    b.Property<string>("PdfFileKey")
+                        .HasColumnType("text")
+                        .HasColumnName("pdf_file_key");
+
+                    b.Property<DateTimeOffset?>("SentAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("sent_at");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer")
+                        .HasColumnName("status");
+
+                    b.Property<int>("SubcontractorCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("subcontractor_count");
+
+                    b.Property<int>("SubcontractorsKr")
+                        .HasColumnType("integer")
+                        .HasColumnName("subcontractors_kr");
+
+                    b.Property<int>("TemplatePurchases")
+                        .HasColumnType("integer")
+                        .HasColumnName("template_purchases");
+
+                    b.Property<int>("TemplatesKr")
+                        .HasColumnType("integer")
+                        .HasColumnName("templates_kr");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<int>("TotalExVatKr")
+                        .HasColumnType("integer")
+                        .HasColumnName("total_ex_vat_kr");
+
+                    b.Property<int>("TotalIncVatKr")
+                        .HasColumnType("integer")
+                        .HasColumnName("total_inc_vat_kr");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<int>("VatKr")
+                        .HasColumnType("integer")
+                        .HasColumnName("vat_kr");
+
+                    b.Property<int>("WorkerCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("worker_count");
+
+                    b.Property<int>("Year")
+                        .HasColumnType("integer")
+                        .HasColumnName("year");
+
+                    b.HasKey("Id")
+                        .HasName("pk_invoices");
+
+                    b.HasIndex("InvoiceNumber")
+                        .IsUnique()
+                        .HasDatabaseName("ix_invoices_invoice_number");
+
+                    b.HasIndex("Status")
+                        .HasDatabaseName("ix_invoices_status");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_invoices_tenant_id");
+
+                    b.HasIndex("TenantId", "Year", "Month")
+                        .HasDatabaseName("ix_invoices_tenant_id_year_month");
+
+                    b.ToTable("invoices", (string)null);
                 });
 
             modelBuilder.Entity("Solodoc.Domain.Entities.Calendar.CalendarEvent", b =>
@@ -6332,7 +6730,6 @@ namespace Solodoc.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("PersonId")
                         .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
                         .HasConstraintName("fk_worksite_check_ins_persons_person_id");
 
                     b.HasOne("Solodoc.Domain.Entities.Auth.Tenant", "Tenant")
@@ -6345,6 +6742,18 @@ namespace Solodoc.Infrastructure.Persistence.Migrations
                     b.Navigation("Person");
 
                     b.Navigation("Tenant");
+                });
+
+            modelBuilder.Entity("Solodoc.Domain.Entities.Billing.CouponRedemption", b =>
+                {
+                    b.HasOne("Solodoc.Domain.Entities.Billing.CouponCode", "CouponCode")
+                        .WithMany("Redemptions")
+                        .HasForeignKey("CouponCodeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_coupon_redemptions_coupon_codes_coupon_code_id");
+
+                    b.Navigation("CouponCode");
                 });
 
             modelBuilder.Entity("Solodoc.Domain.Entities.Calendar.EventInvitation", b =>
@@ -6914,6 +7323,11 @@ namespace Solodoc.Infrastructure.Persistence.Migrations
                     b.Navigation("Invitations");
 
                     b.Navigation("Memberships");
+                });
+
+            modelBuilder.Entity("Solodoc.Domain.Entities.Billing.CouponCode", b =>
+                {
+                    b.Navigation("Redemptions");
                 });
 
             modelBuilder.Entity("Solodoc.Domain.Entities.Calendar.CalendarEvent", b =>

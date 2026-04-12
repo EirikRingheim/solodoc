@@ -69,8 +69,15 @@ else
         {
             var capturedTmpl = tmpl;
             <MudItem xs="12" sm="6" md="4">
-                <MudPaper Elevation="0" Style="@($"border:1px solid {(tmpl.AlreadyPurchased ? "#D1FAE5" : "#e9ecef")};border-radius:12px;height:100%;")" Class="pa-4">
+                <MudPaper Elevation="0" Style="@($"border:1px solid {(tmpl.IsHidden ? "#FDE68A" : tmpl.AlreadyPurchased ? "#D1FAE5" : "#e9ecef")};border-radius:12px;height:100%;{(tmpl.IsHidden ? "opacity:0.7;" : "")}")" Class="pa-4">
                     <MudStack Spacing="2">
+                        @if (tmpl.IsHidden)
+                        {
+                            <div style="display:flex;align-items:center;gap:4px;padding:4px 8px;background:#FEF3C7;border-radius:6px;font-size:0.7rem;color:#92400E;font-weight:500;margin-bottom:4px;">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#92400E" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                                Skjult — kun synlig for admin
+                            </div>
+                        }
                         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
                             <div style="@($"width:36px;height:36px;border-radius:8px;background:{(tmpl.Color ?? "#4361EE")};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.8rem;flex-shrink:0;")">
                                 @tmpl.Name[0]
@@ -115,10 +122,20 @@ else
                                            StartIcon="@Icons.Material.Filled.Edit"
                                            OnClick="() => OpenEditDialog(capturedTmpl)"
                                            Style="text-transform:none;font-size:0.75rem;">Rediger</MudButton>
-                                <MudButton Variant="Variant.Text" Size="Size.Small"
-                                           StartIcon="@Icons.Material.Filled.VisibilityOff"
-                                           OnClick="() => HideTemplate(capturedTmpl)"
-                                           Style="text-transform:none;font-size:0.75rem;color:#F59E0B;">Skjul</MudButton>
+                                @if (tmpl.IsHidden)
+                                {
+                                    <MudButton Variant="Variant.Text" Size="Size.Small"
+                                               StartIcon="@Icons.Material.Filled.Visibility"
+                                               OnClick="() => ShowTemplate(capturedTmpl)"
+                                               Style="text-transform:none;font-size:0.75rem;color:#059669;">Vis igjen</MudButton>
+                                }
+                                else
+                                {
+                                    <MudButton Variant="Variant.Text" Size="Size.Small"
+                                               StartIcon="@Icons.Material.Filled.VisibilityOff"
+                                               OnClick="() => HideTemplate(capturedTmpl)"
+                                               Style="text-transform:none;font-size:0.75rem;color:#F59E0B;">Skjul</MudButton>
+                                }
                                 <MudButton Variant="Variant.Text" Size="Size.Small" Color="Color.Error"
                                            StartIcon="@Icons.Material.Filled.Delete"
                                            OnClick="() => DeleteTemplate(capturedTmpl)"
@@ -245,13 +262,11 @@ else
         try
         {
             var auth = await AuthStateProvider.GetAuthenticationStateAsync();
-            var role = auth.User.FindFirst("role")?.Value
-                       ?? auth.User.FindFirst(ClaimTypes.Role)?.Value;
-            _isAdmin = role is "super-admin" or "tenant-admin";
+            _isAdmin = auth.User.HasClaim("sa", "1");
         }
         catch { }
 
-        var templatesTask = MarketplaceService.GetTemplatesAsync();
+        var templatesTask = MarketplaceService.GetTemplatesAsync(_isAdmin);
         var purchasesTask = MarketplaceService.GetPurchasesAsync();
         _templates = await templatesTask;
         _purchases = await purchasesTask;
@@ -267,7 +282,7 @@ else
         if (result is not null)
         {
             Snackbar.Add($"{tmpl.Name} kjøpt! Malen er lagt til i dine sjekklister.", Severity.Success);
-            _templates = await MarketplaceService.GetTemplatesAsync();
+            _templates = await MarketplaceService.GetTemplatesAsync(_isAdmin);
             _purchases = await MarketplaceService.GetPurchasesAsync();
         }
         else
@@ -294,11 +309,25 @@ else
         {
             Snackbar.Add("Oppdatert!", Severity.Success);
             _editOpen = false;
-            _templates = await MarketplaceService.GetTemplatesAsync();
+            _templates = await MarketplaceService.GetTemplatesAsync(_isAdmin);
         }
         else
         {
             Snackbar.Add("Kunne ikke oppdatere", Severity.Error);
+        }
+    }
+
+    private async Task ShowTemplate(MarketplaceListItemDto tmpl)
+    {
+        var ok = await MarketplaceService.RepublishAsync(tmpl.Id);
+        if (ok)
+        {
+            Snackbar.Add($"{tmpl.Name} er synlig igjen", Severity.Success);
+            _templates = await MarketplaceService.GetTemplatesAsync(_isAdmin);
+        }
+        else
+        {
+            Snackbar.Add("Kunne ikke vise malen igjen", Severity.Error);
         }
     }
 
@@ -308,7 +337,8 @@ else
         if (ok)
         {
             Snackbar.Add($"{tmpl.Name} skjult fra butikken", Severity.Info);
-            _templates = await MarketplaceService.GetTemplatesAsync();
+            _templates = await MarketplaceService.GetTemplatesAsync(_isAdmin);
+            StateHasChanged();
         }
     }
 
@@ -318,7 +348,8 @@ else
         if (ok)
         {
             Snackbar.Add($"{tmpl.Name} slettet", Severity.Success);
-            _templates = await MarketplaceService.GetTemplatesAsync();
+            _templates = await MarketplaceService.GetTemplatesAsync(_isAdmin);
+            StateHasChanged();
         }
         else
         {

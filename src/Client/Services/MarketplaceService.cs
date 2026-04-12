@@ -5,9 +5,10 @@ namespace Solodoc.Client.Services;
 
 public class MarketplaceService(ApiHttpClient api)
 {
-    public async Task<List<MarketplaceListItemDto>> GetTemplatesAsync()
+    public async Task<List<MarketplaceListItemDto>> GetTemplatesAsync(bool includeHidden = false)
     {
-        var r = await api.GetAsync("api/marketplace");
+        var url = includeHidden ? "api/marketplace?includeHidden=true" : "api/marketplace";
+        var r = await api.GetAsync(url);
         return r.IsSuccessStatusCode ? await r.Content.ReadFromJsonAsync<List<MarketplaceListItemDto>>() ?? [] : [];
     }
 
@@ -38,6 +39,11 @@ public class MarketplaceService(ApiHttpClient api)
     public async Task<bool> UpdateAsync(Guid id, PublishToMarketplaceRequest request)
     {
         return (await api.PutAsJsonAsync($"api/marketplace/{id}", request)).IsSuccessStatusCode;
+    }
+
+    public async Task<bool> RepublishAsync(Guid id)
+    {
+        return (await api.PostAsJsonAsync($"api/marketplace/{id}/republish", new { })).IsSuccessStatusCode;
     }
 
     public async Task<bool> DeleteAsync(Guid id)

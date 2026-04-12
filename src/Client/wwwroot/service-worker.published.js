@@ -15,6 +15,7 @@ const offlineAssetsExclude = [ /^service-worker\.js$/ ];
 // API paths to cache for offline use (GET requests only)
 const apiCachePaths = [
     '/api/projects',
+    '/api/jobs',
     '/api/checklists/templates',
     '/api/checklists/instances',
     '/api/contacts',
@@ -23,11 +24,14 @@ const apiCachePaths = [
     '/api/locations',
     '/api/employees',
     '/api/deviations',
+    '/api/hours',
     '/api/dashboard/summary',
     '/api/hours/active-clock',
     '/api/checkin/status',
     '/api/checkin/all-sites',
-    '/api/auth/tenants'
+    '/api/checkin/log',
+    '/api/auth/tenants',
+    '/api/marketplace'
 ];
 
 const base = "/";
@@ -91,12 +95,24 @@ async function onFetch(event) {
     // ── Static assets: cache-first ──
     let cachedResponse = null;
     if (event.request.method === 'GET') {
-        const shouldServeIndexHtml = event.request.mode === 'navigate'
-            && !manifestUrlList.some(u => u === event.request.url);
+        // For SPA navigation (e.g. /projects/123), serve cached index.html
+        const isNavigate = event.request.mode === 'navigate';
+        const isApiOrAsset = url.pathname.startsWith('/api/') || url.pathname.startsWith('/_');
+        const shouldServeIndexHtml = isNavigate && !isApiOrAsset;
 
         const request = shouldServeIndexHtml ? 'index.html' : event.request;
         const cache = await caches.open(cacheName);
         cachedResponse = await cache.match(request);
+    }
+
+    // If offline and no cache hit, try index.html as last resort for navigations
+    if (!cachedResponse && event.request.mode === 'navigate') {
+        try {
+            return await fetch(event.request);
+        } catch (e) {
+            const cache = await caches.open(cacheName);
+            return await cache.match('index.html') || new Response('Offline', { status: 503 });
+        }
     }
 
     return cachedResponse || fetch(event.request);
