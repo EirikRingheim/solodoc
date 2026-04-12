@@ -22,6 +22,13 @@ public static class SubcontractorEndpoints
         return app;
     }
 
+    private static async Task<bool> IsAdminOrPL(Guid personId, Guid tenantId, SolodocDbContext db, CancellationToken ct)
+    {
+        var m = await db.TenantMemberships
+            .FirstOrDefaultAsync(m => m.PersonId == personId && m.TenantId == tenantId && m.State == TenantMembershipState.Active, ct);
+        return m?.Role is TenantRole.TenantAdmin or TenantRole.ProjectLeader;
+    }
+
     // ─── Invite subcontractor ───────────────────────────
 
     private static async Task<IResult> InviteSubcontractor(
@@ -36,6 +43,9 @@ public static class SubcontractorEndpoints
 
         var personIdClaim = user.FindFirstValue(ClaimTypes.NameIdentifier) ?? user.FindFirstValue("sub");
         if (!Guid.TryParse(personIdClaim, out var inviterId)) return Results.Unauthorized();
+
+        // Only admins/project leaders can invite subcontractors
+        if (!await IsAdminOrPL(inviterId, tenantId, db, ct)) return Results.Forbid();
 
         var inviterName = user.FindFirstValue("fullName") ?? "Administrator";
 
@@ -86,11 +96,14 @@ public static class SubcontractorEndpoints
     // ─── List subcontractors for current tenant ─────────
 
     private static async Task<IResult> ListSubcontractors(
+        ClaimsPrincipal user,
         SolodocDbContext db,
         ITenantProvider tp,
         CancellationToken ct)
     {
         if (tp.TenantId is null) return Results.Unauthorized();
+        var pid = Guid.TryParse(user.FindFirstValue(ClaimTypes.NameIdentifier) ?? user.FindFirstValue("sub"), out var p) ? p : Guid.Empty;
+        if (!await IsAdminOrPL(pid, tp.TenantId.Value, db, ct)) return Results.Forbid();
 
         var accesses = await db.SubcontractorAccesses
             .Where(sa => sa.TenantId == tp.TenantId.Value && !sa.IsDeleted)
@@ -125,6 +138,8 @@ public static class SubcontractorEndpoints
         CancellationToken ct)
     {
         if (tp.TenantId is null) return Results.Unauthorized();
+        var revokePid = Guid.TryParse(user.FindFirstValue(ClaimTypes.NameIdentifier) ?? user.FindFirstValue("sub"), out var rp) ? rp : Guid.Empty;
+        if (!await IsAdminOrPL(revokePid, tp.TenantId.Value, db, ct)) return Results.Forbid();
 
         var access = await db.SubcontractorAccesses
             .FirstOrDefaultAsync(sa => sa.Id == id && sa.TenantId == tp.TenantId.Value, ct);

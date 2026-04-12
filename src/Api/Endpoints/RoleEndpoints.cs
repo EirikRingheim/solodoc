@@ -22,12 +22,23 @@ public static class RoleEndpoints
         return app;
     }
 
+    private static async Task<bool> IsAdmin(ClaimsPrincipal user, SolodocDbContext db, ITenantProvider tp, CancellationToken ct)
+    {
+        if (tp.TenantId is null) return false;
+        var pid = user.FindFirstValue(ClaimTypes.NameIdentifier) ?? user.FindFirstValue("sub");
+        if (!Guid.TryParse(pid, out var personId)) return false;
+        var membership = await db.TenantMemberships
+            .FirstOrDefaultAsync(m => m.PersonId == personId && m.TenantId == tp.TenantId.Value && m.State == TenantMembershipState.Active, ct);
+        return membership?.Role == TenantRole.TenantAdmin;
+    }
+
     private static async Task<IResult> ListRoles(
+        ClaimsPrincipal user,
         SolodocDbContext db,
         ITenantProvider tp,
         CancellationToken ct)
     {
-        if (tp.TenantId is null) return Results.Unauthorized();
+        if (!await IsAdmin(user, db, tp, ct)) return Results.Forbid();
         var tenantId = tp.TenantId.Value;
 
         var roles = await db.CustomRoles
@@ -62,7 +73,7 @@ public static class RoleEndpoints
         ITenantProvider tp,
         CancellationToken ct)
     {
-        if (tp.TenantId is null) return Results.Unauthorized();
+        if (!await IsAdmin(user, db, tp, ct)) return Results.Forbid();
         if (string.IsNullOrWhiteSpace(request.Name))
             return Results.BadRequest(new { error = "Navn er påkrevd." });
 
@@ -85,11 +96,12 @@ public static class RoleEndpoints
     private static async Task<IResult> UpdateRole(
         Guid id,
         UpdateCustomRoleRequest request,
+        ClaimsPrincipal user,
         SolodocDbContext db,
         ITenantProvider tp,
         CancellationToken ct)
     {
-        if (tp.TenantId is null) return Results.Unauthorized();
+        if (!await IsAdmin(user, db, tp, ct)) return Results.Forbid();
 
         var role = await db.CustomRoles
             .FirstOrDefaultAsync(r => r.Id == id && r.TenantId == tp.TenantId.Value, ct);
@@ -106,11 +118,12 @@ public static class RoleEndpoints
 
     private static async Task<IResult> DeleteRole(
         Guid id,
+        ClaimsPrincipal user,
         SolodocDbContext db,
         ITenantProvider tp,
         CancellationToken ct)
     {
-        if (tp.TenantId is null) return Results.Unauthorized();
+        if (!await IsAdmin(user, db, tp, ct)) return Results.Forbid();
 
         var role = await db.CustomRoles
             .FirstOrDefaultAsync(r => r.Id == id && r.TenantId == tp.TenantId.Value, ct);

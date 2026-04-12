@@ -67,6 +67,7 @@ public static class MarketplaceEndpoints
         ITenantProvider tp,
         CancellationToken ct)
     {
+        if (!IsSuperAdmin(user)) return Results.Forbid();
         if (tp.TenantId is null) return Results.Unauthorized();
 
         var template = await db.ChecklistTemplates

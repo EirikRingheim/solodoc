@@ -67,6 +67,13 @@ public static class HoursEndpoints
         return (null, false);
     }
 
+    private static async Task<bool> IsAdminOrProjectLeader(Guid personId, Guid tenantId, SolodocDbContext db, CancellationToken ct)
+    {
+        var m = await db.TenantMemberships
+            .FirstOrDefaultAsync(m => m.PersonId == personId && m.TenantId == tenantId && m.State == TenantMembershipState.Active, ct);
+        return m?.Role is TenantRole.TenantAdmin or TenantRole.ProjectLeader;
+    }
+
     private static TimeEntryCategory ParseCategory(string? category)
     {
         if (string.IsNullOrWhiteSpace(category))
@@ -633,6 +640,8 @@ public static class HoursEndpoints
         var (currentPersonId, valid) = GetPersonId(user);
         if (!valid || tenantProvider.TenantId is null)
             return Results.Unauthorized();
+        if (!await IsAdminOrProjectLeader(currentPersonId!.Value, tenantProvider.TenantId.Value, db, ct))
+            return Results.Forbid();
 
         // Admin check via tenant membership role
         var membership = await db.TenantMemberships
@@ -742,6 +751,8 @@ public static class HoursEndpoints
     {
         var (currentPersonId, valid) = GetPersonId(user);
         if (!valid || tenantProvider.TenantId is null) return Results.Unauthorized();
+        if (!await IsAdminOrProjectLeader(currentPersonId!.Value, tenantProvider.TenantId.Value, db, ct))
+            return Results.Forbid();
 
         var membership = await db.TenantMemberships
             .FirstOrDefaultAsync(m => m.PersonId == currentPersonId!.Value && m.State == TenantMembershipState.Active, ct);
