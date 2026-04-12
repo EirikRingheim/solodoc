@@ -81,7 +81,7 @@
             new(_fullName, _email, _password, _confirmPassword));
 
         if (success)
-            Navigation.NavigateTo("/", forceLoad: false);
+            Navigation.NavigateTo("/getting-started", forceLoad: false);
         else
             _error = error;
 

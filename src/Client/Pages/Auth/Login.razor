@@ -77,10 +77,14 @@
             {
                 Navigation.NavigateTo("/select-tenant", forceLoad: true);
             }
+            else if (tenants.Count == 0)
+            {
+                // No tenant — new user or waiting for invite
+                Navigation.NavigateTo("/getting-started", forceLoad: true);
+            }
             else
             {
-                if (tenants.Count == 1)
-                    await AuthService.SelectTenantAsync(tenants[0].Id);
+                await AuthService.SelectTenantAsync(tenants[0].Id);
 
                 // Check if onboarding is needed
                 try
