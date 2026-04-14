@@ -653,10 +653,11 @@ public static class ChecklistEndpoints
         if (instance is null)
             return Results.NotFound();
 
-        var templateName = await db.ChecklistTemplateVersions
+        var templateInfo = await db.ChecklistTemplateVersions
             .Where(v => v.Id == instance.TemplateVersionId)
-            .Select(v => v.ChecklistTemplate.Name)
-            .FirstOrDefaultAsync(ct) ?? "";
+            .Select(v => new { v.ChecklistTemplate.Name, v.ChecklistTemplate.DocumentType })
+            .FirstOrDefaultAsync(ct);
+        var templateName = templateInfo?.Name ?? "";
 
         var documentNumber = await db.ChecklistTemplateVersions
             .Where(v => v.Id == instance.TemplateVersionId)
@@ -723,6 +724,7 @@ public static class ChecklistEndpoints
             approvedByName,
             instance.Status == ChecklistInstanceStatus.Reopened,
             instance.ReopenedReason,
+            templateInfo?.DocumentType ?? "Checklist",
             items));
     }
 

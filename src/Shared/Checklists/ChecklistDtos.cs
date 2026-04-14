@@ -131,6 +131,7 @@ public record ChecklistInstanceDetailDto(
     string? ApprovedBy,
     bool IsReopened,
     string? ReopenedReason,
+    string DocumentType,
     List<ChecklistInstanceItemDto> Items);
 
 public record ChecklistInstanceItemDto(
