@@ -35,4 +35,18 @@ public class NotificationService(ApiHttpClient api)
     {
         await api.PostAsJsonAsync($"api/announcements/{id}/acknowledge", new { });
     }
+
+    public async Task<bool> CreateAnnouncementAsync(CreateAnnouncementRequest request)
+    {
+        var r = await api.PostAsJsonAsync("api/announcements", request);
+        return r.IsSuccessStatusCode;
+    }
+
+    public async Task<bool> DeleteAnnouncementAsync(Guid id)
+        => (await api.DeleteAsync($"api/announcements/{id}")).IsSuccessStatusCode;
+
+    public async Task CommentOnAnnouncementAsync(Guid annId, string content)
+    {
+        await api.PostAsJsonAsync($"api/announcements/{annId}/comments", new CreateAnnouncementCommentRequest(content));
+    }
 }

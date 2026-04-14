@@ -18,6 +18,9 @@ public static class FileEndpoints
         app.MapGet("/api/files/{*key}", GetFileUrl)
             .RequireAuthorization();
 
+        app.MapGet("/api/files/download/{*key}", DownloadFile)
+            .RequireAuthorization();
+
         return app;
     }
 
@@ -76,6 +79,31 @@ public static class FileEndpoints
         {
             var url = await fileStorage.GetPresignedUrlAsync(key, TimeSpan.FromMinutes(30), ct);
             return Results.Ok(new { url });
+        }
+        catch
+        {
+            return Results.NotFound();
+        }
+    }
+
+    private static async Task<IResult> DownloadFile(
+        string key,
+        IFileStorageService fileStorage,
+        ITenantProvider tenantProvider,
+        CancellationToken ct)
+    {
+        if (tenantProvider.TenantId is null) return Results.Unauthorized();
+        if (key.Contains("..") || key.Contains('\\')) return Results.BadRequest();
+        if (!key.StartsWith($"{tenantProvider.TenantId}/")) return Results.Unauthorized();
+
+        try
+        {
+            var stream = await fileStorage.DownloadFileAsync(key, ct);
+            var contentType = key.EndsWith(".png") ? "image/png"
+                : key.EndsWith(".jpg") || key.EndsWith(".jpeg") ? "image/jpeg"
+                : key.EndsWith(".pdf") ? "application/pdf"
+                : "application/octet-stream";
+            return Results.File(stream, contentType);
         }
         catch
         {

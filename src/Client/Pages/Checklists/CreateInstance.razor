@@ -49,10 +49,17 @@
 
                 @* Project selection (optional) *@
                 <MudSelect T="Guid?" @bind-Value="_selectedProjectId" Label="Prosjekt (valgfritt)"
-                           Variant="Variant.Outlined" Clearable="true">
-                    @foreach (var project in _projects)
+                           Variant="Variant.Outlined" Clearable="true"
+                           AdornmentIcon="@Icons.Material.Filled.Folder">
+                    @foreach (var project in _projects.Where(p => p.ParentProjectId is null))
                     {
                         <MudSelectItem T="Guid?" Value="@((Guid?)project.Id)">@project.Name</MudSelectItem>
+                        @foreach (var sub in _projects.Where(s => s.ParentProjectId == project.Id))
+                        {
+                            <MudSelectItem T="Guid?" Value="@((Guid?)sub.Id)">
+                                <span style="padding-left:16px;color:#6B7280;">↳ @sub.Name</span>
+                            </MudSelectItem>
+                        }
                     }
                 </MudSelect>
 

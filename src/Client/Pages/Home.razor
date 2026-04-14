@@ -3,6 +3,9 @@
 @inject DashboardService DashboardService
 @inject HoursService HoursService
 @inject ProjectService ProjectService
+@inject FileUploadService FileUploadService
+@inject ApiHttpClient Api
+@inject EmployeeService EmployeeService
 @inject NotificationService NotificationService
 @inject ForefallendeService ForefallendeService
 @inject NavigationManager Navigation
@@ -254,41 +257,94 @@ else
         <MudSkeleton Height="48px" />
     </MudPaper>
 }
-else if (_announcements.Count > 0)
+else
 {
     <MudPaper Class="pa-4 mb-4" Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;">
-        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-3">
-            <MudIcon Icon="@Icons.Material.Filled.Campaign" Size="Size.Small" Style="color:#4361EE;" />
-            <MudText Typo="Typo.h6" Style="font-weight:600;">Kunngjøringer</MudText>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudIcon Icon="@Icons.Material.Filled.Campaign" Size="Size.Small" Style="color:#4361EE;" />
+                <MudText Typo="Typo.h6" Style="font-weight:600;">Kunngjøringer</MudText>
+            </MudStack>
+            @if (_userRole == "admin")
+            {
+                <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Primary"
+                           OnClick="OpenNewAnnouncement"
+                           Style="text-transform:none;border-radius:8px;">
+                    Ny kunngjøring
+                </MudButton>
+            }
         </MudStack>
 
+        @if (_announcements.Count == 0)
+        {
+            <MudText Typo="Typo.body2" Color="Color.Secondary">Ingen kunngjøringer</MudText>
+        }
         <MudStack Spacing="2">
             @foreach (var ann in _announcements)
             {
-                var borderColor = ann.UrgencyLevel switch
-                {
-                    3 => "#E63946",
-                    2 => "#F4A261",
-                    _ => "#4361EE"
-                };
+                var capturedAnn = ann;
+                var borderColor = ann.UrgencyLevel switch { 3 => "#E63946", 2 => "#F4A261", _ => "#4361EE" };
+                var urgLabel = ann.UrgencyLevel switch { 3 => "Kritisk", 2 => "Viktig", _ => "" };
                 <MudPaper Class="pa-3" Elevation="0"
                           Style="@($"border-left:4px solid {borderColor};border-radius:8px;background:#FAFAFA;")">
                     <MudStack Row="true" AlignItems="AlignItems.Start" Justify="Justify.SpaceBetween">
                         <div style="flex:1;min-width:0;">
-                            <MudText Typo="Typo.subtitle2" Style="font-weight:600;">@ann.Title</MudText>
-                            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-1">@ann.Body</MudText>
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                <MudText Typo="Typo.subtitle2" Style="font-weight:600;">@ann.Title</MudText>
+                                @if (!string.IsNullOrEmpty(urgLabel))
+                                {
+                                    <span style="@($"background:{borderColor}20;color:{borderColor};padding:1px 6px;border-radius:4px;font-size:0.65rem;font-weight:600;")">@urgLabel</span>
+                                }
+                            </MudStack>
+                            <MudText Typo="Typo.body2" Style="white-space:pre-wrap;" Class="mt-1">@ann.Body</MudText>
+                            @if (!string.IsNullOrEmpty(ann.PhotoFileKey) && _photoUrls.TryGetValue(ann.Id, out var pUrl))
+                            {
+                                <img src="@pUrl" alt="Bilde" @onclick="() => _lightboxUrl = pUrl"
+                                     style="max-width:100%;max-height:250px;border-radius:8px;margin-top:8px;object-fit:cover;cursor:pointer;" />
+                            }
                             <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-1">
                                 @ann.CreatedBy — @ann.CreatedAt.LocalDateTime.ToString("dd.MM.yyyy HH:mm")
                             </MudText>
+
+                            @* Comments *@
+                            @if (ann.Comments is { Count: > 0 })
+                            {
+                                <div style="margin-top:8px;padding-top:8px;border-top:1px solid #E9ECEF;">
+                                    @foreach (var c in ann.Comments)
+                                    {
+                                        <MudStack Row="true" Spacing="1" Style="margin-bottom:3px;">
+                                            <MudText Typo="Typo.caption" Style="font-weight:600;">@c.AuthorName</MudText>
+                                            <MudText Typo="Typo.caption">@c.Content</MudText>
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary">@c.CreatedAt.ToLocalTime().ToString("HH:mm")</MudText>
+                                        </MudStack>
+                                    }
+                                </div>
+                            }
+
+                            @* Add comment *@
+                            <MudStack Row="true" Spacing="1" AlignItems="AlignItems.Center" Style="margin-top:4px;">
+                                <MudTextField T="string" Value="@GetAnnComment(ann.Id)" ValueChanged="@(v => SetAnnComment(ann.Id, v))"
+                                              Placeholder="Kommenter..." Variant="Variant.Text" Margin="Margin.Dense"
+                                              Style="font-size:0.8rem;flex:1;" />
+                                <MudIconButton Icon="@Icons.Material.Filled.Send" Size="Size.Small" Color="Color.Primary"
+                                               OnClick="@(async () => await CommentOnAnnouncement(capturedAnn.Id))" />
+                            </MudStack>
                         </div>
-                        @if (ann.RequiresAcknowledgment && !ann.HasAcknowledged)
-                        {
-                            <MudButton Variant="Variant.Outlined" Size="Size.Small"
-                                       OnClick="@(() => AcknowledgeAnnouncement(ann.Id))"
-                                       Style="text-transform:none;border-radius:8px;border-color:#4361EE;color:#4361EE;flex-shrink:0;">
-                                Bekreft
-                            </MudButton>
-                        }
+                        <MudStack Spacing="1" AlignItems="AlignItems.End" Style="flex-shrink:0;">
+                            @if (ann.RequiresAcknowledgment && !ann.HasAcknowledged)
+                            {
+                                <MudButton Variant="Variant.Outlined" Size="Size.Small"
+                                           OnClick="@(() => AcknowledgeAnnouncement(capturedAnn.Id))"
+                                           Style="text-transform:none;border-radius:8px;border-color:#4361EE;color:#4361EE;">
+                                    Bekreft
+                                </MudButton>
+                            }
+                            @if (_userRole == "admin")
+                            {
+                                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
+                                               OnClick="@(async () => await DeleteAnnouncement(capturedAnn.Id))" />
+                            }
+                        </MudStack>
                     </MudStack>
                 </MudPaper>
             }
@@ -576,12 +632,85 @@ else if (_announcements.Count > 0)
     </DialogActions>
 </MudDialog>
 
+@* ── Photo lightbox ── *@
+@if (_lightboxUrl is not null)
+{
+    <div @onclick="() => _lightboxUrl = null"
+         style="position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:9999;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:24px;">
+        <img src="@_lightboxUrl" style="max-width:95%;max-height:95%;object-fit:contain;border-radius:8px;" />
+        <div style="position:absolute;top:16px;right:16px;color:#fff;font-size:1.5rem;cursor:pointer;">✕</div>
+    </div>
+}
+
+@* ── New announcement dialog ── *@
+<MudDialog @bind-Visible="_showNewAnnouncement" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true })">
+    <TitleContent><MudText Typo="Typo.h6">Ny kunngjøring</MudText></TitleContent>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudTextField T="string" @bind-Value="_annTitle" Label="Tittel" Variant="Variant.Outlined" Required="true" />
+            <MudTextField T="string" @bind-Value="_annBody" Label="Melding" Variant="Variant.Outlined" Lines="4" />
+            <MudSelect T="int" @bind-Value="_annUrgency" Label="Prioritet" Variant="Variant.Outlined">
+                <MudSelectItem T="int" Value="1">Normal</MudSelectItem>
+                <MudSelectItem T="int" Value="2">Viktig</MudSelectItem>
+                <MudSelectItem T="int" Value="3">Kritisk</MudSelectItem>
+            </MudSelect>
+            <MudSwitch T="bool" @bind-Value="_annRequireAck" Label="Krev bekreftelse" Color="Color.Primary" />
+            <div style="position:relative;">
+                <MudButton Variant="Variant.Outlined" Size="Size.Small"
+                           StartIcon="@Icons.Material.Filled.CameraAlt"
+                           Style="text-transform:none;border-radius:8px;">
+                    @(_annPhotoKey is not null ? "Bilde lagt til" : "Legg til bilde")
+                </MudButton>
+                <InputFile OnChange="HandleAnnPhoto" accept="image/*"
+                           style="position:absolute;inset:0;opacity:0;cursor:pointer;" />
+            </div>
+            <MudSelect T="string" @bind-Value="_annTarget" Label="Send til" Variant="Variant.Outlined">
+                <MudSelectItem T="string" Value="@("all")">Alle ansatte</MudSelectItem>
+                <MudSelectItem T="string" Value="@("select")">Velg mottakere...</MudSelectItem>
+            </MudSelect>
+            @if (_annTarget == "select" && _annEmployees.Count > 0)
+            {
+                <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:8px;max-height:200px;overflow-y:auto;" Class="pa-2">
+                    @foreach (var emp in _annEmployees)
+                    {
+                        var eid = emp.PersonId;
+                        <MudCheckBox T="bool" Value="@_annSelectedPersons.Contains(eid)"
+                                     ValueChanged="@(v => { if (v) _annSelectedPersons.Add(eid); else _annSelectedPersons.Remove(eid); })"
+                                     Label="@emp.FullName" Dense="true" />
+                    }
+                </MudPaper>
+            }
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => _showNewAnnouncement = false" Style="text-transform:none;">Avbryt</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SendAnnouncement"
+                   Disabled="@(string.IsNullOrWhiteSpace(_annTitle))"
+                   Style="text-transform:none;border-radius:8px;">Send kunngjøring</MudButton>
+    </DialogActions>
+</MudDialog>
+
 @code {
     private DashboardSummaryDto _summary = new(0, 0m, 0, [], []);
     private ActiveClockDto? _activeClock;
     private TodayShiftDto? _todayShift;
     private List<SiteOverviewDto> _siteOverview = [];
     private List<AnnouncementDto> _announcements = [];
+    private bool _showNewAnnouncement;
+    private string _annTitle = "";
+    private string _annBody = "";
+    private int _annUrgency = 1;
+    private bool _annRequireAck;
+    private string? _annPhotoKey;
+    private string _annTarget = "all";
+    private HashSet<Guid> _annSelectedPersons = new();
+    private List<Solodoc.Shared.Employees.EmployeeListItemDto> _annEmployees = [];
+    private Dictionary<Guid, string> _annComments = new();
+    private Dictionary<Guid, string> _photoUrls = new();
+    private string? _lightboxUrl;
+
+    private string GetAnnComment(Guid id) => _annComments.TryGetValue(id, out var v) ? v : "";
+    private void SetAnnComment(Guid id, string val) => _annComments[id] = val;
     private List<ForefallendItemDto> _forefallendeItems = [];
     private bool _loading = true;
     private bool _announcementsLoading = true;
@@ -647,6 +776,22 @@ else if (_announcements.Count > 0)
         }
         _todayShift = shiftTask.IsCompletedSuccessfully ? shiftTask.Result : null;
         _announcements = announcementsTask.IsCompletedSuccessfully ? announcementsTask.Result : [];
+
+        // Resolve announcement photo URLs (download through API, convert to data URL)
+        foreach (var ann in _announcements.Where(a => !string.IsNullOrEmpty(a.PhotoFileKey)))
+        {
+            try
+            {
+                var r = await Api.GetAsync($"api/files/download/{ann.PhotoFileKey}");
+                if (r.IsSuccessStatusCode)
+                {
+                    var bytes = await r.Content.ReadAsByteArrayAsync();
+                    var ct2 = r.Content.Headers.ContentType?.MediaType ?? "image/png";
+                    _photoUrls[ann.Id] = $"data:{ct2};base64,{Convert.ToBase64String(bytes)}";
+                }
+            }
+            catch { }
+        }
 
         // Load check-in status + overview (non-blocking)
         try
@@ -810,6 +955,77 @@ else if (_announcements.Count > 0)
             _announcements[index] = ann with { HasAcknowledged = true };
         }
         Snackbar.Add("Kunngjøring bekreftet.", Severity.Info);
+    }
+
+    private async Task OpenNewAnnouncement()
+    {
+        _showNewAnnouncement = true;
+        _annTarget = "all";
+        _annSelectedPersons.Clear();
+        if (_annEmployees.Count == 0)
+        {
+            try { _annEmployees = await EmployeeService.GetEmployeesAsync(); } catch { }
+        }
+        StateHasChanged();
+    }
+
+    private async Task SendAnnouncement()
+    {
+        if (string.IsNullOrWhiteSpace(_annTitle)) return;
+        var targetIds = _annTarget == "select" && _annSelectedPersons.Count > 0
+            ? _annSelectedPersons.ToList()
+            : null;
+        var ok = await NotificationService.CreateAnnouncementAsync(
+            new CreateAnnouncementRequest(_annTitle, _annBody, _annUrgency, _annRequireAck, _annPhotoKey, targetIds));
+        if (ok)
+        {
+            _showNewAnnouncement = false;
+            _annTitle = "";
+            _annBody = "";
+            _annUrgency = 1;
+            _annRequireAck = false;
+            _annPhotoKey = null;
+            _announcements = await NotificationService.GetAnnouncementsAsync();
+            Snackbar.Add("Kunngjøring sendt!", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add("Kunne ikke sende kunngjøring", Severity.Error);
+        }
+    }
+
+    private async Task HandleAnnPhoto(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file is null) return;
+        try
+        {
+            using var ms = new MemoryStream();
+            await using var stream = file.OpenReadStream(maxAllowedSize: 25 * 1024 * 1024);
+            await stream.CopyToAsync(ms);
+            ms.Position = 0;
+            _annPhotoKey = await FileUploadService.UploadPhotoAsync(ms, file.Name, file.ContentType ?? "image/jpeg");
+            if (_annPhotoKey is not null) Snackbar.Add("Bilde lagt til", Severity.Info);
+            StateHasChanged();
+        }
+        catch { Snackbar.Add("Kunne ikke laste opp bilde", Severity.Error); }
+    }
+
+    private async Task CommentOnAnnouncement(Guid annId)
+    {
+        var text = GetAnnComment(annId);
+        if (string.IsNullOrWhiteSpace(text)) return;
+        await NotificationService.CommentOnAnnouncementAsync(annId, text);
+        _annComments[annId] = "";
+        _announcements = await NotificationService.GetAnnouncementsAsync();
+        StateHasChanged();
+    }
+
+    private async Task DeleteAnnouncement(Guid annId)
+    {
+        await NotificationService.DeleteAnnouncementAsync(annId);
+        _announcements = await NotificationService.GetAnnouncementsAsync();
+        Snackbar.Add("Kunngjøring slettet", Severity.Info);
     }
 
     private static Color GetProjectStatusColor(string status) => status.ToLowerInvariant() switch

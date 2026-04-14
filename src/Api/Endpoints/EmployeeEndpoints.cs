@@ -537,7 +537,8 @@ public static class EmployeeEndpoints
             Name = request.Name,
             Type = request.Type ?? string.Empty,
             IssuedBy = request.IssuedBy,
-            ExpiryDate = request.ExpiryDate
+            ExpiryDate = request.ExpiryDate,
+            FileKey = request.FileKey
         };
 
         db.EmployeeCertifications.Add(cert);

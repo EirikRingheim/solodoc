@@ -37,7 +37,8 @@ public record CreateCertificationRequest(
     string Name,
     string? Type,
     string? IssuedBy,
-    DateOnly? ExpiryDate);
+    DateOnly? ExpiryDate,
+    string? FileKey = null);
 
 // ─── Training ──────────────────────────────────────────────────────
 

@@ -57,10 +57,17 @@
             <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">Valgfritt — velg hvor avviket ble oppdaget.</MudText>
             <MudStack Spacing="3">
                 <MudSelect @bind-Value="_projectId" Label="Prosjekt" Variant="Variant.Outlined"
-                           Clearable="true" AnchorOrigin="Origin.BottomCenter">
-                    @foreach (var p in _projects)
+                           Clearable="true" AnchorOrigin="Origin.BottomCenter"
+                           AdornmentIcon="@Icons.Material.Filled.Folder">
+                    @foreach (var p in _projects.Where(p => p.ParentProjectId is null))
                     {
                         <MudSelectItem Value="@((Guid?)p.Id)">@p.Name</MudSelectItem>
+                        @foreach (var sub in _projects.Where(s => s.ParentProjectId == p.Id))
+                        {
+                            <MudSelectItem Value="@((Guid?)sub.Id)">
+                                <span style="padding-left:16px;color:#6B7280;">↳ @sub.Name</span>
+                            </MudSelectItem>
+                        }
                     }
                 </MudSelect>
                 <MudSelect @bind-Value="_jobId" Label="Oppdrag" Variant="Variant.Outlined"

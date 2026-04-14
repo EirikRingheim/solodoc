@@ -876,6 +876,7 @@ app.MapExpenseEndpoints();
 app.MapTravelExpenseEndpoints();
 app.MapExpenseSettingsEndpoints();
 app.MapSubcontractorEndpoints();
+app.MapProjectPostEndpoints();
 app.MapCouponEndpoints();
 
 app.Run();

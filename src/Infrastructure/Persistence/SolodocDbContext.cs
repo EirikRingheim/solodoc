@@ -177,6 +177,11 @@ public class SolodocDbContext : DbContext
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<Announcement> Announcements => Set<Announcement>();
     public DbSet<AnnouncementAcknowledgment> AnnouncementAcknowledgments => Set<AnnouncementAcknowledgment>();
+    public DbSet<AnnouncementComment> AnnouncementComments => Set<AnnouncementComment>();
+
+    // Project posts
+    public DbSet<ProjectPost> ProjectPosts => Set<ProjectPost>();
+    public DbSet<ProjectPostComment> ProjectPostComments => Set<ProjectPostComment>();
 
     // Billing
     public DbSet<CouponCode> CouponCodes => Set<CouponCode>();

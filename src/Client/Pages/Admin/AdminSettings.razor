@@ -6,6 +6,7 @@
 @inject EmployeeService EmployeeService
 @inject ISnackbar Snackbar
 @inject NavigationManager Navigation
+@inject ExpenseService ExpenseService
 @using Solodoc.Shared.Onboarding
 
 <PageTitle>Solodoc - Innstillinger</PageTitle>
@@ -600,12 +601,127 @@
             </MudStack>
         </ChildContent>
     </MudExpansionPanel>
+
+    @* ── Utlegg / Kvittering ── *@
+    <MudExpansionPanel Style="border:1px solid #e9ecef;border-radius:12px;margin-bottom:12px;">
+        <TitleContent>
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudIcon Icon="@Icons.Material.Filled.Receipt" Color="Color.Primary" />
+                <MudText Typo="Typo.subtitle1" Style="font-weight:600;">Utlegg og kvitteringer</MudText>
+            </MudStack>
+        </TitleContent>
+        <ChildContent>
+            <MudStack Spacing="3">
+                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                    Velg hvilke felter som er obligatoriske når ansatte registrerer kvitteringer. Bilde og beløp er alltid påkrevd.
+                </MudText>
+                <MudSwitch T="bool" @bind-Value="_expRequireDate" Label="Dato er påkrevd" Color="Color.Primary" />
+                <MudSwitch T="bool" @bind-Value="_expRequireDescription" Label="Beskrivelse er påkrevd" Color="Color.Primary" />
+                <MudSwitch T="bool" @bind-Value="_expRequireCategory" Label="Kategori er påkrevd" Color="Color.Primary" />
+                <MudSwitch T="bool" @bind-Value="_expRequireProject" Label="Prosjekt/oppdrag er påkrevd" Color="Color.Primary" />
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                           OnClick="SaveExpenseSettings"
+                           Style="text-transform:none;border-radius:8px;align-self:flex-start;">
+                    Lagre innstillinger
+                </MudButton>
+            </MudStack>
+        </ChildContent>
+    </MudExpansionPanel>
+
+    @* ── Sjekklister og signatur ── *@
+    <MudExpansionPanel Style="border:1px solid #e9ecef;border-radius:12px;margin-bottom:12px;">
+        <TitleContent>
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudIcon Icon="@Icons.Material.Filled.Checklist" Color="Color.Primary" />
+                <MudText Typo="Typo.subtitle1" Style="font-weight:600;">Sjekklister og signatur</MudText>
+            </MudStack>
+        </TitleContent>
+        <ChildContent>
+            <MudStack Spacing="3">
+                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                    Innstillinger for sjekklister, skjemaer og digitale signaturer.
+                </MudText>
+                <MudSwitch T="bool" @bind-Value="_requireSignatureOnChecklists" Label="Krev signatur ved innsending av sjekklister" Color="Color.Primary" />
+                <MudSwitch T="bool" @bind-Value="_requirePhotoOnDeviations" Label="Krev bilde ved avviksrapportering" Color="Color.Primary" />
+                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                    Disse innstillingene gjelder for alle nye sjekklister og avvik. Eksisterende påvirkes ikke.
+                </MudText>
+            </MudStack>
+        </ChildContent>
+    </MudExpansionPanel>
+
+    @* ── Reisesatser ── *@
+    <MudExpansionPanel Style="border:1px solid #e9ecef;border-radius:12px;margin-bottom:12px;">
+        <TitleContent>
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudIcon Icon="@Icons.Material.Filled.Flight" Color="Color.Primary" />
+                <MudText Typo="Typo.subtitle1" Style="font-weight:600;">Reisesatser</MudText>
+            </MudStack>
+        </TitleContent>
+        <ChildContent>
+            <MudStack Spacing="3">
+                <MudText Typo="Typo.body2" Color="Color.Secondary">
+                    Satser for reiseregning. Oppdateres årlig etter statens satser.
+                </MudText>
+                @if (_travelRates.Count > 0)
+                {
+                    @foreach (var rate in _travelRates)
+                    {
+                        <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:8px;" Class="pa-3">
+                            <MudText Typo="Typo.subtitle2" Style="font-weight:600;" Class="mb-2">@rate.Year</MudText>
+                            <MudGrid Spacing="2">
+                                <MudItem xs="6" sm="4">
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Diett 6-12t</MudText>
+                                    <MudText Style="font-weight:500;">kr @rate.Diet6To12Hours</MudText>
+                                </MudItem>
+                                <MudItem xs="6" sm="4">
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Diett >12t</MudText>
+                                    <MudText Style="font-weight:500;">kr @rate.Diet12PlusHours</MudText>
+                                </MudItem>
+                                <MudItem xs="6" sm="4">
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Diett m/overnatting</MudText>
+                                    <MudText Style="font-weight:500;">kr @rate.DietOvernight</MudText>
+                                </MudItem>
+                                <MudItem xs="6" sm="4">
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Km-sats</MudText>
+                                    <MudText Style="font-weight:500;">kr @rate.MileagePerKm/km</MudText>
+                                </MudItem>
+                                <MudItem xs="6" sm="4">
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Passasjertillegg</MudText>
+                                    <MudText Style="font-weight:500;">kr @rate.PassengerSurchargePerKm/km</MudText>
+                                </MudItem>
+                                <MudItem xs="6" sm="4">
+                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Nattillegg (udok.)</MudText>
+                                    <MudText Style="font-weight:500;">kr @rate.UndocumentedNightRate</MudText>
+                                </MudItem>
+                            </MudGrid>
+                        </MudPaper>
+                    }
+                }
+                else
+                {
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Ingen satser konfigurert. Standard 2026-satser brukes automatisk.</MudText>
+                }
+            </MudStack>
+        </ChildContent>
+    </MudExpansionPanel>
 </MudExpansionPanels>
 
 @code {
     // Onboarding/subscription
     private OnboardingStatusDto? _onboarding;
     private double _setupProgress;
+
+    // Expense settings
+    private bool _expRequireDate = true;
+    private bool _expRequireDescription;
+    private bool _expRequireCategory;
+    private bool _expRequireProject;
+    private List<Solodoc.Shared.Expenses.TravelExpenseRateDto> _travelRates = [];
+
+    // Checklist settings
+    private bool _requireSignatureOnChecklists;
+    private bool _requirePhotoOnDeviations;
 
     // Company profile
     private string _companyName = string.Empty;
@@ -666,7 +782,8 @@
         var schedulesTask = LoadSchedulesAsync();
         var allowancesTask = LoadAllowancesAsync();
         var onboardingTask = LoadOnboardingAsync();
-        await Task.WhenAll(categoriesTask, schedulesTask, allowancesTask, onboardingTask);
+        var expenseTask = LoadExpenseSettingsAsync();
+        await Task.WhenAll(categoriesTask, schedulesTask, allowancesTask, onboardingTask, expenseTask);
     }
 
     private void GoToRoles() => Navigation.NavigateTo("/admin/roles");
@@ -742,5 +859,31 @@
         {
             Snackbar.Add("Kunne ikke slette kategori", Severity.Error);
         }
+    }
+
+    // ── Expense settings ──
+
+    private async Task LoadExpenseSettingsAsync()
+    {
+        try
+        {
+            var settings = await ExpenseService.GetSettingsAsync();
+            if (settings is not null)
+            {
+                _expRequireDate = settings.RequireDate;
+                _expRequireDescription = settings.RequireDescription;
+                _expRequireCategory = settings.RequireCategory;
+                _expRequireProject = settings.RequireProject;
+            }
+            _travelRates = await ExpenseService.GetRatesAsync();
+        }
+        catch { }
+    }
+
+    private async Task SaveExpenseSettings()
+    {
+        var ok = await ExpenseService.UpdateSettingsAsync(new(
+            _expRequireDate, _expRequireDescription, _expRequireCategory, _expRequireProject));
+        Snackbar.Add(ok ? "Utleggsinnstillinger lagret" : "Kunne ikke lagre", ok ? Severity.Success : Severity.Error);
     }
 }

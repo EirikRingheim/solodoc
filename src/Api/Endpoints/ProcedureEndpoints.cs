@@ -42,6 +42,7 @@ public static class ProcedureEndpoints
                 p.Id,
                 p.Name,
                 p.Description,
+                p.Category,
                 db.ProcedureBlocks.Count(b => b.ProcedureTemplateId == p.Id)))
             .ToListAsync(ct);
 
@@ -63,6 +64,8 @@ public static class ProcedureEndpoints
                 p.Id,
                 p.Name,
                 p.Description,
+                p.Category,
+                p.IsPublished,
                 db.ProcedureBlocks
                     .Where(b => b.ProcedureTemplateId == p.Id)
                     .OrderBy(b => b.SortOrder)
@@ -91,6 +94,7 @@ public static class ProcedureEndpoints
             TenantId = tenantProvider.TenantId.Value,
             Name = request.Name,
             Description = request.Description,
+            Category = request.Category,
             CurrentVersion = 1,
             IsPublished = false,
             IsArchived = false

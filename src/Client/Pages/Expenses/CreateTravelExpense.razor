@@ -56,10 +56,17 @@
                 </MudSelect>
                 <MudTextField T="string" @bind-Value="_route" Label="Reiserute" Variant="Variant.Outlined"
                               Placeholder="Bergen → Oslo → Bergen" />
-                <MudSelect T="Guid?" @bind-Value="_projectId" Label="Prosjekt (valgfritt)" Variant="Variant.Outlined" Clearable="true">
+                <MudSelect T="Guid?" @bind-Value="_projectId" Label="Prosjekt (valgfritt)" Variant="Variant.Outlined" Clearable="true"
+                           AdornmentIcon="@Icons.Material.Filled.Folder">
                     @foreach (var p in _projects.Where(p => p.ParentProjectId is null))
                     {
                         <MudSelectItem T="Guid?" Value="@((Guid?)p.Id)">@p.Name</MudSelectItem>
+                        @foreach (var sub in _projects.Where(s => s.ParentProjectId == p.Id))
+                        {
+                            <MudSelectItem T="Guid?" Value="@((Guid?)sub.Id)">
+                                <span style="padding-left:16px;color:#6B7280;">↳ @sub.Name</span>
+                            </MudSelectItem>
+                        }
                     }
                 </MudSelect>
             </MudStack>

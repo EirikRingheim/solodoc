@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Solodoc.Infrastructure.Persistence;
@@ -11,9 +12,11 @@ using Solodoc.Infrastructure.Persistence;
 namespace Solodoc.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(SolodocDbContext))]
-    partial class SolodocDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260414192012_AddProjectPostsAndAnnouncementTargeting")]
+    partial class AddProjectPostsAndAnnouncementTargeting
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -6123,55 +6126,6 @@ namespace Solodoc.Infrastructure.Persistence.Migrations
                     b.ToTable("announcement_acknowledgments", (string)null);
                 });
 
-            modelBuilder.Entity("Solodoc.Domain.Entities.Notifications.AnnouncementComment", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<Guid>("AnnouncementId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("announcement_id");
-
-                    b.Property<Guid>("AuthorId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("author_id");
-
-                    b.Property<string>("Content")
-                        .IsRequired()
-                        .HasColumnType("text")
-                        .HasColumnName("content");
-
-                    b.Property<DateTimeOffset>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<DateTimeOffset?>("DeletedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("deleted_at");
-
-                    b.Property<Guid?>("DeletedBy")
-                        .HasColumnType("uuid")
-                        .HasColumnName("deleted_by");
-
-                    b.Property<bool>("IsDeleted")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_deleted");
-
-                    b.Property<DateTimeOffset>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("updated_at");
-
-                    b.HasKey("Id")
-                        .HasName("pk_announcement_comments");
-
-                    b.HasIndex("AnnouncementId")
-                        .HasDatabaseName("ix_announcement_comments_announcement_id");
-
-                    b.ToTable("announcement_comments", (string)null);
-                });
-
             modelBuilder.Entity("Solodoc.Domain.Entities.Notifications.Notification", b =>
                 {
                     b.Property<Guid>("Id")
@@ -6366,10 +6320,6 @@ namespace Solodoc.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid")
                         .HasColumnName("id");
-
-                    b.Property<string>("Category")
-                        .HasColumnType("text")
-                        .HasColumnName("category");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -7861,18 +7811,6 @@ namespace Solodoc.Infrastructure.Persistence.Migrations
                     b.Navigation("Announcement");
                 });
 
-            modelBuilder.Entity("Solodoc.Domain.Entities.Notifications.AnnouncementComment", b =>
-                {
-                    b.HasOne("Solodoc.Domain.Entities.Notifications.Announcement", "Announcement")
-                        .WithMany("Comments")
-                        .HasForeignKey("AnnouncementId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_announcement_comments_announcements_announcement_id");
-
-                    b.Navigation("Announcement");
-                });
-
             modelBuilder.Entity("Solodoc.Domain.Entities.Procedures.ProcedureBlock", b =>
                 {
                     b.HasOne("Solodoc.Domain.Entities.Procedures.ProcedureTemplate", "ProcedureTemplate")
@@ -8141,8 +8079,6 @@ namespace Solodoc.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("Solodoc.Domain.Entities.Notifications.Announcement", b =>
                 {
                     b.Navigation("Acknowledgments");
-
-                    b.Navigation("Comments");
                 });
 
             modelBuilder.Entity("Solodoc.Domain.Entities.Projects.Job", b =>

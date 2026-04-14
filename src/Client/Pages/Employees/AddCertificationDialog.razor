@@ -1,23 +1,59 @@
+@inject FileUploadService FileUploadService
+@inject ISnackbar Snackbar
+
 <MudDialog>
     <DialogContent>
         <MudStack Spacing="3">
             <MudTextField @bind-Value="_name" Label="Navn" Variant="Variant.Outlined"
                           Required="true" RequiredError="Navn er påkrevd"
-                          Placeholder="F.eks. Varmearbeid, Maskinforerkort" />
+                          Placeholder="F.eks. Varmearbeid, Maskinførerkort" />
             <MudTextField @bind-Value="_type" Label="Type (valgfritt)" Variant="Variant.Outlined"
                           Placeholder="F.eks. Klasse B, Modul 2" />
             <MudTextField @bind-Value="_issuedBy" Label="Utstedt av (valgfritt)" Variant="Variant.Outlined"
                           Placeholder="F.eks. Arbeidstilsynet" />
-            <MudDatePicker @bind-Date="_expiryDate" Label="Utlopsdato (valgfritt)"
-                           Variant="Variant.Outlined"
-                           DateFormat="dd.MM.yyyy"
-                           Placeholder="Velg dato" />
+
+            @* Expiry with "does not expire" checkbox *@
+            <MudCheckBox T="bool" @bind-Value="_noExpiry" Label="Utløper ikke" Color="Color.Primary" />
+            @if (!_noExpiry)
+            {
+                <MudDatePicker @bind-Date="_expiryDate" Label="Utløpsdato"
+                               Variant="Variant.Outlined" DateFormat="dd.MM.yyyy"
+                               Placeholder="Velg dato" />
+            }
+
+            @* PDF/document upload *@
+            <MudText Typo="Typo.caption" Color="Color.Secondary">Last opp sertifikat (valgfritt)</MudText>
+            <MudPaper Elevation="0" Style="border:2px dashed #E9ECEF;border-radius:10px;position:relative;cursor:pointer;" Class="pa-3">
+                <MudStack AlignItems="AlignItems.Center" Spacing="1">
+                    @if (_uploading)
+                    {
+                        <MudProgressCircular Indeterminate="true" Size="Size.Small" Color="Color.Primary" />
+                        <MudText Typo="Typo.caption" Color="Color.Primary">Laster opp...</MudText>
+                    }
+                    else if (!string.IsNullOrEmpty(_fileKey))
+                    {
+                        <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" />
+                        <MudText Typo="Typo.caption" Style="color:#059669;">Dokument lastet opp</MudText>
+                    }
+                    else
+                    {
+                        <MudIcon Icon="@Icons.Material.Filled.UploadFile" Color="Color.Secondary" />
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">PDF, bilde eller dokument</MudText>
+                    }
+                </MudStack>
+                @if (!_uploading)
+                {
+                    <InputFile OnChange="HandleFileUpload" accept=".pdf,.jpg,.jpeg,.png,.heic,.webp,.doc,.docx"
+                               style="position:absolute;inset:0;opacity:0;cursor:pointer;" />
+                }
+            </MudPaper>
         </MudStack>
     </DialogContent>
     <DialogActions>
         <MudButton OnClick="Cancel" Style="text-transform:none;">Avbryt</MudButton>
         <MudButton Color="Color.Primary" Variant="Variant.Filled"
                    Style="text-transform:none;border-radius:8px;"
+                   Disabled="@(string.IsNullOrWhiteSpace(_name))"
                    OnClick="Submit">
             Legg til
         </MudButton>
@@ -31,19 +67,44 @@
     private string? _type;
     private string? _issuedBy;
     private DateTime? _expiryDate;
+    private bool _noExpiry;
+    private string? _fileKey;
+    private bool _uploading;
 
     private void Cancel() => MudDialog.Cancel();
 
+    private async Task HandleFileUpload(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file is null) return;
+        _uploading = true;
+        StateHasChanged();
+
+        try
+        {
+            using var ms = new MemoryStream();
+            await using var stream = file.OpenReadStream(maxAllowedSize: 25 * 1024 * 1024);
+            await stream.CopyToAsync(ms);
+            ms.Position = 0;
+            _fileKey = await FileUploadService.UploadPhotoAsync(ms, file.Name, file.ContentType ?? "application/octet-stream");
+            if (_fileKey is not null)
+                Snackbar.Add("Dokument lastet opp", Severity.Info);
+        }
+        catch { Snackbar.Add("Kunne ikke laste opp", Severity.Error); }
+
+        _uploading = false;
+        StateHasChanged();
+    }
+
     private void Submit()
     {
-        if (string.IsNullOrWhiteSpace(_name))
-            return;
+        if (string.IsNullOrWhiteSpace(_name)) return;
 
-        DateOnly? expiry = _expiryDate.HasValue
-            ? DateOnly.FromDateTime(_expiryDate.Value)
+        DateOnly? expiry = _noExpiry ? null
+            : _expiryDate.HasValue ? DateOnly.FromDateTime(_expiryDate.Value)
             : null;
 
-        var request = new CreateCertificationRequest(_name.Trim(), _type?.Trim(), _issuedBy?.Trim(), expiry);
+        var request = new CreateCertificationRequest(_name.Trim(), _type?.Trim(), _issuedBy?.Trim(), expiry, _fileKey);
         MudDialog.Close(DialogResult.Ok(request));
     }
 }

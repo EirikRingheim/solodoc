@@ -9,7 +9,12 @@ public class Announcement : TenantScopedEntity
     public int UrgencyLevel { get; set; } = 1;
     public Guid CreatedById { get; set; }
     public bool RequiresAcknowledgment { get; set; }
+    public string? PhotoFileKey { get; set; }
+
+    // Targeting: null = everyone, JSON array of person IDs = specific people
+    public string? TargetPersonIds { get; set; }
 
     // Navigation
     public ICollection<AnnouncementAcknowledgment> Acknowledgments { get; set; } = [];
+    public ICollection<AnnouncementComment> Comments { get; set; } = [];
 }

@@ -17,6 +17,15 @@
                       Required="true" RequiredError="Navn er påkrevd" />
         <MudTextField @bind-Value="_description" Label="Beskrivelse" Variant="Variant.Outlined"
                       Lines="4" Placeholder="Hva beskriver denne prosedyren?" />
+        <MudSelect T="string" @bind-Value="_category" Label="Kategori" Variant="Variant.Outlined" Clearable="true">
+            <MudSelectItem T="string" Value="@("HMS")">HMS</MudSelectItem>
+            <MudSelectItem T="string" Value="@("Kvalitet")">Kvalitet</MudSelectItem>
+            <MudSelectItem T="string" Value="@("Sikkerhet")">Sikkerhet</MudSelectItem>
+            <MudSelectItem T="string" Value="@("Drift")">Drift</MudSelectItem>
+            <MudSelectItem T="string" Value="@("Vedlikehold")">Vedlikehold</MudSelectItem>
+            <MudSelectItem T="string" Value="@("Miljø")">Miljø</MudSelectItem>
+            <MudSelectItem T="string" Value="@("Annet")">Annet</MudSelectItem>
+        </MudSelect>
         <MudStack Row="true" Spacing="2" Justify="Justify.FlexEnd">
             <MudButton Variant="Variant.Text" Href="/procedures"
                        Style="text-transform:none;">Avbryt</MudButton>
@@ -36,6 +45,7 @@
 @code {
     private string _name = "";
     private string _description = "";
+    private string? _category;
     private bool _creating;
 
     private async Task Create()
@@ -49,7 +59,8 @@
         _creating = true;
         var id = await ProcedureService.CreateProcedureAsync(
             new CreateProcedureRequest(_name,
-                string.IsNullOrWhiteSpace(_description) ? null : _description));
+                string.IsNullOrWhiteSpace(_description) ? null : _description,
+                _category));
 
         if (id.HasValue)
         {

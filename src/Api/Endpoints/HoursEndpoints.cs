@@ -282,7 +282,15 @@ public static class HoursEndpoints
                 && a.Status != AbsenceStatus.Rejected
                 && a.StartDate <= today && a.EndDate >= today, ct);
         if (hasAbsenceToday)
-            return Results.BadRequest(new { error = "Du har registrert fravær i dag. Slett fraværet forst." });
+            return Results.BadRequest(new { error = "Du har registrert fravær i dag. Slett fraværet først." });
+
+        // Block clock-in on finished/cancelled projects
+        if (request.ProjectId.HasValue)
+        {
+            var project = await db.Projects.FirstOrDefaultAsync(p => p.Id == request.ProjectId.Value, ct);
+            if (project is not null && project.Status is ProjectStatus.Completed or ProjectStatus.Cancelled)
+                return Results.BadRequest(new { error = "Kan ikke stemple inn på et fullført eller kansellert prosjekt." });
+        }
 
         var now = DateTimeOffset.UtcNow;
         var clockStart = request.StartTime ?? now;
