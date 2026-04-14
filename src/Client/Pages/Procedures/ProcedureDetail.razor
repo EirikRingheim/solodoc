@@ -7,8 +7,12 @@
 <PageTitle>Solodoc - @(_procedure?.Name ?? "Prosedyre")</PageTitle>
 
 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-4">
-    <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Href="/checklists" />
-    <MudText Typo="Typo.h5" Style="word-break:break-word;">@(_procedure?.Name ?? "Laster...")</MudText>
+    <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Href="/procedures" />
+    <MudText Typo="Typo.h5" Style="font-weight:700;">@(_procedure?.Name ?? "Laster...")</MudText>
+    @if (_procedure?.Category is not null)
+    {
+        <MudChip T="string" Size="Size.Small" Style="height:22px;">@_procedure.Category</MudChip>
+    }
 </MudStack>
 
 @if (_loading)
@@ -21,72 +25,178 @@ else if (_procedure is null)
 }
 else
 {
-    @* ── Read status and mark-as-read button ── *@
-    <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-4 mb-4">
-        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Justify="Justify.SpaceBetween"
-                  Style="flex-wrap:wrap;gap:8px;">
-            <MudButton Variant="Variant.Filled" Color="Color.Success"
-                       StartIcon="@Icons.Material.Filled.CheckCircle"
-                       Style="text-transform:none;border-radius:8px;min-height:48px;"
-                       OnClick="MarkAsRead" Disabled="_hasRead">
-                @(_hasRead ? "Lest" : "Marker som lest")
-            </MudButton>
-            @if (_readStatus is not null)
+    @* ── Document-style container ── *@
+    <MudPaper Elevation="1" Style="border-radius:12px;max-width:900px;margin:0 auto;" Class="pa-0">
+
+        @* Document header *@
+        <div style="background:linear-gradient(135deg,#4361EE10,#4361EE05);padding:32px;border-bottom:1px solid #E9ECEF;">
+            <MudText Typo="Typo.h4" Style="font-weight:700;">@_procedure.Name</MudText>
+            @if (!string.IsNullOrWhiteSpace(_procedure.Description))
             {
-                <MudText Typo="Typo.body2" Color="Color.Secondary">
-                    @_readStatus.ReadCount av @_readStatus.TotalWorkers har lest
+                <MudText Typo="Typo.body1" Color="Color.Secondary" Class="mt-2">@_procedure.Description</MudText>
+            }
+            @if (_procedure.Category is not null)
+            {
+                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-1">Kategori: @_procedure.Category</MudText>
+            }
+        </div>
+
+        @* Document body *@
+        <div style="padding:32px;">
+            @if (_procedure.Blocks.Count == 0)
+            {
+                <MudText Typo="Typo.body1" Color="Color.Secondary" Style="text-align:center;padding:40px 0;">
+                    Denne prosedyren har ingen innhold ennå.
                 </MudText>
             }
-        </MudStack>
+            else
+            {
+                var sectionNumber = 0;
+                @foreach (var block in _procedure.Blocks)
+                {
+                    sectionNumber++;
+                    <div style="margin-bottom:24px;">
+                        @switch (block.Type.ToLowerInvariant())
+                        {
+                            case "text":
+                                <div style="display:flex;gap:12px;">
+                                    <div style="min-width:32px;text-align:right;">
+                                        <span style="font-weight:700;color:#4361EE;font-size:0.9rem;">@sectionNumber.</span>
+                                    </div>
+                                    <div style="flex:1;">
+                                        <MudText Typo="Typo.body1" Style="white-space:pre-wrap;line-height:1.7;">@block.Content</MudText>
+                                    </div>
+                                </div>
+                                break;
+
+                            case "steplist":
+                                var steps = block.Content.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+                                <div style="display:flex;gap:12px;">
+                                    <div style="min-width:32px;text-align:right;">
+                                        <span style="font-weight:700;color:#4361EE;font-size:0.9rem;">@sectionNumber.</span>
+                                    </div>
+                                    <div style="flex:1;">
+                                        <MudText Typo="Typo.subtitle1" Style="font-weight:600;" Class="mb-2">Fremgangsmåte</MudText>
+                                        @for (var i = 0; i < steps.Length; i++)
+                                        {
+                                            var stepNum = i + 1;
+                                            <div style="display:flex;gap:10px;margin-bottom:8px;align-items:flex-start;">
+                                                <div style="width:24px;height:24px;border-radius:50%;background:#4361EE;color:#fff;display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:700;flex-shrink:0;margin-top:2px;">
+                                                    @stepNum
+                                                </div>
+                                                <MudText Typo="Typo.body1" Style="line-height:1.6;">@steps[i]</MudText>
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                                break;
+
+                            case "responsibility":
+                                var rows = block.Content.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+                                <div style="display:flex;gap:12px;">
+                                    <div style="min-width:32px;text-align:right;">
+                                        <span style="font-weight:700;color:#4361EE;font-size:0.9rem;">@sectionNumber.</span>
+                                    </div>
+                                    <div style="flex:1;">
+                                        <MudText Typo="Typo.subtitle1" Style="font-weight:600;" Class="mb-2">Ansvar</MudText>
+                                        <MudSimpleTable Dense="true" Style="border:1px solid #E9ECEF;border-radius:8px;">
+                                            <thead><tr style="background:#F8F9FA;"><th>Rolle</th><th>Ansvar</th></tr></thead>
+                                            <tbody>
+                                                @foreach (var row in rows)
+                                                {
+                                                    var parts = row.Split('|', 2, StringSplitOptions.TrimEntries);
+                                                    <tr>
+                                                        <td style="font-weight:500;">@parts[0]</td>
+                                                        <td>@(parts.Length > 1 ? parts[1] : "")</td>
+                                                    </tr>
+                                                }
+                                            </tbody>
+                                        </MudSimpleTable>
+                                    </div>
+                                </div>
+                                break;
+
+                            case "warning":
+                                <div style="display:flex;gap:12px;">
+                                    <div style="min-width:32px;text-align:right;">
+                                        <span style="font-weight:700;color:#D97706;font-size:0.9rem;">⚠</span>
+                                    </div>
+                                    <div style="flex:1;background:#FFFBEB;border:1px solid #FDE68A;border-radius:8px;padding:16px;">
+                                        <MudText Typo="Typo.body1" Style="white-space:pre-wrap;color:#92400E;">@block.Content</MudText>
+                                    </div>
+                                </div>
+                                break;
+
+                            case "reference":
+                                var refs = block.Content.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+                                <div style="display:flex;gap:12px;">
+                                    <div style="min-width:32px;text-align:right;">
+                                        <span style="font-weight:700;color:#4361EE;font-size:0.9rem;">@sectionNumber.</span>
+                                    </div>
+                                    <div style="flex:1;">
+                                        <MudText Typo="Typo.subtitle1" Style="font-weight:600;" Class="mb-2">Referanser</MudText>
+                                        @foreach (var r in refs)
+                                        {
+                                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Style="margin-bottom:4px;">
+                                                <MudIcon Icon="@Icons.Material.Filled.Description" Size="Size.Small" Color="Color.Secondary" />
+                                                <MudText Typo="Typo.body2">@r</MudText>
+                                            </MudStack>
+                                        }
+                                    </div>
+                                </div>
+                                break;
+
+                            default:
+                                <div style="display:flex;gap:12px;">
+                                    <div style="min-width:32px;text-align:right;">
+                                        <span style="font-weight:700;color:#4361EE;font-size:0.9rem;">@sectionNumber.</span>
+                                    </div>
+                                    <div style="flex:1;">
+                                        <MudText Typo="Typo.body1" Style="white-space:pre-wrap;line-height:1.7;">@block.Content</MudText>
+                                    </div>
+                                </div>
+                                break;
+                        }
+                    </div>
+                }
+            }
+        </div>
+
+        @* Read confirmation footer *@
+        <div style="padding:24px 32px;border-top:1px solid #E9ECEF;background:#F9FAFB;">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Justify="Justify.SpaceBetween" Style="flex-wrap:wrap;gap:8px;">
+                <MudButton Variant="Variant.Filled" Color="Color.Success" Size="Size.Large"
+                           StartIcon="@(_hasRead ? Icons.Material.Filled.CheckCircle : Icons.Material.Filled.Visibility)"
+                           Style="text-transform:none;border-radius:8px;"
+                           OnClick="MarkAsRead" Disabled="_hasRead">
+                    @(_hasRead ? "Lest og bekreftet" : "Marker som lest")
+                </MudButton>
+                @if (_readStatus is not null)
+                {
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">
+                        @_readStatus.ReadCount av @_readStatus.TotalWorkers har lest denne prosedyren
+                    </MudText>
+                }
+            </MudStack>
+        </div>
     </MudPaper>
 
-    @if (!string.IsNullOrWhiteSpace(_procedure.Description))
-    {
-        <MudPaper Class="pa-5 mb-3" Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;">
-            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-1">Beskrivelse</MudText>
-            <MudText Typo="Typo.body1" Style="white-space:pre-wrap;">@_procedure.Description</MudText>
-        </MudPaper>
-    }
-
-    @if (_procedure.Blocks.Count == 0)
-    {
-        <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-8">
-            <MudStack AlignItems="AlignItems.Center" Spacing="2">
-                <MudIcon Icon="@Icons.Material.Filled.ViewModule" Size="Size.Large" Color="Color.Default" Style="opacity:0.3;" />
-                <MudText Typo="Typo.body1" Color="Color.Secondary">Ingen blokker i denne prosedyren</MudText>
-            </MudStack>
-        </MudPaper>
-    }
-    else
-    {
-        <MudStack Spacing="2">
-            @foreach (var block in _procedure.Blocks)
-            {
-                @RenderBlock(block)
-            }
-        </MudStack>
-    }
-
-    @* ── Read status details (expandable) ── *@
+    @* Read log *@
     @if (_readStatus is not null && _readStatus.Readers.Count > 0)
     {
-        <MudExpansionPanels Class="mt-4">
+        <MudExpansionPanels Class="mt-4" Style="max-width:900px;margin:0 auto;">
             <MudExpansionPanel Text="@($"Lest av ({_readStatus.ReadCount})")"
                                Style="border:1px solid #E9ECEF;border-radius:12px;">
-                <MudList T="string" Dense="true">
-                    @foreach (var reader in _readStatus.Readers)
-                    {
-                        <MudListItem T="string">
-                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                                <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" Color="Color.Secondary" />
-                                <MudText Typo="Typo.body2">@reader.PersonName</MudText>
-                                <MudText Typo="Typo.caption" Color="Color.Secondary">
-                                    @reader.ReadAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")
-                                </MudText>
-                            </MudStack>
-                        </MudListItem>
-                    }
-                </MudList>
+                @foreach (var reader in _readStatus.Readers)
+                {
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Style="padding:4px 0;">
+                        <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small" Color="Color.Success" />
+                        <MudText Typo="Typo.body2" Style="font-weight:500;">@reader.PersonName</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                            @reader.ReadAt.ToLocalTime().ToString("dd.MM.yyyy HH:mm")
+                        </MudText>
+                    </MudStack>
+                }
             </MudExpansionPanel>
         </MudExpansionPanels>
     }
@@ -124,147 +234,4 @@ else
             Snackbar.Add("Kunne ikke markere som lest", Severity.Error);
         }
     }
-
-    private RenderFragment RenderBlock(ProcedureBlockDto block) => block.Type.ToLowerInvariant() switch
-    {
-        "text" => RenderTextBlock(block),
-        "steplist" => RenderStepListBlock(block),
-        "responsibility" => RenderResponsibilityBlock(block),
-        "warning" => RenderWarningBlock(block),
-        "photo" => RenderPhotoBlock(block),
-        "reference" => RenderReferenceBlock(block),
-        "signoff" => RenderSignOffBlock(block),
-        _ => RenderTextBlock(block)
-    };
-
-    private RenderFragment RenderTextBlock(ProcedureBlockDto block) => __builder =>
-    {
-        <MudPaper Class="pa-5" Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;">
-            <MudText Typo="Typo.body1" Style="white-space:pre-wrap;">@block.Content</MudText>
-        </MudPaper>
-    };
-
-    private RenderFragment RenderStepListBlock(ProcedureBlockDto block) => __builder =>
-    {
-        var steps = block.Content.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-        <MudPaper Class="pa-5" Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;">
-            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-3">
-                <MudIcon Icon="@Icons.Material.Filled.FormatListNumbered" Size="Size.Small" Color="Color.Primary" />
-                <MudText Typo="Typo.subtitle2">Fremgangsmate</MudText>
-            </MudStack>
-            <MudList T="string" Dense="true">
-                @for (var i = 0; i < steps.Length; i++)
-                {
-                    var stepNumber = i + 1;
-                    var stepText = steps[i];
-                    <MudListItem T="string">
-                        <MudStack Row="true" AlignItems="AlignItems.Start" Spacing="2">
-                            <MudAvatar Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined"
-                                       Style="min-width:28px;min-height:28px;width:28px;height:28px;font-size:0.75rem;">
-                                @stepNumber
-                            </MudAvatar>
-                            <MudText Typo="Typo.body2">@stepText</MudText>
-                        </MudStack>
-                    </MudListItem>
-                }
-            </MudList>
-        </MudPaper>
-    };
-
-    private RenderFragment RenderResponsibilityBlock(ProcedureBlockDto block) => __builder =>
-    {
-        var rows = block.Content.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-        <MudPaper Class="pa-5" Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;">
-            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-3">
-                <MudIcon Icon="@Icons.Material.Filled.People" Size="Size.Small" Color="Color.Primary" />
-                <MudText Typo="Typo.subtitle2">Ansvar</MudText>
-            </MudStack>
-            <MudSimpleTable Dense="true" Hover="true" Style="border:1px solid #E9ECEF;border-radius:8px;overflow:hidden;">
-                <thead>
-                    <tr>
-                        <th>Rolle</th>
-                        <th>Ansvar</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var row in rows)
-                    {
-                        var parts = row.Split('|', 2, StringSplitOptions.TrimEntries);
-                        <tr>
-                            <td style="font-weight:500;">@parts[0]</td>
-                            <td>@(parts.Length > 1 ? parts[1] : "")</td>
-                        </tr>
-                    }
-                </tbody>
-            </MudSimpleTable>
-        </MudPaper>
-    };
-
-    private RenderFragment RenderWarningBlock(ProcedureBlockDto block) => __builder =>
-    {
-        <MudAlert Severity="Severity.Warning" Variant="Variant.Outlined"
-                  Icon="@Icons.Material.Filled.Warning" Dense="false"
-                  Style="border-radius:12px;">
-            <MudText Typo="Typo.body2" Style="white-space:pre-wrap;">@block.Content</MudText>
-        </MudAlert>
-    };
-
-    private RenderFragment RenderPhotoBlock(ProcedureBlockDto block) => __builder =>
-    {
-        <MudPaper Class="pa-5" Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;">
-            <MudStack AlignItems="AlignItems.Center" Spacing="2">
-                <MudPaper Elevation="0" Style="border:2px dashed #CED4DA;border-radius:8px;width:100%;min-height:160px;"
-                          Class="pa-6 d-flex align-center justify-center">
-                    <MudStack AlignItems="AlignItems.Center" Spacing="1">
-                        <MudIcon Icon="@Icons.Material.Filled.Image" Size="Size.Large" Color="Color.Default" Style="opacity:0.3;" />
-                        <MudText Typo="Typo.caption" Color="Color.Secondary">Bilde/illustrasjon</MudText>
-                    </MudStack>
-                </MudPaper>
-                @if (!string.IsNullOrWhiteSpace(block.Content))
-                {
-                    <MudText Typo="Typo.caption" Color="Color.Secondary">@block.Content</MudText>
-                }
-            </MudStack>
-        </MudPaper>
-    };
-
-    private RenderFragment RenderReferenceBlock(ProcedureBlockDto block) => __builder =>
-    {
-        var refs = block.Content.Split('\n', StringSplitOptions.RemoveEmptyEntries);
-        <MudPaper Class="pa-5" Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;">
-            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-3">
-                <MudIcon Icon="@Icons.Material.Filled.Link" Size="Size.Small" Color="Color.Primary" />
-                <MudText Typo="Typo.subtitle2">Referanser</MudText>
-            </MudStack>
-            <MudList T="string" Dense="true">
-                @foreach (var r in refs)
-                {
-                    <MudListItem T="string" Icon="@Icons.Material.Filled.Description">
-                        <MudText Typo="Typo.body2">@r</MudText>
-                    </MudListItem>
-                }
-            </MudList>
-        </MudPaper>
-    };
-
-    private RenderFragment RenderSignOffBlock(ProcedureBlockDto block) => __builder =>
-    {
-        <MudPaper Class="pa-5" Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;">
-            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-3">
-                <MudIcon Icon="@Icons.Material.Filled.Draw" Size="Size.Small" Color="Color.Primary" />
-                <MudText Typo="Typo.subtitle2">Signering</MudText>
-            </MudStack>
-            <MudPaper Elevation="0" Style="border:2px dashed #CED4DA;border-radius:8px;min-height:100px;"
-                      Class="pa-4 d-flex align-center justify-center">
-                <MudStack AlignItems="AlignItems.Center" Spacing="1">
-                    <MudIcon Icon="@Icons.Material.Filled.Draw" Size="Size.Large" Color="Color.Default" Style="opacity:0.3;" />
-                    <MudText Typo="Typo.caption" Color="Color.Secondary">Signaturomrade</MudText>
-                </MudStack>
-            </MudPaper>
-            @if (!string.IsNullOrWhiteSpace(block.Content))
-            {
-                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-2">@block.Content</MudText>
-            }
-        </MudPaper>
-    };
 }
