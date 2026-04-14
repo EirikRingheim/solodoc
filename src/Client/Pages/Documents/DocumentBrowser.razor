@@ -1,0 +1,335 @@
+@page "/dokumenter"
+@page "/dokumenter/{ProjectIdStr}"
+@attribute [Authorize]
+@inject DocumentService DocumentService
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+@inject ApiHttpClient Api
+@using Solodoc.Shared.Documents
+
+<PageTitle>Solodoc - Dokumenter</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4" Style="flex-wrap:wrap;gap:8px;">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+        @if (_currentFolder is not null)
+        {
+            <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" OnClick="GoUp" />
+        }
+        <MudText Typo="Typo.h5" Style="font-weight:700;">
+            @(_currentFolder?.Name ?? "Dokumenter")
+        </MudText>
+    </MudStack>
+    <MudStack Row="true" Spacing="2">
+        <MudTextField T="string" Value="_search" Placeholder="Søk dokumenter..."
+                      Variant="Variant.Outlined" Margin="Margin.Dense"
+                      Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                      Immediate="true" DebounceInterval="300" ValueChanged="OnSearchChanged"
+                      Style="max-width:220px;" />
+        <MudButton Variant="Variant.Outlined" Size="Size.Small" StartIcon="@Icons.Material.Filled.CreateNewFolder"
+                   OnClick="() => _showNewFolder = true" Style="text-transform:none;border-radius:8px;">
+            Ny mappe
+        </MudButton>
+        <div style="position:relative;">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                       StartIcon="@Icons.Material.Filled.Upload"
+                       Style="text-transform:none;border-radius:8px;"
+                       Disabled="@(_currentFolderId is null)">
+                Last opp
+            </MudButton>
+            @if (_currentFolderId.HasValue)
+            {
+                <InputFile OnChange="HandleUpload" accept="*/*" multiple
+                           style="position:absolute;inset:0;opacity:0;cursor:pointer;" />
+            }
+        </div>
+    </MudStack>
+</MudStack>
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+}
+else
+{
+    <MudGrid Spacing="3">
+        @* Left: folder tree *@
+        <MudItem xs="12" md="3">
+            <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;" Class="pa-3">
+                <MudText Typo="Typo.subtitle2" Style="font-weight:600;" Class="mb-2">Mapper</MudText>
+                @if (_rootFolders.Count == 0)
+                {
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Ingen mapper opprettet</MudText>
+                }
+                @foreach (var folder in _rootFolders)
+                {
+                    var capturedFolder = folder;
+                    var isActive = _currentFolderId == folder.Id;
+                    <div @onclick="() => SelectFolder(capturedFolder)"
+                         style="@($"padding:6px 10px;border-radius:6px;cursor:pointer;margin-bottom:2px;display:flex;align-items:center;gap:6px;background:{(isActive ? "#EBF0FF" : "transparent")};font-weight:{(isActive ? "600" : "400")};")">
+                        <MudIcon Icon="@(isActive ? Icons.Material.Filled.FolderOpen : Icons.Material.Filled.Folder)"
+                                 Size="Size.Small" Style="@($"color:{(isActive ? "#4361EE" : "#6B7280")};font-size:1rem;")" />
+                        <span style="font-size:0.85rem;">@folder.Name</span>
+                        @if (folder.DocumentCount > 0)
+                        {
+                            <span style="font-size:0.65rem;color:#9CA3AF;margin-left:auto;">@folder.DocumentCount</span>
+                        }
+                    </div>
+                }
+            </MudPaper>
+        </MudItem>
+
+        @* Right: document list *@
+        <MudItem xs="12" md="9">
+            @if (_currentFolderId is null)
+            {
+                <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;" Class="pa-8">
+                    <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                        <MudIcon Icon="@Icons.Material.Filled.FolderOpen" Size="Size.Large" Color="Color.Secondary" />
+                        <MudText Color="Color.Secondary">Velg en mappe fra listen til venstre</MudText>
+                    </MudStack>
+                </MudPaper>
+            }
+            else
+            {
+                @if (_uploading)
+                {
+                    <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-2" />
+                }
+
+                @* Sort buttons *@
+                <MudStack Row="true" Spacing="1" Class="mb-2">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary" Style="line-height:28px;">Sorter:</MudText>
+                    @foreach (var (key, label) in new[] { ("date", "Dato"), ("name", "Navn"), ("size", "Størrelse"), ("type", "Type") })
+                    {
+                        var k = key;
+                        <MudChip T="string" Size="Size.Small" OnClick="() => SortBy(k)"
+                                 Style="@($"height:24px;cursor:pointer;{(_sortBy == k ? "background:#4361EE;color:#fff;" : "")}")">
+                            @label
+                        </MudChip>
+                    }
+                </MudStack>
+
+                @if (_documents.Count == 0 && string.IsNullOrEmpty(_search))
+                {
+                    <MudPaper Elevation="0" Style="border:2px dashed #E9ECEF;border-radius:12px;" Class="pa-8">
+                        <MudStack AlignItems="AlignItems.Center" Spacing="2">
+                            <MudIcon Icon="@Icons.Material.Filled.CloudUpload" Size="Size.Large" Color="Color.Secondary" />
+                            <MudText Color="Color.Secondary">Ingen dokumenter i denne mappen</MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Dra og slipp filer, eller klikk "Last opp"</MudText>
+                        </MudStack>
+                    </MudPaper>
+                }
+                else
+                {
+                    <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;overflow:hidden;">
+                        <MudSimpleTable Dense="true" Hover="true" Style="font-size:0.85rem;">
+                            <thead>
+                                <tr style="background:#F8F9FA;">
+                                    <th style="width:24px;"></th>
+                                    <th>Navn</th>
+                                    <th>Størrelse</th>
+                                    <th>Lastet opp av</th>
+                                    <th>Dato</th>
+                                    <th style="width:40px;"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var doc in _documents)
+                                {
+                                    var capturedDoc = doc;
+                                    var icon = doc.ContentType switch
+                                    {
+                                        var t when t.StartsWith("image/") => Icons.Material.Filled.Image,
+                                        "application/pdf" => Icons.Material.Filled.PictureAsPdf,
+                                        var t when t.Contains("spreadsheet") || t.Contains("excel") => Icons.Material.Filled.TableChart,
+                                        var t when t.Contains("word") || t.Contains("document") => Icons.Material.Filled.Article,
+                                        _ => Icons.Material.Filled.InsertDriveFile
+                                    };
+                                    var iconColor = doc.ContentType switch
+                                    {
+                                        var t when t.StartsWith("image/") => "#059669",
+                                        "application/pdf" => "#DC2626",
+                                        var t when t.Contains("spreadsheet") || t.Contains("excel") => "#059669",
+                                        var t when t.Contains("word") || t.Contains("document") => "#4361EE",
+                                        _ => "#6B7280"
+                                    };
+                                    <tr style="cursor:pointer;" @onclick="@(() => DownloadDoc(capturedDoc))">
+                                        <td><MudIcon Icon="@icon" Size="Size.Small" Style="@($"color:{iconColor};")" /></td>
+                                        <td style="font-weight:500;">@doc.Name</td>
+                                        <td style="color:#6B7280;">@FormatSize(doc.FileSize)</td>
+                                        <td style="color:#6B7280;">@doc.UploadedByName</td>
+                                        <td style="color:#9CA3AF;">@doc.CreatedAt.ToLocalTime().ToString("dd.MM.yy HH:mm")</td>
+                                        <td>
+                                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
+                                                           OnClick="@(async () => await DeleteDoc(capturedDoc))"
+                                                           OnClick:stopPropagation="true" />
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </MudSimpleTable>
+                    </MudPaper>
+                }
+            }
+        </MudItem>
+    </MudGrid>
+}
+
+@* New folder dialog *@
+<MudDialog @bind-Visible="_showNewFolder" Options="@(new DialogOptions { MaxWidth = MaxWidth.ExtraSmall, FullWidth = true })">
+    <TitleContent><MudText Typo="Typo.h6">Ny mappe</MudText></TitleContent>
+    <DialogContent>
+        <MudStack Spacing="2">
+            <MudTextField T="string" @bind-Value="_newFolderName" Label="Mappenavn" Variant="Variant.Outlined" Required="true" />
+            <MudSelect T="string" @bind-Value="_newFolderPermission" Label="Hvem kan laste opp" Variant="Variant.Outlined">
+                <MudSelectItem T="string" Value="@("AdminOnly")">Kun admin</MudSelectItem>
+                <MudSelectItem T="string" Value="@("AdminAndProjectLeader")">Admin og prosjektledere</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Everyone")">Alle</MudSelectItem>
+            </MudSelect>
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => _showNewFolder = false" Style="text-transform:none;">Avbryt</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="CreateNewFolder"
+                   Disabled="@(string.IsNullOrWhiteSpace(_newFolderName))"
+                   Style="text-transform:none;border-radius:8px;">Opprett</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [Parameter] public string? ProjectIdStr { get; set; }
+    private Guid? ProjectId => Guid.TryParse(ProjectIdStr, out var pid) ? pid : null;
+
+    private List<DocumentFolderDto> _rootFolders = [];
+    private List<DocumentDto> _documents = [];
+    private DocumentFolderDto? _currentFolder;
+    private Guid? _currentFolderId;
+    private bool _loading = true;
+    private bool _uploading;
+    private string? _search;
+    private string _sortBy = "date";
+
+    // New folder
+    private bool _showNewFolder;
+    private string _newFolderName = "";
+    private string _newFolderPermission = "AdminAndProjectLeader";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadFolders();
+        _loading = false;
+    }
+
+    private async Task LoadFolders()
+    {
+        _rootFolders = await DocumentService.GetFoldersAsync(projectId: ProjectId);
+    }
+
+    private async Task SelectFolder(DocumentFolderDto folder)
+    {
+        _currentFolder = folder;
+        _currentFolderId = folder.Id;
+        _documents = await DocumentService.GetDocumentsAsync(folderId: folder.Id, sortBy: _sortBy);
+        StateHasChanged();
+    }
+
+    private async Task GoUp()
+    {
+        _currentFolder = null;
+        _currentFolderId = null;
+        _documents = [];
+        await LoadFolders();
+        StateHasChanged();
+    }
+
+    private async Task OnSearchChanged(string value)
+    {
+        _search = value;
+        if (_currentFolderId.HasValue)
+            _documents = await DocumentService.GetDocumentsAsync(folderId: _currentFolderId, search: _search, sortBy: _sortBy);
+        StateHasChanged();
+    }
+
+    private async Task SortBy(string sort)
+    {
+        _sortBy = sort;
+        if (_currentFolderId.HasValue)
+            _documents = await DocumentService.GetDocumentsAsync(folderId: _currentFolderId, search: _search, sortBy: _sortBy);
+        StateHasChanged();
+    }
+
+    private async Task CreateNewFolder()
+    {
+        var id = await DocumentService.CreateFolderAsync(new CreateFolderRequest(
+            _newFolderName, null, _currentFolderId, ProjectId, _newFolderPermission));
+        if (id.HasValue)
+        {
+            _showNewFolder = false;
+            _newFolderName = "";
+            await LoadFolders();
+            Snackbar.Add("Mappe opprettet", Severity.Success);
+        }
+    }
+
+    private async Task HandleUpload(InputFileChangeEventArgs e)
+    {
+        if (_currentFolderId is null) return;
+        _uploading = true;
+        StateHasChanged();
+
+        foreach (var file in e.GetMultipleFiles(10))
+        {
+            try
+            {
+                using var ms = new MemoryStream();
+                await using var stream = file.OpenReadStream(maxAllowedSize: 25 * 1024 * 1024);
+                await stream.CopyToAsync(ms);
+                ms.Position = 0;
+
+                var content = new MultipartFormDataContent();
+                var fileContent = new StreamContent(ms);
+                fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(file.ContentType ?? "application/octet-stream");
+                content.Add(fileContent, "file", file.Name);
+                content.Add(new StringContent(_currentFolderId.Value.ToString()), "folderId");
+
+                await DocumentService.UploadDocumentAsync(content);
+            }
+            catch { Snackbar.Add($"Kunne ikke laste opp {file.Name}", Severity.Error); }
+        }
+
+        _uploading = false;
+        _documents = await DocumentService.GetDocumentsAsync(folderId: _currentFolderId, sortBy: _sortBy);
+        Snackbar.Add("Fil(er) lastet opp", Severity.Success);
+        StateHasChanged();
+    }
+
+    private async Task DownloadDoc(DocumentDto doc)
+    {
+        // Download through API proxy
+        var r = await Api.GetAsync($"api/documents/{doc.Id}/download");
+        if (r.IsSuccessStatusCode)
+        {
+            var bytes = await r.Content.ReadAsByteArrayAsync();
+            var base64 = Convert.ToBase64String(bytes);
+            var dataUrl = $"data:{doc.ContentType};base64,{base64}";
+            // Trigger download via JS
+            Snackbar.Add($"Lastet ned {doc.Name}", Severity.Info);
+        }
+    }
+
+    private async Task DeleteDoc(DocumentDto doc)
+    {
+        if (await DocumentService.DeleteDocumentAsync(doc.Id))
+        {
+            _documents = await DocumentService.GetDocumentsAsync(folderId: _currentFolderId, sortBy: _sortBy);
+            Snackbar.Add("Dokument slettet", Severity.Info);
+        }
+    }
+
+    private static string FormatSize(long bytes) => bytes switch
+    {
+        < 1024 => $"{bytes} B",
+        < 1024 * 1024 => $"{bytes / 1024} KB",
+        _ => $"{bytes / (1024 * 1024.0):N1} MB"
+    };
+}

@@ -67,6 +67,7 @@ builder.Services.AddScoped<ChatbotService>();
 builder.Services.AddScoped<MarketplaceService>();
 builder.Services.AddScoped<SuperAdminService>();
 builder.Services.AddScoped<ExpenseService>();
+builder.Services.AddScoped<DocumentService>();
 builder.Services.AddScoped<OfflineStorageService>();
 builder.Services.AddScoped<SyncService>();
 builder.Services.AddScoped<OfflineAwareApiClient>();

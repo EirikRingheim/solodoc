@@ -754,13 +754,12 @@ else
         @* Tab 5: Dokumenter *@
         <MudTabPanel Text="Dokumenter" Icon="@Icons.Material.Filled.Description">
             <div class="pa-4">
-                <MudStack AlignItems="AlignItems.Center" Spacing="2" Class="pa-8">
-                    <MudIcon Icon="@Icons.Material.Filled.FolderOpen" Size="Size.Large" Color="Color.Secondary" />
-                    <MudText Typo="Typo.body1" Color="Color.Secondary">Dokumentopplasting kommer snart</MudText>
-                    <MudText Typo="Typo.caption" Color="Color.Secondary">
-                        Last opp prosjektdokumenter, kontrakter og tegninger her
-                    </MudText>
-                </MudStack>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                           Href="@($"/dokumenter/{Id}")"
+                           StartIcon="@Icons.Material.Filled.FolderOpen"
+                           Style="text-transform:none;border-radius:8px;">
+                    Åpne dokumentarkiv
+                </MudButton>
             </div>
         </MudTabPanel>
     </MudTabs>

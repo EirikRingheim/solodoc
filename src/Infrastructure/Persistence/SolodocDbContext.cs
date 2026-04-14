@@ -4,6 +4,7 @@ using Solodoc.Application.Common;
 using Solodoc.Domain.Common;
 using Solodoc.Domain.Entities.Audit;
 using Solodoc.Domain.Entities.Billing;
+using Solodoc.Domain.Entities.Documents;
 using Solodoc.Domain.Entities.Expenses;
 using Solodoc.Domain.Entities.Auth;
 using Solodoc.Domain.Entities.Calendar;
@@ -182,6 +183,10 @@ public class SolodocDbContext : DbContext
     // Project posts
     public DbSet<ProjectPost> ProjectPosts => Set<ProjectPost>();
     public DbSet<ProjectPostComment> ProjectPostComments => Set<ProjectPostComment>();
+
+    // Documents
+    public DbSet<DocumentFolder> DocumentFolders => Set<DocumentFolder>();
+    public DbSet<Document> Documents => Set<Document>();
 
     // Billing
     public DbSet<CouponCode> CouponCodes => Set<CouponCode>();

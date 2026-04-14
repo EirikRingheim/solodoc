@@ -92,16 +92,21 @@
         {
             @* ── Step 3: Meals per day ── *@
             <MudStack Spacing="3">
-                <MudText Typo="Typo.subtitle1" Style="font-weight:600;">Måltider per dag</MudText>
-                <MudText Typo="Typo.body2" Color="Color.Secondary">Kryss av for måltider som ble dekket av arbeidsgiver/arrangør</MudText>
+                <MudText Typo="Typo.subtitle1" Style="font-weight:600;">Måltider og overnatting per dag</MudText>
+                <MudPaper Elevation="0" Style="border:1px solid #FDE68A;border-radius:8px;background:#FFFBEB;" Class="pa-3 mb-2">
+                    <MudText Typo="Typo.body2" Style="color:#92400E;">
+                        Kryss av for måltider du <b>ikke</b> betalte selv (dekket av arbeidsgiver, kunde eller arrangør).
+                        Disse trekkes fra diettgodtgjørelsen.
+                    </MudText>
+                </MudPaper>
                 @foreach (var day in _days)
                 {
                     <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:8px;" Class="pa-3">
                         <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Style="flex-wrap:wrap;gap:8px;">
                             <MudText Typo="Typo.body2" Style="font-weight:600;min-width:100px;">@day.Date.ToString("ddd dd.MM")</MudText>
-                            <MudCheckBox T="bool" @bind-Value="day.BreakfastProvided" Label="Frokost" Dense="true" />
-                            <MudCheckBox T="bool" @bind-Value="day.LunchProvided" Label="Lunsj" Dense="true" />
-                            <MudCheckBox T="bool" @bind-Value="day.DinnerProvided" Label="Middag" Dense="true" />
+                            <MudCheckBox T="bool" @bind-Value="day.BreakfastProvided" Label="Frokost dekket (−20%)" Dense="true" />
+                            <MudCheckBox T="bool" @bind-Value="day.LunchProvided" Label="Lunsj dekket (−30%)" Dense="true" />
+                            <MudCheckBox T="bool" @bind-Value="day.DinnerProvided" Label="Middag dekket (−50%)" Dense="true" />
                             <MudCheckBox T="bool" @bind-Value="day.IsOvernight" Label="Overnatting" Dense="true" />
                         </MudStack>
                     </MudPaper>
