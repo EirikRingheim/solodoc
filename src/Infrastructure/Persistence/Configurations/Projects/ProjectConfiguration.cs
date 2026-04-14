@@ -27,5 +27,12 @@ public class ProjectConfiguration : IEntityTypeConfiguration<Project>
             .WithOne(m => m.Project)
             .HasForeignKey(m => m.ProjectId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        // Sub-project hierarchy (one level only, enforced in application layer)
+        builder.HasIndex(p => p.ParentProjectId);
+        builder.HasOne(p => p.ParentProject)
+            .WithMany(p => p.SubProjects)
+            .HasForeignKey(p => p.ParentProjectId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

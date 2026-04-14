@@ -4,6 +4,7 @@ using Solodoc.Application.Common;
 using Solodoc.Domain.Entities.Projects;
 using Solodoc.Domain.Enums;
 using Solodoc.Infrastructure.Persistence;
+using Solodoc.Domain.Entities.Checklists;
 using Solodoc.Shared.Projects;
 
 namespace Solodoc.Api.Endpoints;
@@ -16,6 +17,7 @@ public static class ProjectEndpoints
         app.MapPut("/api/projects/{id:guid}", UpdateProject).RequireAuthorization();
         app.MapPatch("/api/projects/{id:guid}/status", ChangeProjectStatus).RequireAuthorization();
         app.MapDelete("/api/projects/{id:guid}", DeleteProject).RequireAuthorization();
+        app.MapGet("/api/projects/{id:guid}/subprojects", GetSubProjects).RequireAuthorization();
 
         return app;
     }
@@ -33,6 +35,17 @@ public static class ProjectEndpoints
         if (tenantProvider.TenantId is null)
             return Results.Unauthorized();
 
+        // Validate parent project (one-level enforcement)
+        if (request.ParentProjectId.HasValue)
+        {
+            var parent = await db.Projects
+                .FirstOrDefaultAsync(p => p.Id == request.ParentProjectId.Value && p.TenantId == tenantProvider.TenantId.Value, ct);
+            if (parent is null)
+                return Results.BadRequest(new { error = "Hovedprosjekt ikke funnet." });
+            if (parent.ParentProjectId.HasValue)
+                return Results.BadRequest(new { error = "Underprosjekter kan ikke ha egne underprosjekter." });
+        }
+
         var project = new Project
         {
             TenantId = tenantProvider.TenantId.Value,
@@ -44,6 +57,7 @@ public static class ProjectEndpoints
             StartDate = request.StartDate,
             PlannedEndDate = request.PlannedEndDate,
             EstimatedHours = request.EstimatedHours,
+            ParentProjectId = request.ParentProjectId,
             Status = ProjectStatus.Planlagt
         };
 
@@ -131,11 +145,42 @@ public static class ProjectEndpoints
                             ?? user.FindFirstValue("sub");
         Guid.TryParse(personIdClaim, out var personId);
 
+        // Block deletion if project has active sub-projects
+        var hasChildren = await db.Projects.AnyAsync(p => p.ParentProjectId == id && !p.IsDeleted, ct);
+        if (hasChildren)
+            return Results.BadRequest(new { error = "Kan ikke slette prosjekt med aktive underprosjekter. Slett underprosjektene forst." });
+
         project.IsDeleted = true;
         project.DeletedAt = DateTimeOffset.UtcNow;
         project.DeletedBy = personId;
 
         await db.SaveChangesAsync(ct);
         return Results.NoContent();
+    }
+
+    private static async Task<IResult> GetSubProjects(
+        Guid id,
+        SolodocDbContext db,
+        ITenantProvider tenantProvider,
+        CancellationToken ct)
+    {
+        if (tenantProvider.TenantId is null) return Results.Unauthorized();
+
+        var subs = await db.Projects
+            .Where(p => p.ParentProjectId == id && p.TenantId == tenantProvider.TenantId.Value)
+            .OrderBy(p => p.Name)
+            .Select(p => new SubProjectSummaryDto(
+                p.Id, p.Name,
+                p.Status == ProjectStatus.Active ? "Aktiv"
+                    : p.Status == ProjectStatus.Completed ? "Fullfort"
+                    : p.Status == ProjectStatus.Planlagt ? "Planlagt"
+                    : "Kansellert",
+                db.TimeEntries.Where(t => t.ProjectId == p.Id && !t.IsDeleted).Sum(t => t.Hours),
+                db.Deviations.Count(d => d.ProjectId == p.Id && !d.IsDeleted && d.Status != DeviationStatus.Closed),
+                db.ChecklistInstances.Count(c => c.ProjectId == p.Id && !c.IsDeleted && (c.Status == ChecklistInstanceStatus.Submitted || c.Status == ChecklistInstanceStatus.Approved)),
+                db.ChecklistInstances.Count(c => c.ProjectId == p.Id && !c.IsDeleted)))
+            .ToListAsync(ct);
+
+        return Results.Ok(subs);
     }
 }

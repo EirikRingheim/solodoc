@@ -327,7 +327,9 @@ app.MapGet("/api/projects", async (
     int pageSize = 10,
     string? search = null,
     string? sortBy = null,
-    bool sortDesc = false) =>
+    bool sortDesc = false,
+    bool topLevelOnly = false,
+    Guid? parentId = null) =>
 {
     var personIdClaim = user.FindFirstValue(ClaimTypes.NameIdentifier)
                         ?? user.FindFirstValue("sub");
@@ -344,6 +346,12 @@ app.MapGet("/api/projects", async (
     var tenantId = membership.TenantId;
 
     var query = db.Projects.Where(p => p.TenantId == tenantId);
+
+    // Hierarchy filtering
+    if (topLevelOnly)
+        query = query.Where(p => p.ParentProjectId == null);
+    if (parentId.HasValue)
+        query = query.Where(p => p.ParentProjectId == parentId.Value);
 
     // Search
     if (!string.IsNullOrWhiteSpace(search))
@@ -377,11 +385,16 @@ app.MapGet("/api/projects", async (
             p.Id,
             p.Name,
             p.Status == ProjectStatus.Active ? "Aktiv"
-                : p.Status == ProjectStatus.Completed ? "Fullført"
-                : "Arkivert",
+                : p.Status == ProjectStatus.Completed ? "Fullfort"
+                : p.Status == ProjectStatus.Planlagt ? "Planlagt"
+                : "Kansellert",
             p.ClientName,
             p.StartDate,
-            db.Deviations.Count(d => d.ProjectId == p.Id && d.Status != DeviationStatus.Closed)))
+            db.Deviations.Count(d => d.ProjectId == p.Id && d.Status != DeviationStatus.Closed),
+            p.ParentProjectId,
+            p.ParentProjectId != null ? db.Projects.Where(pp => pp.Id == p.ParentProjectId).Select(pp => pp.Name).FirstOrDefault() : null,
+            db.Projects.Count(sub => sub.ParentProjectId == p.Id && !sub.IsDeleted),
+            db.Projects.Count(sub => sub.ParentProjectId == p.Id && !sub.IsDeleted && sub.Status == ProjectStatus.Completed)))
         .ToListAsync(ct);
 
     return Results.Ok(new PagedResult<ProjectListItemDto>(items, totalCount, page, pageSize));
@@ -401,7 +414,7 @@ app.MapGet("/api/projects/{id:guid}", async (
         .Select(p => new ProjectDetailDto(
             p.Id, p.Name, p.Description,
             p.Status == ProjectStatus.Active ? "Aktiv"
-                : p.Status == ProjectStatus.Completed ? "Fullført"
+                : p.Status == ProjectStatus.Completed ? "Fullfort"
                 : p.Status == ProjectStatus.Planlagt ? "Planlagt"
                 : "Kansellert",
             p.ClientName, p.StartDate, p.Address,
@@ -411,12 +424,27 @@ app.MapGet("/api/projects/{id:guid}", async (
                 .Select(d => new DeviationListItemDto(
                     d.Id, d.Title,
                     p.Name,
-                    d.Status == DeviationStatus.Open ? "Åpen" : "Under behandling",
+                    d.Status == DeviationStatus.Open ? "Apen" : "Under behandling",
                     d.Severity == DeviationSeverity.Low ? "Lav"
                         : d.Severity == DeviationSeverity.Medium ? "Middels"
-                        : "Høy",
+                        : "Hoy",
                     db.Persons.Where(per => per.Id == d.ReportedById).Select(per => per.FullName).FirstOrDefault() ?? "",
                     d.CreatedAt))
+                .ToList(),
+            p.ParentProjectId,
+            p.ParentProjectId != null ? db.Projects.Where(pp => pp.Id == p.ParentProjectId).Select(pp => pp.Name).FirstOrDefault() : null,
+            db.Projects
+                .Where(sub => sub.ParentProjectId == p.Id && !sub.IsDeleted)
+                .Select(sub => new SubProjectSummaryDto(
+                    sub.Id, sub.Name,
+                    sub.Status == ProjectStatus.Active ? "Aktiv"
+                        : sub.Status == ProjectStatus.Completed ? "Fullfort"
+                        : sub.Status == ProjectStatus.Planlagt ? "Planlagt"
+                        : "Kansellert",
+                    db.TimeEntries.Where(t => t.ProjectId == sub.Id && !t.IsDeleted).Sum(t => t.Hours),
+                    db.Deviations.Count(d => d.ProjectId == sub.Id && !d.IsDeleted && d.Status != DeviationStatus.Closed),
+                    db.ChecklistInstances.Count(c => c.ProjectId == sub.Id && !c.IsDeleted && (c.Status == ChecklistInstanceStatus.Submitted || c.Status == ChecklistInstanceStatus.Approved)),
+                    db.ChecklistInstances.Count(c => c.ProjectId == sub.Id && !c.IsDeleted)))
                 .ToList()))
         .FirstOrDefaultAsync(ct);
 
@@ -779,25 +807,39 @@ app.MapPost("/api/invitations/{id:guid}/accept", async (
 app.MapPost("/api/contact", async (
     ContactFormRequest request,
     IEmailService emailService,
+    SolodocDbContext db,
     CancellationToken ct) =>
 {
     if (string.IsNullOrWhiteSpace(request.Name) || string.IsNullOrWhiteSpace(request.Email))
         return Results.BadRequest(new { error = "Navn og e-post er påkrevd." });
 
-    var subject = $"Ny henvendelse fra {request.Company ?? "ukjent"}";
-    var body = $"""
-        Ny henvendelse fra solodoc.no
+    // Always store the message (doesn't depend on SMTP)
+    db.Feedbacks.Add(new Solodoc.Domain.Entities.Help.Feedback
+    {
+        Type = "contact",
+        Message = $"Bedrift: {request.Company}\nNavn: {request.Name}\nTelefon: {request.Phone}\nE-post: {request.Email}\n\n{request.Message}",
+    });
+    await db.SaveChangesAsync(ct);
 
-        Bedrift: {request.Company}
-        Navn: {request.Name}
-        Telefon: {request.Phone}
-        E-post: {request.Email}
+    // Try to send email (don't fail if SMTP not configured)
+    try
+    {
+        var subject = $"Ny henvendelse fra {request.Company ?? "ukjent"}";
+        var body = $"""
+            Ny henvendelse fra solodoc.no
 
-        Melding:
-        {request.Message}
-        """;
+            Bedrift: {request.Company}
+            Navn: {request.Name}
+            Telefon: {request.Phone}
+            E-post: {request.Email}
 
-    await emailService.SendAsync("kontakt@solodoc.no", subject, body, ct);
+            Melding:
+            {request.Message}
+            """;
+        await emailService.SendAsync("kontakt@solodoc.no", subject, body, ct);
+    }
+    catch { /* SMTP not configured — message still saved in DB */ }
+
     return Results.Ok(new { sent = true });
 }).AllowAnonymous().RequireRateLimiting("auth");
 
@@ -830,6 +872,9 @@ app.MapOnboardingEndpoints();
 app.MapChatbotEndpoints();
 app.MapMarketplaceEndpoints();
 app.MapSuperAdminEndpoints();
+app.MapExpenseEndpoints();
+app.MapTravelExpenseEndpoints();
+app.MapExpenseSettingsEndpoints();
 app.MapSubcontractorEndpoints();
 app.MapCouponEndpoints();
 

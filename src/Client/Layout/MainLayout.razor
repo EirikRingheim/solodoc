@@ -102,6 +102,8 @@
             </MudNavLink>
             <MudNavLink Href="/checkin/scan" Match="NavLinkMatch.Prefix"
                         Icon="@Icons.Material.Filled.QrCodeScanner">Skann QR</MudNavLink>
+            <MudNavLink Href="/utlegg" Match="NavLinkMatch.Prefix"
+                        Icon="@Icons.Material.Filled.Receipt">Utlegg</MudNavLink>
             <MudNavLink Href="/forefallende" Match="NavLinkMatch.Prefix"
                         Icon="@Icons.Material.Filled.AssignmentLate">
                 Forefallende
@@ -300,7 +302,7 @@
                 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
                     <MudIcon Icon="@Icons.Material.Filled.Sync" Size="Size.Small" Style="color:#D97706;" />
                     <MudText Typo="Typo.body2" Style="color:#92400E;font-weight:500;">
-                        @_syncPendingCount elementer venter pa synkronisering...
+                        @_syncPendingCount elementer venter på synkronisering...
                     </MudText>
                 </MudStack>
             </MudPaper>
@@ -398,7 +400,7 @@
         ["admin"] = "Admin",
         ["project-leader"] = "Prosjektleder",
         ["field-worker"] = "Feltarbeider",
-        ["subcontractor"] = "Underentreprenor"
+        ["subcontractor"] = "Underentreprenør"
     };
 
     private bool ShowAdminSection => _viewAsRole is "admin";

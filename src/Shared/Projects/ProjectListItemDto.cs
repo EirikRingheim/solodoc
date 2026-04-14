@@ -6,4 +6,8 @@ public record ProjectListItemDto(
     string Status,
     string? ClientName,
     DateOnly? StartDate,
-    int OpenDeviations);
+    int OpenDeviations,
+    Guid? ParentProjectId = null,
+    string? ParentProjectName = null,
+    int SubProjectCount = 0,
+    int SubProjectsCompleted = 0);

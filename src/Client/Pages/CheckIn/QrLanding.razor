@@ -66,7 +66,7 @@ else if (_info is not null)
                     </div>
                     <MudText Typo="Typo.h6" Style="font-weight:600;" Class="mb-2">Sjekket inn!</MudText>
                     <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
-                        Du er na registrert pa @_info.SiteName.
+                        Du er nå registrert på @_info.SiteName.
                     </MudText>
                     @if (_isAuthenticated)
                     {
@@ -98,7 +98,7 @@ else if (_info is not null)
                     @* ── Guest check-in form ── *@
                     <MudStack Spacing="3" Style="width:100%;text-align:left;">
                         <MudText Typo="Typo.body2" Color="Color.Secondary" Style="text-align:center;">
-                            Registrer deg for a sjekke inn pa byggeplassen
+                            Registrer deg for a sjekke inn på byggeplassen
                         </MudText>
                         <MudTextField T="string" @bind-Value="_guestName" Label="Fullt navn" Variant="Variant.Outlined"
                                       Required="true" Immediate="true" Placeholder="Ola Nordmann" />
@@ -207,7 +207,7 @@ else if (_info is not null)
         }
         else
         {
-            Snackbar.Add("Kunne ikke sjekke inn. Prov igjen.", Severity.Error);
+            Snackbar.Add("Kunne ikke sjekke inn. Prøv igjen.", Severity.Error);
         }
     }
 

@@ -855,9 +855,20 @@
         var results = new List<string>();
         var q = search?.ToLowerInvariant() ?? "";
 
-        foreach (var p in _projects)
+        // Show parent projects first, then their sub-projects indented
+        var parents = _projects.Where(p => p.ParentProjectId is null).ToList();
+        foreach (var p in parents)
+        {
             if (string.IsNullOrEmpty(q) || p.Name.Contains(q, StringComparison.OrdinalIgnoreCase))
                 results.Add($"p:{p.Id}");
+            // Add sub-projects right after their parent
+            foreach (var sub in _projects.Where(s => s.ParentProjectId == p.Id))
+            {
+                if (string.IsNullOrEmpty(q) || sub.Name.Contains(q, StringComparison.OrdinalIgnoreCase)
+                    || p.Name.Contains(q, StringComparison.OrdinalIgnoreCase))
+                    results.Add($"p:{sub.Id}");
+            }
+        }
 
         foreach (var j in _jobs)
             if (string.IsNullOrEmpty(q) || (j.Description?.Contains(q, StringComparison.OrdinalIgnoreCase) ?? false))
@@ -870,7 +881,13 @@
     {
         if (string.IsNullOrEmpty(key)) return "";
         if (key.StartsWith("p:") && Guid.TryParse(key[2..], out var pid))
-            return _projects.FirstOrDefault(p => p.Id == pid)?.Name ?? key;
+        {
+            var proj = _projects.FirstOrDefault(p => p.Id == pid);
+            if (proj is null) return key;
+            if (proj.ParentProjectName is not null)
+                return $"{proj.ParentProjectName} > {proj.Name}";
+            return proj.Name;
+        }
         if (key.StartsWith("j:") && Guid.TryParse(key[2..], out var jid))
             return _jobs.FirstOrDefault(j => j.Id == jid)?.Description ?? key;
         return key;

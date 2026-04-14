@@ -53,7 +53,7 @@ else if (_error is not null)
             <MudIcon Icon="@Icons.Material.Filled.Error" Color="Color.Error" Size="Size.Large" />
             <MudText Color="Color.Error" Style="font-weight:500;">@_error</MudText>
             <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="StartScanning"
-                       Style="text-transform:none;border-radius:8px;">Prov igjen</MudButton>
+                       Style="text-transform:none;border-radius:8px;">Prøv igjen</MudButton>
         </MudStack>
     </MudPaper>
 }
@@ -212,7 +212,7 @@ else
             if (ok)
             {
                 _checkedIn = true;
-                Snackbar.Add($"Sjekket inn pa {_result.SiteName}!", Severity.Success);
+                Snackbar.Add($"Sjekket inn på {_result.SiteName}!", Severity.Success);
             }
             else
             {

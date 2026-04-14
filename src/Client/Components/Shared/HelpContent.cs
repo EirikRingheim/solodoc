@@ -17,7 +17,7 @@ public static class HelpContent
     {
         "dashboard" => [
             new() { Title = "Dashboardet ditt", Description = "Her ser du en oversikt over alt — aktive prosjekter, timer denne måneden, åpne avvik og hvem som er på jobb.", Icon = Icons.Material.Filled.Dashboard,
-                Tips = ["Trykk på tallene for å ga direkte til den modulen", "Forefallende viser frister og oppgaver som trenger oppmerksomhet"] },
+                Tips = ["Trykk på tallene for å gå direkte til den modulen", "Forefallende viser frister og oppgaver som trenger oppmerksomhet"] },
             new() { Title = "Stemple inn og ut", Description = "Bruk knappene overst for å starte og stoppe arbeidsdagen. Timene registreres automatisk.", Icon = Icons.Material.Filled.PlayArrow,
                 Tips = ["Velg prosjekt eller oppdrag når du stempler inn", "Stemple ut-knappen viser hvor lenge du har jobbet"] },
             new() { Title = "Sjekk inn på byggeplass", Description = "Sjekk inn betyr at du er fysisk tilstede. Stemple inn betyr at du jobber. Begge er separate.", Icon = Icons.Material.Filled.Login,
@@ -39,7 +39,7 @@ public static class HelpContent
             new() { Title = "Timelister", Description = "Registrer timer med start- og sluttid. Se uken din som kalenderblokker.", Icon = Icons.Material.Filled.Schedule,
                 Tips = ["Klikk på en dag for å registrere timer", "Fyll inn fra-til, prosjekt og kategori", "Blokker vises i dagkolonner med fargekoding"] },
             new() { Title = "Overtid og fravær", Description = "Overtid beregnes automatisk basert på regler. Registrer fravær som ferie, sykdom eller avspasering.", Icon = Icons.Material.Filled.AccessTime,
-                Tips = ["Overtid utover normalarbeidstid markeres gult", "Velg om overtid skal utbetales eller ga i timebanken"] },
+                Tips = ["Overtid utover normalarbeidstid markeres gult", "Velg om overtid skal utbetales eller gå i timebanken"] },
         ],
         "hours-admin" => [
             new() { Title = "Timer-oversikt", Description = "Se alle ansattes timer i et heatmap. Godkjenn timer dag for dag.", Icon = Icons.Material.Filled.QueryStats,
@@ -51,7 +51,7 @@ public static class HelpContent
                 Tips = ["Filtrer på ansatt for å se én person", "CSV-filen inneholder alle detaljer for lønnskjøring"] },
         ],
         "deviations" => [
-            new() { Title = "Avvik", Description = "Rapporter, folg opp og lukk avvik. Tre statuser: Apen (rod), Under behandling (gul), Lukket (grønn).", Icon = Icons.Material.Filled.ReportProblem,
+            new() { Title = "Avvik", Description = "Rapporter, folg opp og lukk avvik. Tre statuser: Åpen (rod), Under behandling (gul), Lukket (grønn).", Icon = Icons.Material.Filled.ReportProblem,
                 Tips = ["Rapporter med tittel, beskrivelse, alvorlighet og bilde", "Koble til prosjekt, oppdrag eller lokasjon", "Tildel ansvårlig og sett frist for korrigerende tiltak"] },
         ],
         "checklists" => [

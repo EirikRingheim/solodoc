@@ -24,13 +24,19 @@
             <MudStack Spacing="3">
                 <MudText Typo="Typo.caption" Color="Color.Secondary">Velg hva du jobber med</MudText>
 
-                @* Prosjekt *@
+                @* Prosjekt (grouped by parent) *@
                 <MudSelect T="Guid?" Value="_selectedProjectId" ValueChanged="OnProjectChanged" Label="Prosjekt" Variant="Variant.Outlined"
                            Clearable="true" AdornmentIcon="@Icons.Material.Filled.Folder"
                            Placeholder="Velg prosjekt...">
-                    @foreach (var p in _projects)
+                    @foreach (var p in _projects.Where(p => p.ParentProjectId is null))
                     {
                         <MudSelectItem T="Guid?" Value="@((Guid?)p.Id)">@p.Name</MudSelectItem>
+                        @foreach (var sub in _projects.Where(s => s.ParentProjectId == p.Id))
+                        {
+                            <MudSelectItem T="Guid?" Value="@((Guid?)sub.Id)">
+                                <span style="padding-left:16px;color:#6B7280;">↳ @sub.Name</span>
+                            </MudSelectItem>
+                        }
                     }
                 </MudSelect>
 
@@ -63,7 +69,7 @@
                     <MudSelectItem T="string" Value="@("Reise")">Reise</MudSelectItem>
                     <MudSelectItem T="string" Value="@("Kontorarbeid")">Kontorarbeid</MudSelectItem>
                     <MudSelectItem T="string" Value="@("Lagerarbeid")">Lagerarbeid</MudSelectItem>
-                    <MudSelectItem T="string" Value="@("Kurs")">Kurs/opplaering</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("Kurs")">Kurs/opplæring</MudSelectItem>
                     <MudSelectItem T="string" Value="@("Annet")">Annet</MudSelectItem>
                 </MudSelect>
             </MudStack>

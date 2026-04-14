@@ -1,0 +1,189 @@
+@page "/utlegg/ny"
+@attribute [Authorize]
+@inject ExpenseService ExpenseService
+@inject FileUploadService FileUploadService
+@inject ProjectService ProjectService
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
+@using Solodoc.Shared.Expenses
+@using Solodoc.Shared.Projects
+
+<PageTitle>Solodoc - Ny kvittering</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-4">
+    <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Href="/utlegg" />
+    <MudText Typo="Typo.h5" Style="font-weight:700;">Ny kvittering</MudText>
+</MudStack>
+
+<div style="max-width:600px;">
+    <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;" Class="pa-5">
+        <MudStack Spacing="3">
+            @* 1. Photo upload (always required) *@
+            <MudText Typo="Typo.subtitle2" Style="font-weight:600;">Kvitteringsbilde *</MudText>
+            @if (!string.IsNullOrEmpty(_receiptKey))
+            {
+                <MudPaper Elevation="0" Style="border:1px solid #D1FAE5;border-radius:8px;background:#F0FDF4;padding:12px;text-align:center;">
+                    <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" />
+                    <MudText Typo="Typo.body2" Style="color:#059669;font-weight:500;">Bilde lastet opp</MudText>
+                </MudPaper>
+            }
+
+            <MudPaper Elevation="0" Style="border:2px dashed #4361EE;border-radius:10px;position:relative;cursor:pointer;"
+                      Class="pa-4">
+                <MudStack AlignItems="AlignItems.Center" Spacing="1">
+                    @if (_uploading)
+                    {
+                        <MudProgressCircular Indeterminate="true" Color="Color.Primary" Size="Size.Small" />
+                        <MudText Typo="Typo.body2" Color="Color.Primary">Laster opp...</MudText>
+                    }
+                    else
+                    {
+                        <MudIcon Icon="@Icons.Material.Filled.CameraAlt" Style="color:#4361EE;" Size="Size.Large" />
+                        <MudText Typo="Typo.body2" Style="color:#4361EE;font-weight:500;">
+                            @(string.IsNullOrEmpty(_receiptKey) ? "Ta bilde eller velg fil" : "Bytt bilde")
+                        </MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">JPG, PNG, PDF — maks 25 MB</MudText>
+                    }
+                </MudStack>
+                @if (!_uploading)
+                {
+                    <InputFile @ref="_fileInput" OnChange="HandlePhotoUpload"
+                               accept="image/*,.pdf" capture="environment"
+                               style="position:absolute;inset:0;opacity:0;cursor:pointer;" />
+                }
+            </MudPaper>
+
+            @* 2. Amount (always required) *@
+            <MudNumericField T="decimal" @bind-Value="_amount" Label="Beløp (kr) *" Variant="Variant.Outlined"
+                             Min="0.01m" Format="N2" Adornment="Adornment.Start" AdornmentText="kr" />
+
+            @* 3. Date (configurable) *@
+            <MudDatePicker @bind-Date="_date" Label="@($"Dato{(_settings?.RequireDate == true ? " *" : "")}")"
+                           Variant="Variant.Outlined" DateFormat="dd.MM.yyyy" />
+
+            @* 4. Description (configurable) *@
+            <MudTextField T="string" @bind-Value="_description"
+                          Label="@($"Beskrivelse{(_settings?.RequireDescription == true ? " *" : "")}")"
+                          Variant="Variant.Outlined" Placeholder="Hva er utgiften for?" />
+
+            @* 5. Category (configurable) *@
+            <MudSelect T="string" @bind-Value="_category"
+                       Label="@($"Kategori{(_settings?.RequireCategory == true ? " *" : "")}")"
+                       Variant="Variant.Outlined" Clearable="true">
+                <MudSelectItem T="string" Value="@("Materialer")">Materialer</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Verktoy")">Verktøy</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Mat")">Mat</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Drivstoff")">Drivstoff</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Kontor")">Kontor</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Reise")">Reise</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Overnatting")">Overnatting</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Annet")">Annet</MudSelectItem>
+            </MudSelect>
+
+            @* 6. Project/Job (configurable) *@
+            <MudSelect T="Guid?" @bind-Value="_projectId"
+                       Label="@($"Prosjekt{(_settings?.RequireProject == true ? " *" : "")}")"
+                       Variant="Variant.Outlined" Clearable="true"
+                       AdornmentIcon="@Icons.Material.Filled.Folder">
+                @foreach (var p in _projects.Where(p => p.ParentProjectId is null))
+                {
+                    <MudSelectItem T="Guid?" Value="@((Guid?)p.Id)">@p.Name</MudSelectItem>
+                    @foreach (var sub in _projects.Where(s => s.ParentProjectId == p.Id))
+                    {
+                        <MudSelectItem T="Guid?" Value="@((Guid?)sub.Id)">
+                            <span style="padding-left:16px;color:#6B7280;">↳ @sub.Name</span>
+                        </MudSelectItem>
+                    }
+                }
+            </MudSelect>
+
+            <MudStack Row="true" Justify="Justify.FlexEnd" Spacing="2" Class="mt-2">
+                <MudButton Variant="Variant.Text" Href="/utlegg" Style="text-transform:none;">Avbryt</MudButton>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                           OnClick="Submit" Disabled="@(_submitting || !CanSubmit)"
+                           Style="text-transform:none;border-radius:8px;">
+                    @if (_submitting) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> }
+                    Registrer og send inn
+                </MudButton>
+            </MudStack>
+        </MudStack>
+    </MudPaper>
+</div>
+
+@code {
+    private ExpenseSettingsDto? _settings;
+    private List<ProjectListItemDto> _projects = [];
+    private bool _uploading;
+    private bool _submitting;
+    private InputFile? _fileInput;
+    private string? _receiptKey;
+    private decimal _amount;
+    private DateTime? _date = DateTime.Now;
+    private string? _description;
+    private string? _category;
+    private Guid? _projectId;
+
+    private bool CanSubmit => !string.IsNullOrEmpty(_receiptKey) && _amount > 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var settingsTask = ExpenseService.GetSettingsAsync();
+        var projectsTask = ProjectService.GetActiveProjectsAsync();
+        _settings = await settingsTask;
+        _projects = await projectsTask;
+    }
+
+    private async Task HandlePhotoUpload(InputFileChangeEventArgs e)
+    {
+        var file = e.File;
+        if (file is null) return;
+        _uploading = true;
+        StateHasChanged();
+
+        try
+        {
+            using var ms = new MemoryStream();
+            await using var stream = file.OpenReadStream(maxAllowedSize: 25 * 1024 * 1024);
+            await stream.CopyToAsync(ms);
+            ms.Position = 0;
+
+            _receiptKey = await FileUploadService.UploadPhotoAsync(ms, file.Name, file.ContentType);
+            if (_receiptKey is not null)
+                Snackbar.Add("Bilde lastet opp", Severity.Success);
+            else
+                Snackbar.Add("Kunne ikke laste opp bilde", Severity.Error);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Feil ved opplasting: {ex.Message}", Severity.Error);
+        }
+
+        _uploading = false;
+        StateHasChanged();
+    }
+
+    private async Task Submit()
+    {
+        if (!CanSubmit) return;
+        _submitting = true;
+
+        var request = new CreateExpenseRequest(
+            _date.HasValue ? DateOnly.FromDateTime(_date.Value) : null,
+            _amount, _category, _description, _projectId, null, _receiptKey!);
+
+        var id = await ExpenseService.CreateExpenseAsync(request);
+        if (id.HasValue)
+        {
+            // Auto-submit
+            await ExpenseService.SubmitExpenseAsync(id.Value);
+            Snackbar.Add("Kvittering registrert og sendt inn!", Severity.Success);
+            Navigation.NavigateTo("/utlegg");
+        }
+        else
+        {
+            Snackbar.Add("Kunne ikke registrere kvittering", Severity.Error);
+        }
+
+        _submitting = false;
+    }
+}

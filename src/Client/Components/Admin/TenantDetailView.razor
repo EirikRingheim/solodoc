@@ -91,7 +91,7 @@ else
             <StatCard Label="Registrert" Value="@o.CreatedAt.ToLocalTime().ToString("dd.MM.yy")" Color="#6B7280" />
         </MudItem>
         <MudItem xs="6" sm="4" md="2">
-            <StatCard Label="Prove utloper" Value="@(o.TrialEndsAt?.ToLocalTime().ToString("dd.MM.yy") ?? "-")" Color="#F59E0B" />
+            <StatCard Label="Prøve utløper" Value="@(o.TrialEndsAt?.ToLocalTime().ToString("dd.MM.yy") ?? "-")" Color="#F59E0B" />
         </MudItem>
     </MudGrid>
 

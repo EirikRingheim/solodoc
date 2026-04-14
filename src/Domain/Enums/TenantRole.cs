@@ -4,5 +4,6 @@ public enum TenantRole
 {
     TenantAdmin,
     ProjectLeader,
-    FieldWorker
+    FieldWorker,
+    Regnskapsforer
 }

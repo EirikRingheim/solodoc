@@ -1,0 +1,205 @@
+@page "/utlegg"
+@attribute [Authorize]
+@inject ExpenseService ExpenseService
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthStateProvider
+@using Solodoc.Shared.Expenses
+@using System.Security.Claims
+
+<PageTitle>Solodoc - Utlegg</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4" Style="flex-wrap:wrap;gap:8px;">
+    <MudText Typo="Typo.h5" Style="font-weight:700;">Utlegg</MudText>
+    <MudStack Row="true" Spacing="2">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/utlegg/ny"
+                   StartIcon="@Icons.Material.Filled.Receipt"
+                   Style="text-transform:none;border-radius:8px;">Ny kvittering</MudButton>
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Href="/utlegg/reise/ny"
+                   StartIcon="@Icons.Material.Filled.Flight"
+                   Style="text-transform:none;border-radius:8px;">Ny reiseregning</MudButton>
+    </MudStack>
+</MudStack>
+
+<MudTabs Elevation="0" Rounded="true" ApplyEffectsToContainer="true"
+         Style="border:1px solid #e9ecef;border-radius:12px;">
+
+    @* ── Kvitteringer tab ── *@
+    <MudTabPanel Text="Kvitteringer" Icon="@Icons.Material.Filled.Receipt">
+        <div class="pa-4">
+            @if (_loadingExpenses)
+            {
+                <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+            }
+            else if (_expenses.Count == 0)
+            {
+                <MudStack AlignItems="AlignItems.Center" Spacing="2" Class="pa-8">
+                    <MudIcon Icon="@Icons.Material.Filled.ReceiptLong" Size="Size.Large" Color="Color.Secondary" />
+                    <MudText Color="Color.Secondary">Ingen kvitteringer registrert ennå</MudText>
+                </MudStack>
+            }
+            else
+            {
+                <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:10px;overflow:hidden;">
+                    <div style="overflow-x:auto;">
+                        <MudSimpleTable Dense="true" Hover="true" Style="font-size:0.85rem;min-width:800px;">
+                            <thead>
+                                <tr style="background:#F8F9FA;">
+                                    <th>Ansatt</th>
+                                    <th style="text-align:right;">Beløp</th>
+                                    <th>Dato</th>
+                                    <th>Beskrivelse</th>
+                                    <th>Prosjekt</th>
+                                    <th>Status</th>
+                                    <th style="text-align:center;">Godkjent</th>
+                                    <th style="text-align:center;">Betalt</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var exp in _expenses)
+                                {
+                                    var captured = exp;
+                                    var statusColor = exp.Status switch { "Approved" or "Paid" => "#059669", "Submitted" => "#4361EE", "Rejected" => "#DC2626", _ => "#6B7280" };
+                                    var statusLabel = exp.Status switch { "Draft" => "Utkast", "Submitted" => "Innsendt", "Approved" => "Godkjent", "Rejected" => "Avvist", "Paid" => "Betalt", _ => exp.Status };
+                                    <tr style="cursor:pointer;" @onclick="@(() => Navigation.NavigateTo($"/utlegg/{captured.Id}"))">
+                                        <td style="font-weight:500;">@exp.EmployeeName</td>
+                                        <td style="text-align:right;font-weight:600;">kr @exp.Amount.ToString("N0")</td>
+                                        <td>@exp.Date.ToString("dd.MM.yy")</td>
+                                        <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">@(exp.Description ?? "-")</td>
+                                        <td style="color:#6B7280;">@(exp.ProjectName ?? "-")</td>
+                                        <td>
+                                            <span style="@($"color:{statusColor};font-weight:600;font-size:0.75rem;")">@statusLabel</span>
+                                        </td>
+                                        <td style="text-align:center;">
+                                            @if (exp.IsApproved)
+                                            {
+                                                <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small" Color="Color.Success" />
+                                            }
+                                            else if (_isAdmin && exp.Status == "Submitted")
+                                            {
+                                                <MudIconButton Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small" Color="Color.Primary"
+                                                               OnClick="@(async () => { await ExpenseService.ApproveExpenseAsync(captured.Id); await LoadExpenses(); })"
+                                                               OnClick:stopPropagation="true" />
+                                            }
+                                        </td>
+                                        <td style="text-align:center;">
+                                            @if (exp.IsPaid)
+                                            {
+                                                <MudIcon Icon="@Icons.Material.Filled.Paid" Size="Size.Small" Color="Color.Success" />
+                                            }
+                                            else if (_isAccountant && exp.Status == "Approved")
+                                            {
+                                                <MudIconButton Icon="@Icons.Material.Filled.Paid" Size="Size.Small" Color="Color.Primary"
+                                                               OnClick="@(async () => { await ExpenseService.MarkExpensePaidAsync(captured.Id); await LoadExpenses(); })"
+                                                               OnClick:stopPropagation="true" />
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </MudSimpleTable>
+                    </div>
+                </MudPaper>
+
+                @* Summary *@
+                <MudStack Row="true" Spacing="4" Style="padding:12px;background:#F8F9FA;border-radius:8px;margin-top:12px;">
+                    <div><span style="font-size:0.75rem;color:#6B7280;">Totalt:</span> <b>kr @_expenses.Sum(e => e.Amount).ToString("N0")</b></div>
+                    <div><span style="font-size:0.75rem;color:#6B7280;">Godkjent:</span> <b style="color:#059669;">kr @_expenses.Where(e => e.IsApproved).Sum(e => e.Amount).ToString("N0")</b></div>
+                    <div><span style="font-size:0.75rem;color:#6B7280;">Betalt:</span> <b style="color:#4361EE;">kr @_expenses.Where(e => e.IsPaid).Sum(e => e.Amount).ToString("N0")</b></div>
+                </MudStack>
+            }
+        </div>
+    </MudTabPanel>
+
+    @* ── Reiseregninger tab ── *@
+    <MudTabPanel Text="Reiseregninger" Icon="@Icons.Material.Filled.Flight">
+        <div class="pa-4">
+            @if (_loadingTravel)
+            {
+                <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+            }
+            else if (_travelExpenses.Count == 0)
+            {
+                <MudStack AlignItems="AlignItems.Center" Spacing="2" Class="pa-8">
+                    <MudIcon Icon="@Icons.Material.Filled.Flight" Size="Size.Large" Color="Color.Secondary" />
+                    <MudText Color="Color.Secondary">Ingen reiseregninger registrert ennå</MudText>
+                </MudStack>
+            }
+            else
+            {
+                <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:10px;overflow:hidden;">
+                    <MudSimpleTable Dense="true" Hover="true" Style="font-size:0.85rem;">
+                        <thead>
+                            <tr style="background:#F8F9FA;">
+                                <th>Ansatt</th>
+                                <th>Avreise</th>
+                                <th>Retur</th>
+                                <th>Destinasjon</th>
+                                <th>Formål</th>
+                                <th style="text-align:right;">Totalbeløp</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var te in _travelExpenses)
+                            {
+                                var statusColor = te.Status switch { "Approved" or "Paid" => "#059669", "Submitted" => "#4361EE", "Rejected" => "#DC2626", _ => "#6B7280" };
+                                var statusLabel = te.Status switch { "Draft" => "Utkast", "Submitted" => "Innsendt", "Approved" => "Godkjent", "Rejected" => "Avvist", "Paid" => "Betalt", _ => te.Status };
+                                <tr>
+                                    <td style="font-weight:500;">@te.EmployeeName</td>
+                                    <td>@te.DepartureDate.ToString("dd.MM.yy")</td>
+                                    <td>@te.ReturnDate.ToString("dd.MM.yy")</td>
+                                    <td>@te.Destination</td>
+                                    <td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">@te.Purpose</td>
+                                    <td style="text-align:right;font-weight:600;">kr @te.TotalAmount.ToString("N0")</td>
+                                    <td><span style="@($"color:{statusColor};font-weight:600;font-size:0.75rem;")">@statusLabel</span></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </MudSimpleTable>
+                </MudPaper>
+            }
+        </div>
+    </MudTabPanel>
+</MudTabs>
+
+@code {
+    private List<ExpenseListItemDto> _expenses = [];
+    private List<TravelExpenseListItemDto> _travelExpenses = [];
+    private bool _loadingExpenses = true;
+    private bool _loadingTravel = true;
+    private bool _isAdmin;
+    private bool _isAccountant;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Check role
+        var auth = await AuthStateProvider.GetAuthenticationStateAsync();
+        var roles = auth.User.Claims
+            .Where(c => c.Type == "role" || c.Type.Contains("/role"))
+            .Select(c => c.Value).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        _isAdmin = auth.User.HasClaim("sa", "1") || roles.Contains("tenant-admin") || roles.Contains("TenantAdmin");
+        _isAccountant = _isAdmin || roles.Contains("Regnskapsforer") || roles.Contains("regnskapsforer");
+
+        await LoadExpenses();
+        await LoadTravelExpenses();
+    }
+
+    private async Task LoadExpenses()
+    {
+        _loadingExpenses = true;
+        var (items, _) = await ExpenseService.GetExpensesAsync();
+        _expenses = items;
+        _loadingExpenses = false;
+        StateHasChanged();
+    }
+
+    private async Task LoadTravelExpenses()
+    {
+        _loadingTravel = true;
+        var (items, _) = await ExpenseService.GetTravelExpensesAsync();
+        _travelExpenses = items;
+        _loadingTravel = false;
+        StateHasChanged();
+    }
+}

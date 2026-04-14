@@ -157,7 +157,7 @@
                 <TitleContent>
                     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
                         <MudIcon Icon="@Icons.Material.Filled.Event" Color="Color.Error" Size="Size.Small" />
-                        <MudText Typo="Typo.subtitle2" Style="font-weight:600;">Rode dager (@_norwegianHolidays.Count helligdager)</MudText>
+                        <MudText Typo="Typo.subtitle2" Style="font-weight:600;">Røde dager (@_norwegianHolidays.Count helligdager)</MudText>
                     </MudStack>
                 </TitleContent>
                 <ChildContent>
@@ -412,9 +412,9 @@
             <MudText Typo="Typo.caption" Style="font-weight:600;">Gjelder for:</MudText>
             <MudStack Row="true" Spacing="2" Style="flex-wrap:wrap;">
                 <MudCheckBox T="bool" @bind-Value="_otWeekdays" Label="Ukedager" Dense="true" />
-                <MudCheckBox T="bool" @bind-Value="_otSaturday" Label="Lordag" Dense="true" />
-                <MudCheckBox T="bool" @bind-Value="_otSunday" Label="Sondag" Dense="true" />
-                <MudCheckBox T="bool" @bind-Value="_otRedDays" Label="Rode dager" Dense="true" />
+                <MudCheckBox T="bool" @bind-Value="_otSaturday" Label="Lørdag" Dense="true" />
+                <MudCheckBox T="bool" @bind-Value="_otSunday" Label="Søndag" Dense="true" />
+                <MudCheckBox T="bool" @bind-Value="_otRedDays" Label="Røde dager" Dense="true" />
             </MudStack>
         </MudStack>
     </DialogContent>
@@ -475,9 +475,9 @@
     private readonly List<PresetRule> _presetOvertimeRules =
     [
         new("Vanlig overtid", "Ukedager, utover normal arbeidstid", 50, 5, true, false, false, false),
-        new("Lordag overtid", "Alt arbeid pa lordag", 100, 3, false, true, false, false),
-        new("Sondag overtid", "Alt arbeid pa sondag", 100, 2, false, false, true, false),
-        new("Rode dager", "Alt arbeid pa offentlige helligdager", 100, 1, false, false, false, true),
+        new("Lørdag overtid", "Alt arbeid på lørdag", 100, 3, false, true, false, false),
+        new("Søndag overtid", "Alt arbeid på søndag", 100, 2, false, false, true, false),
+        new("Røde dager", "Alt arbeid på offentlige helligdager", 100, 1, false, false, false, true),
         new("Kveldstillegg", "Arbeid mellom 17:00-21:00", 0, 10, true, false, false, false),
         new("Nattillegg", "Arbeid mellom 21:00-06:00", 0, 10, true, false, false, false),
     ];

@@ -824,11 +824,9 @@ function sendContact(e) {
             setTimeout(function() { btn.textContent = 'Send melding'; btn.style.background = ''; btn.disabled = false; }, 3000);
         }
     }).catch(function() {
-        // Fallback to mailto
-        var subject = encodeURIComponent('Henvendelse fra ' + data.company);
-        var body = encodeURIComponent('Bedrift: ' + data.company + '\nNavn: ' + data.name + '\nTelefon: ' + data.phone + '\nE-post: ' + data.email + '\n\n' + data.message);
-        window.location.href = 'mailto:kontakt@solodoc.no?subject=' + subject + '&body=' + body;
-        btn.textContent = 'Send melding'; btn.disabled = false;
+        btn.textContent = 'Nettverksfeil — prøv igjen';
+        btn.style.background = '#E63946';
+        setTimeout(function() { btn.textContent = 'Send melding'; btn.style.background = ''; btn.disabled = false; }, 3000);
     });
 }
 

@@ -14,8 +14,20 @@
 <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4"
           Style="flex-wrap:wrap;gap:8px;">
     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-        <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Href="/projects" />
-        <MudText Typo="Typo.h5">@(_project?.Name ?? "Laster...")</MudText>
+        <MudIconButton Icon="@Icons.Material.Filled.ArrowBack"
+                       OnClick="GoBack" />
+        <div>
+            @if (_project?.ParentProjectId.HasValue == true)
+            {
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Style="margin-bottom:2px;">
+                    <MudLink Href="/projects" Typo="Typo.caption" Color="Color.Secondary" Style="text-decoration:none;">Prosjekter</MudLink>
+                    <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Size="Size.Small" Style="color:#9CA3AF;font-size:0.8rem;" />
+                    <MudLink Href="@($"/projects/{_project.ParentProjectId}")" Typo="Typo.caption" Color="Color.Primary" Style="text-decoration:none;">@(_project.ParentProjectName ?? "Hovedprosjekt")</MudLink>
+                    <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Size="Size.Small" Style="color:#9CA3AF;font-size:0.8rem;" />
+                </MudStack>
+            }
+            <MudText Typo="Typo.h5">@(_project?.Name ?? "Laster...")</MudText>
+        </div>
         @if (_project is not null)
         {
             var color = _project.Status switch
@@ -85,80 +97,264 @@ else
                 @* Who's on site *@
                 @if (_onSitePersons.Count > 0)
                 {
-                    <MudPaper Class="pa-4 mb-4" Elevation="0" Style="border:1px solid #059669;border-radius:12px;background:#F0FDF4;">
-                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-2">
-                            <MudIcon Icon="@Icons.Material.Filled.PeopleAlt" Color="Color.Success" />
-                            <MudText Typo="Typo.subtitle1" Style="font-weight:600;color:#059669;">
-                                Pa byggeplass nå (@_onSitePersons.Count)
+                    <MudPaper Class="pa-3 mb-4" Elevation="0" Style="border:1px solid #059669;border-radius:12px;background:#F0FDF4;">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudIcon Icon="@Icons.Material.Filled.PeopleAlt" Size="Size.Small" Color="Color.Success" />
+                            <MudText Typo="Typo.body2" Style="font-weight:600;color:#059669;">
+                                På byggeplass nå (@_onSitePersons.Count)
                             </MudText>
-                        </MudStack>
-                        <MudStack Row="true" Spacing="2" Style="flex-wrap:wrap;">
                             @foreach (var p in _onSitePersons)
                             {
-                                <MudChip T="string" Size="Size.Small" Color="Color.Success" Style="height:26px;">
-                                    @p.FullName · @p.CheckInAt.ToLocalTime().ToString("HH:mm")
+                                <MudChip T="string" Size="Size.Small" Color="Color.Success" Style="height:22px;font-size:0.75rem;">
+                                    @p.FullName
                                 </MudChip>
                             }
                         </MudStack>
                     </MudPaper>
                 }
 
-                <MudGrid Spacing="3" Class="mb-4">
-                    <MudItem xs="12" md="8">
-                        <MudPaper Class="pa-5" Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;">
-                            @if (!string.IsNullOrEmpty(_project.Description))
-                            {
-                                <MudText Typo="Typo.body1" Class="mb-4">@_project.Description</MudText>
-                            }
-                            <MudGrid Spacing="3">
-                                <MudItem xs="6" sm="3">
-                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Kunde</MudText>
-                                    <MudText Typo="Typo.body2" Style="font-weight:500;">@(_project.ClientName ?? "---")</MudText>
-                                </MudItem>
-                                <MudItem xs="6" sm="3">
-                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Startdato</MudText>
-                                    <MudText Typo="Typo.body2" Style="font-weight:500;">@(_project.StartDate?.ToString("dd.MM.yyyy") ?? "---")</MudText>
-                                </MudItem>
-                                <MudItem xs="6" sm="3">
-                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Adresse</MudText>
-                                    <MudText Typo="Typo.body2" Style="font-weight:500;">@(_project.Address ?? "---")</MudText>
-                                </MudItem>
-                                <MudItem xs="6" sm="3">
-                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Apne avvik</MudText>
-                                    <MudText Typo="Typo.body2" Style="font-weight:500;">@_project.OpenDeviations.Count</MudText>
-                                </MudItem>
-                            </MudGrid>
-                        </MudPaper>
+                @* ── KPI cards: Totalt (default view) ── *@
+                @{
+                    var hasSubs = _project.SubProjects is { Count: > 0 };
+                    var tHours = _dashHoursParent + (_project.SubProjects?.Sum(s => s.TotalHours) ?? 0);
+                    var tDevs = _dashDeviationsParent + (_project.SubProjects?.Sum(s => s.OpenDeviations) ?? 0);
+                    var tClDone = _dashChecklistsDoneParent + (_project.SubProjects?.Sum(s => s.ChecklistsCompleted) ?? 0);
+                    var tClAll = _dashChecklistsTotalParent + (_project.SubProjects?.Sum(s => s.ChecklistsTotal) ?? 0);
+                }
+                @if (hasSubs)
+                {
+                    <MudText Typo="Typo.subtitle2" Style="font-weight:700;color:#4361EE;" Class="mb-2">Totalt</MudText>
+                }
+                <MudGrid Spacing="2" Class="mb-3">
+                    <MudItem xs="6" sm="3">
+                        <div style="background:#EBF0FF;border-radius:10px;padding:14px;text-align:center;">
+                            <div style="font-size:1.5rem;font-weight:700;color:#4361EE;">@((hasSubs ? tHours : _dashHoursParent).ToString("N1"))</div>
+                            <div style="font-size:0.7rem;color:#6B7280;">Timer</div>
+                        </div>
                     </MudItem>
-                    <MudItem xs="12" md="4">
-                        <MudPaper Class="pa-5" Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;height:100%;">
-                            <MudText Typo="Typo.subtitle1" Style="font-weight:600;" Class="mb-3">Apne avvik</MudText>
-                            @if (_project.OpenDeviations.Count == 0)
-                            {
-                                <MudText Typo="Typo.body2" Color="Color.Secondary">Ingen apne avvik</MudText>
-                            }
-                            else
-                            {
-                                <MudStack Spacing="2">
-                                    @foreach (var d in _project.OpenDeviations)
-                                    {
-                                        var devId = d.Id;
-                                        var sevColor = d.Severity switch { "Høy" => Color.Error, "Middels" => Color.Warning, _ => Color.Success };
-                                        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween"
-                                                  Style="cursor:pointer;" @onclick="() => GoToDeviation(devId)">
-                                            <MudText Typo="Typo.body2">@d.Title</MudText>
-                                            <MudChip T="string" Size="Size.Small" Color="@sevColor" Style="height:22px;">@d.Severity</MudChip>
-                                        </MudStack>
-                                    }
-                                </MudStack>
-                            }
-                        </MudPaper>
+                    <MudItem xs="6" sm="3">
+                        <div style="background:#FEE2E2;border-radius:10px;padding:14px;text-align:center;">
+                            <div style="font-size:1.5rem;font-weight:700;color:#DC2626;">@(hasSubs ? tDevs : _dashDeviationsParent)</div>
+                            <div style="font-size:0.7rem;color:#6B7280;">Åpne avvik</div>
+                        </div>
+                    </MudItem>
+                    <MudItem xs="6" sm="3">
+                        <div style="background:#D1FAE5;border-radius:10px;padding:14px;text-align:center;">
+                            <div style="font-size:1.5rem;font-weight:700;color:#059669;">@(hasSubs ? tClDone : _dashChecklistsDoneParent) / @(hasSubs ? tClAll : _dashChecklistsTotalParent)</div>
+                            <div style="font-size:0.7rem;color:#6B7280;">Sjekklister</div>
+                        </div>
+                    </MudItem>
+                    <MudItem xs="6" sm="3">
+                        <div style="background:#EDE9FE;border-radius:10px;padding:14px;text-align:center;">
+                            <div style="font-size:1.5rem;font-weight:700;color:#7C3AED;">@_onSitePersons.Count</div>
+                            <div style="font-size:0.7rem;color:#6B7280;">På byggeplass</div>
+                        </div>
                     </MudItem>
                 </MudGrid>
+
+                @* ── Per-project breakdown (expandable) ── *@
+                @if (hasSubs)
+                {
+                    <MudExpansionPanels Elevation="0" Class="mb-4">
+                        <MudExpansionPanel Style="border:1px solid #e9ecef;border-radius:10px;">
+                            <TitleContent>
+                                <MudText Typo="Typo.body2" Style="font-weight:600;">Vis per prosjekt</MudText>
+                            </TitleContent>
+                            <ChildContent>
+                                @* Main project *@
+                                <MudText Typo="Typo.subtitle2" Style="font-weight:600;" Class="mb-2">@_project.Name (hoved)</MudText>
+                                <MudGrid Spacing="2" Class="mb-4">
+                                    <MudItem xs="6" sm="3">
+                                        <div style="background:#F8F9FA;border:1px solid #e9ecef;border-radius:10px;padding:12px;text-align:center;">
+                                            <div style="font-size:1.2rem;font-weight:700;color:#4361EE;">@_dashHoursParent.ToString("N1")</div>
+                                            <div style="font-size:0.65rem;color:#6B7280;">Timer</div>
+                                        </div>
+                                    </MudItem>
+                                    <MudItem xs="6" sm="3">
+                                        <div style="background:#F8F9FA;border:1px solid #e9ecef;border-radius:10px;padding:12px;text-align:center;">
+                                            <div style="font-size:1.2rem;font-weight:700;color:#DC2626;">@_dashDeviationsParent</div>
+                                            <div style="font-size:0.65rem;color:#6B7280;">Åpne avvik</div>
+                                        </div>
+                                    </MudItem>
+                                    <MudItem xs="6" sm="3">
+                                        <div style="background:#F8F9FA;border:1px solid #e9ecef;border-radius:10px;padding:12px;text-align:center;">
+                                            <div style="font-size:1.2rem;font-weight:700;color:#059669;">@_dashChecklistsDoneParent / @_dashChecklistsTotalParent</div>
+                                            <div style="font-size:0.65rem;color:#6B7280;">Sjekklister</div>
+                                        </div>
+                                    </MudItem>
+                                    <MudItem xs="6" sm="3">
+                                        <div style="background:#F8F9FA;border:1px solid #e9ecef;border-radius:10px;padding:12px;text-align:center;">
+                                            <div style="font-size:1.2rem;font-weight:700;color:#7C3AED;">@_onSitePersons.Count</div>
+                                            <div style="font-size:0.65rem;color:#6B7280;">På byggeplass</div>
+                                        </div>
+                                    </MudItem>
+                                </MudGrid>
+
+                                @* Each sub-project *@
+                                @foreach (var sub in _project.SubProjects!)
+                                {
+                                    var capturedSub = sub;
+                                    var sc = sub.Status switch { "Aktiv" => "#059669", "Fullført" or "Fullfort" => "#4361EE", _ => "#9CA3AF" };
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-2">
+                                        <MudText Typo="Typo.subtitle2" Style="font-weight:600;">↳ @sub.Name</MudText>
+                                        <span style="@($"color:{sc};font-size:0.7rem;font-weight:600;")">@sub.Status</span>
+                                        <MudSpacer />
+                                        <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary"
+                                                   Href="@($"/projects/{capturedSub.Id}")"
+                                                   Style="text-transform:none;font-size:0.7rem;border-radius:6px;">Åpne</MudButton>
+                                    </MudStack>
+                                    <MudGrid Spacing="2" Class="mb-4">
+                                        <MudItem xs="6" sm="3">
+                                            <div style="background:#F8F9FA;border:1px solid #e9ecef;border-radius:10px;padding:12px;text-align:center;">
+                                                <div style="font-size:1.2rem;font-weight:700;color:#4361EE;">@sub.TotalHours.ToString("N1")</div>
+                                                <div style="font-size:0.65rem;color:#6B7280;">Timer</div>
+                                            </div>
+                                        </MudItem>
+                                        <MudItem xs="6" sm="3">
+                                            <div style="background:#F8F9FA;border:1px solid #e9ecef;border-radius:10px;padding:12px;text-align:center;">
+                                                <div style="font-size:1.2rem;font-weight:700;color:#DC2626;">@sub.OpenDeviations</div>
+                                                <div style="font-size:0.65rem;color:#6B7280;">Åpne avvik</div>
+                                            </div>
+                                        </MudItem>
+                                        <MudItem xs="6" sm="3">
+                                            <div style="background:#F8F9FA;border:1px solid #e9ecef;border-radius:10px;padding:12px;text-align:center;">
+                                                <div style="font-size:1.2rem;font-weight:700;color:#059669;">@sub.ChecklistsCompleted / @sub.ChecklistsTotal</div>
+                                                <div style="font-size:0.65rem;color:#6B7280;">Sjekklister</div>
+                                            </div>
+                                        </MudItem>
+                                        <MudItem xs="6" sm="3">
+                                            <div style="background:#F8F9FA;border:1px solid #e9ecef;border-radius:10px;padding:12px;text-align:center;">
+                                                <div style="font-size:1.2rem;font-weight:700;color:#7C3AED;">—</div>
+                                                <div style="font-size:0.65rem;color:#6B7280;">På byggeplass</div>
+                                            </div>
+                                        </MudItem>
+                                    </MudGrid>
+                                }
+                            </ChildContent>
+                        </MudExpansionPanel>
+                    </MudExpansionPanels>
+                }
+
+                @* ── Project info ── *@
+                <MudPaper Class="pa-4 mb-4" Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;">
+                    @if (!string.IsNullOrEmpty(_project.Description))
+                    {
+                        <MudText Typo="Typo.body2" Class="mb-3">@_project.Description</MudText>
+                    }
+                    <MudGrid Spacing="2">
+                        <MudItem xs="6" sm="3">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Kunde</MudText>
+                            <MudText Typo="Typo.body2" Style="font-weight:500;">@(_project.ClientName ?? "---")</MudText>
+                        </MudItem>
+                        <MudItem xs="6" sm="3">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Startdato</MudText>
+                            <MudText Typo="Typo.body2" Style="font-weight:500;">@(_project.StartDate?.ToString("dd.MM.yyyy") ?? "---")</MudText>
+                        </MudItem>
+                        <MudItem xs="6" sm="3">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Adresse</MudText>
+                            <MudText Typo="Typo.body2" Style="font-weight:500;">@(_project.Address ?? "---")</MudText>
+                        </MudItem>
+                        <MudItem xs="6" sm="3">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Status</MudText>
+                            <MudText Typo="Typo.body2" Style="font-weight:500;">@_project.Status</MudText>
+                        </MudItem>
+                    </MudGrid>
+                </MudPaper>
+
+                @* ── Open deviations ── *@
+                @if (_project.OpenDeviations.Count > 0)
+                {
+                    <MudPaper Class="pa-4" Elevation="0" Style="border:1px solid #FECACA;border-radius:12px;">
+                        <MudText Typo="Typo.subtitle2" Style="font-weight:600;color:#DC2626;" Class="mb-2">Åpne avvik (@_project.OpenDeviations.Count)</MudText>
+                        <MudStack Spacing="1">
+                            @foreach (var d in _project.OpenDeviations.Take(5))
+                            {
+                                var devId = d.Id;
+                                var sevColor = d.Severity switch { "Høy" or "Hoy" => Color.Error, "Middels" => Color.Warning, _ => Color.Success };
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween"
+                                          Style="cursor:pointer;padding:4px 0;" @onclick="() => GoToDeviation(devId)">
+                                    <MudText Typo="Typo.body2">@d.Title</MudText>
+                                    <MudChip T="string" Size="Size.Small" Color="@sevColor" Style="height:22px;">@d.Severity</MudChip>
+                                </MudStack>
+                            }
+                        </MudStack>
+                    </MudPaper>
+                }
             </div>
         </MudTabPanel>
 
-        @* Tab 1: Sjekklister *@
+        @* Tab: Sub-prosjekter *@
+        <MudTabPanel Text="Underprosjekter" Icon="@Icons.Material.Filled.AccountTree">
+                <div class="pa-4">
+                    @if (_project!.SubProjects is { Count: > 0 })
+                    {
+                        var completedCount = _project.SubProjects.Count(s => s.Status == "Fullfort");
+                        var totalCount = _project.SubProjects.Count;
+                        var progressPct = totalCount > 0 ? (double)completedCount / totalCount * 100 : 0;
+                        <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;" Class="pa-4 mb-4">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                                <MudText Typo="Typo.subtitle1" Style="font-weight:600;">
+                                    @completedCount av @totalCount underprosjekter fullfort
+                                </MudText>
+                                <MudText Typo="Typo.body2" Style="font-weight:600;color:#4361EE;">@((int)progressPct)%</MudText>
+                            </MudStack>
+                            <MudProgressLinear Value="progressPct" Color="Color.Success" Rounded="true" Style="height:8px;" Class="mt-2" />
+                        </MudPaper>
+
+                        <MudGrid Spacing="3">
+                            @foreach (var sub in _project.SubProjects)
+                            {
+                                var capturedSub = sub;
+                                var subStatusColor = sub.Status switch { "Aktiv" => "#059669", "Fullfort" => "#4361EE", "Planlagt" => "#6B7280", _ => "#DC2626" };
+                                var subCheckPct = sub.ChecklistsTotal > 0 ? (double)sub.ChecklistsCompleted / sub.ChecklistsTotal * 100 : 0;
+                                <MudItem xs="12" sm="6" md="4">
+                                    <MudPaper Elevation="0" Class="pa-4"
+                                              Style="border:1px solid #e9ecef;border-radius:12px;cursor:pointer;height:100%;"
+                                              @onclick="@(() => Navigation.NavigateTo($"/projects/{capturedSub.Id}"))"">
+                                        <MudStack Spacing="2">
+                                            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                                                <MudText Typo="Typo.subtitle1" Style="font-weight:600;">@sub.Name</MudText>
+                                                <span style="@($"background:{subStatusColor}20;color:{subStatusColor};padding:2px 8px;border-radius:4px;font-size:0.7rem;font-weight:600;")">@sub.Status</span>
+                                            </MudStack>
+                                            <MudGrid Spacing="2">
+                                                <MudItem xs="4">
+                                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Timer</MudText>
+                                                    <MudText Style="font-weight:600;">@sub.TotalHours.ToString("N1")</MudText>
+                                                </MudItem>
+                                                <MudItem xs="4">
+                                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Avvik</MudText>
+                                                    <MudText Style="@($"font-weight:600;{(sub.OpenDeviations > 0 ? "color:#DC2626;" : "")}")">@sub.OpenDeviations</MudText>
+                                                </MudItem>
+                                                <MudItem xs="4">
+                                                    <MudText Typo="Typo.caption" Color="Color.Secondary">Sjekklister</MudText>
+                                                    <MudText Style="font-weight:600;">@sub.ChecklistsCompleted/@sub.ChecklistsTotal</MudText>
+                                                </MudItem>
+                                            </MudGrid>
+                                            <MudProgressLinear Value="subCheckPct" Color="Color.Primary" Rounded="true" Style="height:4px;" />
+                                        </MudStack>
+                                    </MudPaper>
+                                </MudItem>
+                            }
+                        </MudGrid>
+                    }
+                    else
+                    {
+                        <MudStack AlignItems="AlignItems.Center" Spacing="2" Class="pa-8">
+                            <MudIcon Icon="@Icons.Material.Filled.AccountTree" Size="Size.Large" Color="Color.Secondary" />
+                            <MudText Color="Color.Secondary">Ingen underprosjekter ennå</MudText>
+                        </MudStack>
+                    }
+
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-3"
+                               Href="@($"/projects/new?parentId={Id}")"
+                               StartIcon="@Icons.Material.Filled.Add"
+                               Style="text-transform:none;border-radius:8px;">
+                        Nytt underprosjekt
+                    </MudButton>
+                </div>
+        </MudTabPanel>
+
+        @* Tab: Sjekklister *@
         <MudTabPanel Text="Sjekklister" Icon="@Icons.Material.Filled.Checklist">
             <div class="pa-4">
                 @* Inline template picker for creating checklist *@
@@ -273,7 +469,7 @@ else
                 {
                     <MudStack AlignItems="AlignItems.Center" Spacing="2" Class="pa-8">
                         <MudIcon Icon="@Icons.Material.Filled.TimerOff" Size="Size.Large" Color="Color.Secondary" />
-                        <MudText Typo="Typo.body1" Color="Color.Secondary">Ingen timer registrert pa dette prosjektet</MudText>
+                        <MudText Typo="Typo.body1" Color="Color.Secondary">Ingen timer registrert på dette prosjektet</MudText>
                     </MudStack>
                 }
                 else
@@ -366,7 +562,7 @@ else
                 {
                     <MudStack AlignItems="AlignItems.Center" Spacing="2" Class="pa-8">
                         <MudIcon Icon="@Icons.Material.Filled.VerifiedUser" Size="Size.Large" Color="Color.Secondary" />
-                        <MudText Typo="Typo.body1" Color="Color.Secondary">Ingen avvik registrert pa dette prosjektet</MudText>
+                        <MudText Typo="Typo.body1" Color="Color.Secondary">Ingen avvik registrert på dette prosjektet</MudText>
                     </MudStack>
                 }
                 else
@@ -420,7 +616,7 @@ else
                 {
                     <MudStack AlignItems="AlignItems.Center" Spacing="2" Class="pa-8">
                         <MudIcon Icon="@Icons.Material.Filled.GroupOff" Size="Size.Large" Color="Color.Secondary" />
-                        <MudText Typo="Typo.body1" Color="Color.Secondary">Ingen mannskap registrert pa dette prosjektet</MudText>
+                        <MudText Typo="Typo.body1" Color="Color.Secondary">Ingen mannskap registrert på dette prosjektet</MudText>
                         <MudText Typo="Typo.caption" Color="Color.Secondary">
                             Mannskap bygges automatisk fra timer og innsjekking
                         </MudText>
@@ -481,6 +677,49 @@ else
 
     private Solodoc.Shared.Projects.ProjectDetailDto? _project;
     private bool _loading = true;
+    private bool _isParentProject => _project?.ParentProjectId is null && (_project?.SubProjects?.Count > 0);
+
+    // Dashboard KPIs (loaded on init)
+    private decimal _dashHoursParent;
+    private int _dashChecklistsDoneParent;
+    private int _dashChecklistsTotalParent;
+    private int _dashDeviationsParent;
+    private string _dashView = "all"; // "all", "parent", "sub:{guid}"
+
+    // Computed filtered KPIs based on dropdown selection
+    private decimal DashFilteredHours => _dashView switch
+    {
+        "all" => _dashHoursParent + (_project?.SubProjects?.Sum(s => s.TotalHours) ?? 0),
+        "parent" => _dashHoursParent,
+        _ when _dashView.StartsWith("sub:") && Guid.TryParse(_dashView[4..], out var sid)
+            => _project?.SubProjects?.FirstOrDefault(s => s.Id == sid)?.TotalHours ?? 0,
+        _ => _dashHoursParent
+    };
+    private int DashFilteredDeviations => _dashView switch
+    {
+        "all" => _dashDeviationsParent + (_project?.SubProjects?.Sum(s => s.OpenDeviations) ?? 0),
+        "parent" => _dashDeviationsParent,
+        _ when _dashView.StartsWith("sub:") && Guid.TryParse(_dashView[4..], out var sid)
+            => _project?.SubProjects?.FirstOrDefault(s => s.Id == sid)?.OpenDeviations ?? 0,
+        _ => _dashDeviationsParent
+    };
+    private int DashFilteredChecklistsDone => _dashView switch
+    {
+        "all" => _dashChecklistsDoneParent + (_project?.SubProjects?.Sum(s => s.ChecklistsCompleted) ?? 0),
+        "parent" => _dashChecklistsDoneParent,
+        _ when _dashView.StartsWith("sub:") && Guid.TryParse(_dashView[4..], out var sid)
+            => _project?.SubProjects?.FirstOrDefault(s => s.Id == sid)?.ChecklistsCompleted ?? 0,
+        _ => _dashChecklistsDoneParent
+    };
+    private int DashFilteredChecklistsTotal => _dashView switch
+    {
+        "all" => _dashChecklistsTotalParent + (_project?.SubProjects?.Sum(s => s.ChecklistsTotal) ?? 0),
+        "parent" => _dashChecklistsTotalParent,
+        _ when _dashView.StartsWith("sub:") && Guid.TryParse(_dashView[4..], out var sid)
+            => _project?.SubProjects?.FirstOrDefault(s => s.Id == sid)?.ChecklistsTotal ?? 0,
+        _ => _dashChecklistsTotalParent
+    };
+    private void OnDashViewChanged(string view) { _dashView = view; StateHasChanged(); }
 
     // Tab data
     private List<Solodoc.Shared.Checklists.ChecklistInstanceListItemDto> _checklists = [];
@@ -611,27 +850,55 @@ else
             Navigation.NavigateTo($"/checklists/{cl.Id}");
     }
 
+    private void GoBack()
+    {
+        if (_project?.ParentProjectId.HasValue == true)
+            Navigation.NavigateTo($"/projects/{_project.ParentProjectId}");
+        else
+            Navigation.NavigateTo("/projects");
+    }
+
     protected override async Task OnInitializedAsync()
     {
         _project = await ProjectService.GetProjectByIdAsync(Id);
         _loading = false;
-        try { _onSitePersons = await CheckInService.GetOnSiteAsync("project", Id); } catch { }
+
+        // Load dashboard KPIs in parallel
+        try
+        {
+            var hoursTask = HoursService.GetTimeEntriesAsync(projectId: Id);
+            var checklistsTask = ChecklistService.GetInstancesAsync(Id);
+            var onSiteTask = CheckInService.GetOnSiteAsync("project", Id);
+
+            var hours = await hoursTask;
+            _dashHoursParent = hours.Items.Sum(h => h.Hours);
+
+            var checklists = await checklistsTask;
+            _dashChecklistsTotalParent = checklists.Count;
+            _dashChecklistsDoneParent = checklists.Count(c => c.Status is "Innsendt" or "Godkjent");
+            _dashDeviationsParent = _project?.OpenDeviations.Count ?? 0;
+
+            _onSitePersons = await onSiteTask;
+        }
+        catch { }
+        StateHasChanged();
     }
 
     private async Task OnTabChanged(int tabIndex)
     {
+        // Tab 0=Oversikt, 1=Underprosjekter, 2=Sjekklister, 3=Timer, 4=Avvik, 5=Mannskap, 6=Dokumenter
         switch (tabIndex)
         {
-            case 1 when !_checklistsLoaded:
+            case 2 when !_checklistsLoaded:
                 await LoadChecklistsAsync();
                 break;
-            case 2 when !_hoursLoaded:
+            case 3 when !_hoursLoaded:
                 await LoadHoursAsync();
                 break;
-            case 3 when !_deviationsLoaded:
+            case 4 when !_deviationsLoaded:
                 await LoadDeviationsAsync();
                 break;
-            case 4 when !_crewLoaded:
+            case 5 when !_crewLoaded:
                 await LoadCrewAsync();
                 break;
         }

@@ -16,6 +16,7 @@ public static class ReportEndpoints
         app.MapGet("/api/reports/certifications", GetCertificationReport).RequireAuthorization();
         app.MapGet("/api/reports/safety", GetSafetyReport).RequireAuthorization();
         app.MapGet("/api/reports/project/{id:guid}/summary", GetProjectSummary).RequireAuthorization();
+        app.MapGet("/api/reports/accounting", GetAccountingReport).RequireAuthorization();
 
         return app;
     }
@@ -375,5 +376,118 @@ public static class ReportEndpoints
             crewCount,
             project.StartDate,
             project.PlannedEndDate));
+    }
+
+    // ── Accounting Report ───────────────────────────────
+
+    private static async Task<IResult> GetAccountingReport(
+        SolodocDbContext db, ITenantProvider tp, CancellationToken ct,
+        string? from = null, string? to = null, string? periodType = null)
+    {
+        if (tp.TenantId is null) return Results.Unauthorized();
+        var tenantId = tp.TenantId.Value;
+
+        var periodStart = DateOnly.TryParse(from, out var f) ? f : new DateOnly(DateTimeOffset.UtcNow.Year, DateTimeOffset.UtcNow.Month, 1);
+        var periodEnd = DateOnly.TryParse(to, out var t) ? t : periodStart.AddMonths(1).AddDays(-1);
+        var pType = periodType ?? "Månedlig";
+
+        // Hours
+        var hours = await db.TimeEntries
+            .Where(te => te.TenantId == tenantId && !te.IsDeleted && te.Date >= periodStart && te.Date <= periodEnd)
+            .GroupBy(te => te.PersonId)
+            .Select(g => new { PersonId = g.Key, Hours = g.Sum(te => te.Hours), Overtime = g.Sum(te => te.OvertimeHours) })
+            .ToListAsync(ct);
+
+        // Expenses
+        var expenses = await db.Expenses
+            .Where(e => e.TenantId == tenantId && !e.IsDeleted && e.Date >= periodStart && e.Date <= periodEnd
+                && (e.Status == ExpenseStatus.Approved || e.Status == ExpenseStatus.Paid))
+            .GroupBy(e => e.PersonId)
+            .Select(g => new { PersonId = g.Key, Amount = g.Sum(e => e.Amount) })
+            .ToListAsync(ct);
+
+        // Travel expenses
+        var travel = await db.TravelExpenses
+            .Where(te => te.TenantId == tenantId && !te.IsDeleted && te.DepartureDate >= periodStart && te.DepartureDate <= periodEnd
+                && (te.Status == ExpenseStatus.Approved || te.Status == ExpenseStatus.Paid))
+            .GroupBy(te => te.PersonId)
+            .Select(g => new { PersonId = g.Key, Amount = g.Sum(te => te.TotalAmount) })
+            .ToListAsync(ct);
+
+        // Absences
+        var absences = await db.Absences
+            .Where(a => a.TenantId == tenantId && !a.IsDeleted && a.StartDate <= periodEnd && a.EndDate >= periodStart)
+            .ToListAsync(ct);
+
+        var vacationDays = absences.Where(a => a.Type == AbsenceType.Ferie).Sum(a => (a.EndDate.ToDateTime(TimeOnly.MinValue) - a.StartDate.ToDateTime(TimeOnly.MinValue)).Days + 1);
+        var sickDays = absences.Where(a => a.Type is AbsenceType.Sykmelding or AbsenceType.Egenmelding).Sum(a => (a.EndDate.ToDateTime(TimeOnly.MinValue) - a.StartDate.ToDateTime(TimeOnly.MinValue)).Days + 1);
+
+        // Allowances
+        var allowances = await db.TimeEntryAllowances
+            .Where(a => !a.IsDeleted && a.TimeEntry.TenantId == tenantId && a.TimeEntry.Date >= periodStart && a.TimeEntry.Date <= periodEnd)
+            .GroupBy(a => a.TimeEntry.PersonId)
+            .Select(g => new { PersonId = g.Key, Amount = g.Sum(a => a.Amount) })
+            .ToListAsync(ct);
+
+        // Build per-employee rows
+        var personIds = hours.Select(h => h.PersonId)
+            .Union(expenses.Select(e => e.PersonId))
+            .Union(travel.Select(t => t.PersonId))
+            .Distinct().ToList();
+
+        var personNames = await db.Persons
+            .Where(p => personIds.Contains(p.Id))
+            .ToDictionaryAsync(p => p.Id, p => p.FullName, ct);
+
+        var byEmployee = personIds.Select(pid =>
+        {
+            var h = hours.FirstOrDefault(x => x.PersonId == pid);
+            var e = expenses.FirstOrDefault(x => x.PersonId == pid);
+            var tr = travel.FirstOrDefault(x => x.PersonId == pid);
+            var al = allowances.FirstOrDefault(x => x.PersonId == pid);
+            personNames.TryGetValue(pid, out var name);
+            var empHours = h?.Hours ?? 0;
+            var empOt = h?.Overtime ?? 0;
+            var empExp = e?.Amount ?? 0;
+            var empTravel = tr?.Amount ?? 0;
+            var empAllow = al?.Amount ?? 0;
+            return new EmployeeAccountingRow(pid, name ?? "", empHours, empOt, empExp, empTravel, empAllow, 0, 0,
+                empExp + empTravel + empAllow);
+        }).OrderBy(e => e.EmployeeName).ToList();
+
+        // By project
+        var projectHours = await db.TimeEntries
+            .Where(te => te.TenantId == tenantId && !te.IsDeleted && te.Date >= periodStart && te.Date <= periodEnd && te.ProjectId != null)
+            .GroupBy(te => te.ProjectId!.Value)
+            .Select(g => new { ProjectId = g.Key, Hours = g.Sum(te => te.Hours), Overtime = g.Sum(te => te.OvertimeHours) })
+            .ToListAsync(ct);
+
+        var projectExpenses = await db.Expenses
+            .Where(e => e.TenantId == tenantId && !e.IsDeleted && e.Date >= periodStart && e.Date <= periodEnd && e.ProjectId != null
+                && (e.Status == ExpenseStatus.Approved || e.Status == ExpenseStatus.Paid))
+            .GroupBy(e => e.ProjectId!.Value)
+            .Select(g => new { ProjectId = g.Key, Amount = g.Sum(e => e.Amount) })
+            .ToListAsync(ct);
+
+        var projectIds = projectHours.Select(p => p.ProjectId).Union(projectExpenses.Select(p => p.ProjectId)).Distinct().ToList();
+        var projectNames = await db.Projects.Where(p => projectIds.Contains(p.Id)).ToDictionaryAsync(p => p.Id, p => p.Name, ct);
+
+        var byProject = projectIds.Select(pid =>
+        {
+            var h = projectHours.FirstOrDefault(x => x.ProjectId == pid);
+            var e = projectExpenses.FirstOrDefault(x => x.ProjectId == pid);
+            projectNames.TryGetValue(pid, out var name);
+            return new ProjectAccountingRow(pid, name ?? "", h?.Hours ?? 0, h?.Overtime ?? 0, e?.Amount ?? 0, 0, 0,
+                (e?.Amount ?? 0));
+        }).OrderBy(p => p.ProjectName).ToList();
+
+        var totals = new AccountingTotals(
+            byEmployee.Sum(e => e.Hours), byEmployee.Sum(e => e.OvertimeHours),
+            byEmployee.Sum(e => e.ExpenseAmount), byEmployee.Sum(e => e.TravelExpenseAmount),
+            byEmployee.Sum(e => e.AllowanceAmount),
+            vacationDays, sickDays,
+            byEmployee.Sum(e => e.EmployeeTotal));
+
+        return Results.Ok(new AccountingReportDto(periodStart, periodEnd, pType, totals, byEmployee, byProject));
     }
 }

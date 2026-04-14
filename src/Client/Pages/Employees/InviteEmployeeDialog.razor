@@ -23,7 +23,7 @@
                            Style="text-transform:none;border-radius:8px;">
                     Kopier lenke
                 </MudButton>
-                <MudText Typo="Typo.caption" Color="Color.Secondary">Lenken utloper om 30 dager</MudText>
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Lenken utløper om 30 dager</MudText>
             </MudStack>
         }
         else
@@ -31,17 +31,17 @@
             @* ── Form ── *@
             <MudStack Spacing="3">
                 <MudTextField @bind-Value="_email" Label="E-postadresse" Variant="Variant.Outlined"
-                              Required="true" RequiredError="E-post er pakrevd"
+                              Required="true" RequiredError="E-post er påkrevd"
                               InputType="InputType.Email"
                               Placeholder="navn@eksempel.no" />
                 <MudSelect T="string" @bind-Value="_role" Label="Rolle" Variant="Variant.Outlined"
-                           Required="true" RequiredError="Rolle er pakrevd">
+                           Required="true" RequiredError="Rolle er påkrevd">
                     <MudSelectItem T="string" Value="@("feltarbeider")">Feltarbeider</MudSelectItem>
                     <MudSelectItem T="string" Value="@("prosjektleder")">Prosjektleder</MudSelectItem>
                     <MudSelectItem T="string" Value="@("admin")">Administrator</MudSelectItem>
                 </MudSelect>
                 <MudText Typo="Typo.caption" Color="Color.Secondary">
-                    Personen far en lenke for a opprette konto og bli med i bedriften din.
+                    Personen får en lenke for å opprette konto og bli med i bedriften din.
                 </MudText>
             </MudStack>
         }

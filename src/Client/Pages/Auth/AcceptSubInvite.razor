@@ -7,7 +7,7 @@
 @using Solodoc.Shared.Auth
 @using System.Net.Http.Json
 
-<PageTitle>Solodoc - Bli med som underentreprenor</PageTitle>
+<PageTitle>Solodoc - Bli med som underentreprenør</PageTitle>
 
 <div style="display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px;background:#F8F9FA;">
     @if (_loading)
@@ -31,14 +31,14 @@
                      Style="@($"color:{_accentColor};font-size:64px;")" Class="mb-4" />
             <MudText Typo="Typo.h5" Style="font-weight:700;" Class="mb-2">Velkommen!</MudText>
             <MudText Typo="Typo.body1" Color="Color.Secondary" Class="mb-2">
-                Du har na tilgang til <b>@_projectName</b> hos @_tenantName.
+                Du har nå tilgang til <b>@_projectName</b> hos @_tenantName.
             </MudText>
             <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
-                Du kan fylle ut sjekklister, rapportere avvik og sjekke inn pa byggeplassen.
+                Du kan fylle ut sjekklister, rapportere avvik og sjekke inn på byggeplassen.
             </MudText>
             <MudButton Variant="Variant.Filled" Href="/"
                        Style="@($"border-radius:12px;text-transform:none;background:{_accentColor};color:#fff;width:100%;height:48px;font-size:1rem;")">
-                Ga til prosjektet
+                Gå til prosjektet
             </MudButton>
         </MudPaper>
     }
@@ -129,7 +129,7 @@
             var r = await Http.GetAsync($"api/subcontractors/invite/{InvitationId}");
             if (!r.IsSuccessStatusCode)
             {
-                _error = "Invitasjonen ble ikke funnet eller er utlopt.";
+                _error = "Invitasjonen ble ikke funnet eller er utløpt.";
                 _loading = false;
                 return;
             }
@@ -144,7 +144,7 @@
 
             if (data.IsExpired)
             {
-                _error = "Invitasjonen har utlopt.";
+                _error = "Invitasjonen har utløpt.";
                 _loading = false;
                 return;
             }
@@ -206,12 +206,12 @@
             else
             {
                 var errorBody = await r.Content.ReadFromJsonAsync<ErrorBody>();
-                _formError = errorBody?.Error ?? "Noe gikk galt. Prov igjen.";
+                _formError = errorBody?.Error ?? "Noe gikk galt. Prøv igjen.";
             }
         }
         catch
         {
-            _formError = "Nettverksfeil. Prov igjen.";
+            _formError = "Nettverksfeil. Prøv igjen.";
         }
 
         _submitting = false;

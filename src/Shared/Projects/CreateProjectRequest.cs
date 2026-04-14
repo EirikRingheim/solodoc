@@ -8,4 +8,5 @@ public record CreateProjectRequest(
     string? Address,
     DateOnly? StartDate,
     DateOnly? PlannedEndDate,
-    decimal? EstimatedHours);
+    decimal? EstimatedHours,
+    Guid? ParentProjectId = null);

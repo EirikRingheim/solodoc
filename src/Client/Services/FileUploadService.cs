@@ -7,17 +7,24 @@ public class FileUploadService(ApiHttpClient api)
 {
     public async Task<string?> UploadPhotoAsync(Stream stream, string fileName, string contentType)
     {
-        using var content = new MultipartFormDataContent();
-        var fileContent = new StreamContent(stream);
-        fileContent.Headers.ContentType = new MediaTypeHeaderValue(contentType);
-        content.Add(fileContent, "file", fileName);
-
-        var response = await api.PostAsync("api/files/upload", content);
-        if (response.IsSuccessStatusCode)
+        try
         {
-            var result = await response.Content.ReadFromJsonAsync<UploadResult>();
-            return result?.Key;
+            if (string.IsNullOrWhiteSpace(contentType))
+                contentType = "application/octet-stream";
+
+            using var content = new MultipartFormDataContent();
+            var fileContent = new StreamContent(stream);
+            fileContent.Headers.ContentType = new MediaTypeHeaderValue(contentType);
+            content.Add(fileContent, "file", fileName);
+
+            var response = await api.PostAsync("api/files/upload", content);
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<UploadResult>();
+                return result?.Key;
+            }
         }
+        catch { }
         return null;
     }
 

@@ -3592,6 +3592,493 @@ namespace Solodoc.Infrastructure.Persistence.Migrations
                     b.ToTable("equipment_project_assignments", (string)null);
                 });
 
+            modelBuilder.Entity("Solodoc.Domain.Entities.Expenses.Expense", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<decimal>("Amount")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("amount");
+
+                    b.Property<DateTimeOffset?>("ApprovedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("approved_at");
+
+                    b.Property<Guid?>("ApprovedById")
+                        .HasColumnType("uuid")
+                        .HasColumnName("approved_by_id");
+
+                    b.Property<int?>("Category")
+                        .HasColumnType("integer")
+                        .HasColumnName("category");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date")
+                        .HasColumnName("date");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("deleted_by");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("description");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_deleted");
+
+                    b.Property<Guid?>("JobId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("job_id");
+
+                    b.Property<DateTimeOffset?>("PaidAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("paid_at");
+
+                    b.Property<Guid?>("PaidById")
+                        .HasColumnType("uuid")
+                        .HasColumnName("paid_by_id");
+
+                    b.Property<Guid>("PersonId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("person_id");
+
+                    b.Property<Guid?>("ProjectId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("project_id");
+
+                    b.Property<string>("ReceiptFileKey")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("receipt_file_key");
+
+                    b.Property<string>("RejectionReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("rejection_reason");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer")
+                        .HasColumnName("status");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_expenses");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_expenses_tenant_id");
+
+                    b.HasIndex("PersonId", "Date")
+                        .HasDatabaseName("ix_expenses_person_id_date");
+
+                    b.HasIndex("TenantId", "Status")
+                        .HasDatabaseName("ix_expenses_tenant_id_status");
+
+                    b.ToTable("expenses", (string)null);
+                });
+
+            modelBuilder.Entity("Solodoc.Domain.Entities.Expenses.ExpenseSettings", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("deleted_by");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_deleted");
+
+                    b.Property<bool>("RequireCategory")
+                        .HasColumnType("boolean")
+                        .HasColumnName("require_category");
+
+                    b.Property<bool>("RequireDate")
+                        .HasColumnType("boolean")
+                        .HasColumnName("require_date");
+
+                    b.Property<bool>("RequireDescription")
+                        .HasColumnType("boolean")
+                        .HasColumnName("require_description");
+
+                    b.Property<bool>("RequireProject")
+                        .HasColumnType("boolean")
+                        .HasColumnName("require_project");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_expense_settings_table");
+
+                    b.HasIndex("TenantId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_expense_settings_table_tenant_id");
+
+                    b.ToTable("expense_settings_table", (string)null);
+                });
+
+            modelBuilder.Entity("Solodoc.Domain.Entities.Expenses.TravelExpense", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<decimal>("AccommodationAmount")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("accommodation_amount");
+
+                    b.Property<DateTimeOffset?>("ApprovedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("approved_at");
+
+                    b.Property<Guid?>("ApprovedById")
+                        .HasColumnType("uuid")
+                        .HasColumnName("approved_by_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("deleted_by");
+
+                    b.Property<DateOnly>("DepartureDate")
+                        .HasColumnType("date")
+                        .HasColumnName("departure_date");
+
+                    b.Property<string>("Destination")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("destination");
+
+                    b.Property<decimal>("DietAmount")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("diet_amount");
+
+                    b.Property<decimal>("DocumentedAccommodationCost")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("documented_accommodation_cost");
+
+                    b.Property<bool>("ForestRoads")
+                        .HasColumnType("boolean")
+                        .HasColumnName("forest_roads");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_deleted");
+
+                    b.Property<decimal>("MileageAmount")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("mileage_amount");
+
+                    b.Property<int>("NightsUndocumented")
+                        .HasColumnType("integer")
+                        .HasColumnName("nights_undocumented");
+
+                    b.Property<DateTimeOffset?>("PaidAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("paid_at");
+
+                    b.Property<Guid?>("PaidById")
+                        .HasColumnType("uuid")
+                        .HasColumnName("paid_by_id");
+
+                    b.Property<int>("Passengers")
+                        .HasColumnType("integer")
+                        .HasColumnName("passengers");
+
+                    b.Property<Guid>("PersonId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("person_id");
+
+                    b.Property<Guid?>("ProjectId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("project_id");
+
+                    b.Property<string>("Purpose")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("purpose");
+
+                    b.Property<string>("RejectionReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("rejection_reason");
+
+                    b.Property<DateOnly>("ReturnDate")
+                        .HasColumnType("date")
+                        .HasColumnName("return_date");
+
+                    b.Property<string>("Route")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("route");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer")
+                        .HasColumnName("status");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<decimal>("TotalAmount")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("total_amount");
+
+                    b.Property<decimal?>("TotalKm")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("total_km");
+
+                    b.Property<int>("TransportMethod")
+                        .HasColumnType("integer")
+                        .HasColumnName("transport_method");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<bool>("WithTrailer")
+                        .HasColumnType("boolean")
+                        .HasColumnName("with_trailer");
+
+                    b.HasKey("Id")
+                        .HasName("pk_travel_expenses");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_travel_expenses_tenant_id");
+
+                    b.HasIndex("PersonId", "DepartureDate")
+                        .HasDatabaseName("ix_travel_expenses_person_id_departure_date");
+
+                    b.HasIndex("TenantId", "Status")
+                        .HasDatabaseName("ix_travel_expenses_tenant_id_status");
+
+                    b.ToTable("travel_expenses", (string)null);
+                });
+
+            modelBuilder.Entity("Solodoc.Domain.Entities.Expenses.TravelExpenseDay", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<bool>("BreakfastProvided")
+                        .HasColumnType("boolean")
+                        .HasColumnName("breakfast_provided");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date")
+                        .HasColumnName("date");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("deleted_by");
+
+                    b.Property<decimal>("DietAmount")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("diet_amount");
+
+                    b.Property<bool>("DinnerProvided")
+                        .HasColumnType("boolean")
+                        .HasColumnName("dinner_provided");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_deleted");
+
+                    b.Property<bool>("IsOvernight")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_overnight");
+
+                    b.Property<bool>("LunchProvided")
+                        .HasColumnType("boolean")
+                        .HasColumnName("lunch_provided");
+
+                    b.Property<Guid>("TravelExpenseId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("travel_expense_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_travel_expense_days");
+
+                    b.HasIndex("TravelExpenseId")
+                        .HasDatabaseName("ix_travel_expense_days_travel_expense_id");
+
+                    b.ToTable("travel_expense_days", (string)null);
+                });
+
+            modelBuilder.Entity("Solodoc.Domain.Entities.Expenses.TravelExpenseRate", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<decimal>("BreakfastDeductionPct")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)")
+                        .HasColumnName("breakfast_deduction_pct");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("deleted_by");
+
+                    b.Property<decimal>("Diet12PlusHours")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("diet12plus_hours");
+
+                    b.Property<decimal>("Diet6To12Hours")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("diet6to12hours");
+
+                    b.Property<decimal>("DietOvernight")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("diet_overnight");
+
+                    b.Property<decimal>("DinnerDeductionPct")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)")
+                        .HasColumnName("dinner_deduction_pct");
+
+                    b.Property<decimal>("ForestRoadSurchargePerKm")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("forest_road_surcharge_per_km");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_deleted");
+
+                    b.Property<decimal>("LunchDeductionPct")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)")
+                        .HasColumnName("lunch_deduction_pct");
+
+                    b.Property<decimal>("MileagePerKm")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("mileage_per_km");
+
+                    b.Property<decimal>("PassengerSurchargePerKm")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("passenger_surcharge_per_km");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<decimal>("TrailerSurchargePerKm")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("trailer_surcharge_per_km");
+
+                    b.Property<decimal>("UndocumentedNightRate")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)")
+                        .HasColumnName("undocumented_night_rate");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<int>("Year")
+                        .HasColumnType("integer")
+                        .HasColumnName("year");
+
+                    b.HasKey("Id")
+                        .HasName("pk_travel_expense_rates");
+
+                    b.HasIndex("TenantId", "Year")
+                        .IsUnique()
+                        .HasDatabaseName("ix_travel_expense_rates_tenant_id_year");
+
+                    b.ToTable("travel_expense_rates", (string)null);
+                });
+
             modelBuilder.Entity("Solodoc.Domain.Entities.Export.ExportJob", b =>
                 {
                     b.Property<Guid>("Id")
@@ -6172,6 +6659,10 @@ namespace Solodoc.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(300)")
                         .HasColumnName("name");
 
+                    b.Property<Guid?>("ParentProjectId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("parent_project_id");
+
                     b.Property<DateOnly?>("PlannedEndDate")
                         .HasColumnType("date")
                         .HasColumnName("planned_end_date");
@@ -6202,6 +6693,9 @@ namespace Solodoc.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("CustomerId")
                         .HasDatabaseName("ix_projects_customer_id");
+
+                    b.HasIndex("ParentProjectId")
+                        .HasDatabaseName("ix_projects_parent_project_id");
 
                     b.HasIndex("QrCodeSlug")
                         .IsUnique()
@@ -7005,6 +7499,18 @@ namespace Solodoc.Infrastructure.Persistence.Migrations
                     b.Navigation("Equipment");
                 });
 
+            modelBuilder.Entity("Solodoc.Domain.Entities.Expenses.TravelExpenseDay", b =>
+                {
+                    b.HasOne("Solodoc.Domain.Entities.Expenses.TravelExpense", "TravelExpense")
+                        .WithMany("Days")
+                        .HasForeignKey("TravelExpenseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_travel_expense_days_travel_expenses_travel_expense_id");
+
+                    b.Navigation("TravelExpense");
+                });
+
             modelBuilder.Entity("Solodoc.Domain.Entities.Hms.HmsMeetingActionItem", b =>
                 {
                     b.HasOne("Solodoc.Domain.Entities.Hms.HmsMeeting", "Meeting")
@@ -7231,7 +7737,15 @@ namespace Solodoc.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.SetNull)
                         .HasConstraintName("fk_projects_customers_customer_id");
 
+                    b.HasOne("Solodoc.Domain.Entities.Projects.Project", "ParentProject")
+                        .WithMany("SubProjects")
+                        .HasForeignKey("ParentProjectId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_projects_projects_parent_project_id");
+
                     b.Navigation("Customer");
+
+                    b.Navigation("ParentProject");
                 });
 
             modelBuilder.Entity("Solodoc.Domain.Entities.Projects.ProjectMembership", b =>
@@ -7380,6 +7894,11 @@ namespace Solodoc.Infrastructure.Persistence.Migrations
                     b.Navigation("ProjectAssignments");
                 });
 
+            modelBuilder.Entity("Solodoc.Domain.Entities.Expenses.TravelExpense", b =>
+                {
+                    b.Navigation("Days");
+                });
+
             modelBuilder.Entity("Solodoc.Domain.Entities.Hms.HmsMeeting", b =>
                 {
                     b.Navigation("ActionItems");
@@ -7429,6 +7948,8 @@ namespace Solodoc.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("Solodoc.Domain.Entities.Projects.Project", b =>
                 {
                     b.Navigation("Memberships");
+
+                    b.Navigation("SubProjects");
                 });
 
             modelBuilder.Entity("Solodoc.Domain.Entities.TaskGroups.TaskGroup", b =>

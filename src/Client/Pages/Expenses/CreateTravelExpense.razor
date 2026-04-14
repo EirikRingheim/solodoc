@@ -1,0 +1,308 @@
+@page "/utlegg/reise/ny"
+@attribute [Authorize]
+@inject ExpenseService ExpenseService
+@inject ProjectService ProjectService
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
+@using Solodoc.Shared.Expenses
+@using Solodoc.Shared.Projects
+
+<PageTitle>Solodoc - Ny reiseregning</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-4">
+    <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Href="/utlegg" />
+    <MudText Typo="Typo.h5" Style="font-weight:700;">Ny reiseregning</MudText>
+</MudStack>
+
+<div style="max-width:700px;">
+    @* ── Step indicator ── *@
+    <MudStack Row="true" Spacing="0" Class="mb-4">
+        @for (int i = 1; i <= 4; i++)
+        {
+            var step = i;
+            var isActive = _step == step;
+            var isDone = _step > step;
+            <div style="@($"flex:1;text-align:center;padding:8px;border-bottom:3px solid {(isActive ? "#4361EE" : isDone ? "#059669" : "#E9ECEF")};")">
+                <span style="@($"font-size:0.8rem;font-weight:{(isActive ? "700" : "400")};color:{(isActive ? "#4361EE" : isDone ? "#059669" : "#9CA3AF")};")">
+                    @(step switch { 1 => "Reisedetaljer", 2 => "Kjøring", 3 => "Måltider", 4 => "Sammendrag", _ => "" })
+                </span>
+            </div>
+        }
+    </MudStack>
+
+    <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;" Class="pa-5">
+        @if (_step == 1)
+        {
+            @* ── Step 1: Trip details ── *@
+            <MudStack Spacing="3">
+                <MudText Typo="Typo.subtitle1" Style="font-weight:600;">Reisedetaljer</MudText>
+                <MudGrid Spacing="2">
+                    <MudItem xs="6">
+                        <MudDatePicker @bind-Date="_departureDate" Label="Avreise *" Variant="Variant.Outlined" DateFormat="dd.MM.yyyy" />
+                    </MudItem>
+                    <MudItem xs="6">
+                        <MudDatePicker @bind-Date="_returnDate" Label="Retur *" Variant="Variant.Outlined" DateFormat="dd.MM.yyyy" />
+                    </MudItem>
+                </MudGrid>
+                <MudTextField T="string" @bind-Value="_destination" Label="Reisemål *" Variant="Variant.Outlined" Placeholder="F.eks. Oslo, Trondheim" />
+                <MudTextField T="string" @bind-Value="_purpose" Label="Formål *" Variant="Variant.Outlined" Placeholder="Befaring, møte, kurs..." />
+                <MudSelect T="string" @bind-Value="_transportMethod" Label="Transportmiddel" Variant="Variant.Outlined">
+                    <MudSelectItem T="string" Value="@("Bil")">Bil</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("Buss")">Buss</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("Tog")">Tog</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("Fly")">Fly</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("Sykkel")">Sykkel</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("Annet")">Annet</MudSelectItem>
+                </MudSelect>
+                <MudTextField T="string" @bind-Value="_route" Label="Reiserute" Variant="Variant.Outlined"
+                              Placeholder="Bergen → Oslo → Bergen" />
+                <MudSelect T="Guid?" @bind-Value="_projectId" Label="Prosjekt (valgfritt)" Variant="Variant.Outlined" Clearable="true">
+                    @foreach (var p in _projects.Where(p => p.ParentProjectId is null))
+                    {
+                        <MudSelectItem T="Guid?" Value="@((Guid?)p.Id)">@p.Name</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudStack>
+        }
+        else if (_step == 2)
+        {
+            @* ── Step 2: Mileage ── *@
+            <MudStack Spacing="3">
+                <MudText Typo="Typo.subtitle1" Style="font-weight:600;">Kjøring og overnatting</MudText>
+                <MudNumericField T="decimal?" @bind-Value="_totalKm" Label="Totalt antall km" Variant="Variant.Outlined" Min="0m" />
+                <MudNumericField T="int" @bind-Value="_passengers" Label="Antall passasjerer" Variant="Variant.Outlined" Min="0" />
+                <MudStack Row="true" Spacing="3">
+                    <MudSwitch T="bool" @bind-Value="_forestRoads" Label="Skogsvei/anleggsvei" Color="Color.Primary" />
+                    <MudSwitch T="bool" @bind-Value="_withTrailer" Label="Med tilhenger" Color="Color.Primary" />
+                </MudStack>
+                <MudDivider />
+                <MudText Typo="Typo.subtitle2" Style="font-weight:600;">Overnatting</MudText>
+                <MudNumericField T="int" @bind-Value="_nightsUndocumented" Label="Netter uten kvittering (privat)" Variant="Variant.Outlined" Min="0" />
+                <MudNumericField T="decimal" @bind-Value="_documentedCost" Label="Dokumentert overnatting (kr)" Variant="Variant.Outlined" Min="0m" Format="N0" />
+            </MudStack>
+        }
+        else if (_step == 3)
+        {
+            @* ── Step 3: Meals per day ── *@
+            <MudStack Spacing="3">
+                <MudText Typo="Typo.subtitle1" Style="font-weight:600;">Måltider per dag</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Kryss av for måltider som ble dekket av arbeidsgiver/arrangør</MudText>
+                @foreach (var day in _days)
+                {
+                    <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:8px;" Class="pa-3">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Style="flex-wrap:wrap;gap:8px;">
+                            <MudText Typo="Typo.body2" Style="font-weight:600;min-width:100px;">@day.Date.ToString("ddd dd.MM")</MudText>
+                            <MudCheckBox T="bool" @bind-Value="day.BreakfastProvided" Label="Frokost" Dense="true" />
+                            <MudCheckBox T="bool" @bind-Value="day.LunchProvided" Label="Lunsj" Dense="true" />
+                            <MudCheckBox T="bool" @bind-Value="day.DinnerProvided" Label="Middag" Dense="true" />
+                            <MudCheckBox T="bool" @bind-Value="day.IsOvernight" Label="Overnatting" Dense="true" />
+                        </MudStack>
+                    </MudPaper>
+                }
+            </MudStack>
+        }
+        else if (_step == 4)
+        {
+            @* ── Step 4: Summary with live calculation ── *@
+            <MudStack Spacing="3">
+                <MudText Typo="Typo.subtitle1" Style="font-weight:600;">Sammendrag</MudText>
+
+                @if (_calculation is not null)
+                {
+                    <MudGrid Spacing="2">
+                        <MudItem xs="6" sm="3">
+                            <div style="background:#EBF0FF;border-radius:10px;padding:14px;text-align:center;">
+                                <div style="font-size:1.3rem;font-weight:700;color:#4361EE;">kr @_calculation.DietTotal.ToString("N0")</div>
+                                <div style="font-size:0.7rem;color:#6B7280;">Diett</div>
+                            </div>
+                        </MudItem>
+                        <MudItem xs="6" sm="3">
+                            <div style="background:#D1FAE5;border-radius:10px;padding:14px;text-align:center;">
+                                <div style="font-size:1.3rem;font-weight:700;color:#059669;">kr @_calculation.MileageTotal.ToString("N0")</div>
+                                <div style="font-size:0.7rem;color:#6B7280;">Kjøring</div>
+                            </div>
+                        </MudItem>
+                        <MudItem xs="6" sm="3">
+                            <div style="background:#EDE9FE;border-radius:10px;padding:14px;text-align:center;">
+                                <div style="font-size:1.3rem;font-weight:700;color:#7C3AED;">kr @_calculation.AccommodationTotal.ToString("N0")</div>
+                                <div style="font-size:0.7rem;color:#6B7280;">Overnatting</div>
+                            </div>
+                        </MudItem>
+                        <MudItem xs="6" sm="3">
+                            <div style="background:#FEF3C7;border-radius:10px;padding:14px;text-align:center;">
+                                <div style="font-size:1.3rem;font-weight:700;color:#D97706;">kr @_calculation.GrandTotal.ToString("N0")</div>
+                                <div style="font-size:0.7rem;color:#6B7280;">Totalt</div>
+                            </div>
+                        </MudItem>
+                    </MudGrid>
+
+                    @* Per-day breakdown *@
+                    @if (_calculation.DayBreakdown.Count > 0)
+                    {
+                        <MudSimpleTable Dense="true" Style="font-size:0.8rem;border:1px solid #e9ecef;border-radius:8px;">
+                            <thead>
+                                <tr style="background:#F8F9FA;"><th>Dag</th><th>Overnatting</th><th>Frokost</th><th>Lunsj</th><th>Middag</th><th style="text-align:right;">Diett</th></tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var d in _calculation.DayBreakdown)
+                                {
+                                    <tr>
+                                        <td style="font-weight:500;">@d.Date.ToString("dd.MM")</td>
+                                        <td>@(d.IsOvernight ? "Ja" : "Nei")</td>
+                                        <td>@(d.BreakfastProvided ? "Dekket" : "-")</td>
+                                        <td>@(d.LunchProvided ? "Dekket" : "-")</td>
+                                        <td>@(d.DinnerProvided ? "Dekket" : "-")</td>
+                                        <td style="text-align:right;font-weight:600;">kr @d.DietAmount.ToString("N0")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </MudSimpleTable>
+                    }
+                }
+                else
+                {
+                    <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+                }
+
+                <MudPaper Elevation="0" Style="background:#F8F9FA;border-radius:8px;padding:12px;">
+                    <MudText Typo="Typo.body2"><b>Reisemål:</b> @_destination</MudText>
+                    <MudText Typo="Typo.body2"><b>Formål:</b> @_purpose</MudText>
+                    <MudText Typo="Typo.body2"><b>Periode:</b> @_departureDate?.ToString("dd.MM.yyyy") — @_returnDate?.ToString("dd.MM.yyyy")</MudText>
+                    @if (_totalKm > 0) { <MudText Typo="Typo.body2"><b>Kjørelengde:</b> @_totalKm km</MudText> }
+                </MudPaper>
+            </MudStack>
+        }
+
+        @* ── Navigation buttons ── *@
+        <MudStack Row="true" Justify="Justify.SpaceBetween" Class="mt-4">
+            @if (_step > 1)
+            {
+                <MudButton Variant="Variant.Text" OnClick="PrevStep" Style="text-transform:none;">Tilbake</MudButton>
+            }
+            else
+            {
+                <div></div>
+            }
+            @if (_step < 4)
+            {
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="NextStep"
+                           Disabled="!CanProceed"
+                           Style="text-transform:none;border-radius:8px;">Neste</MudButton>
+            }
+            else
+            {
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SubmitTravelExpense"
+                           Disabled="_submitting"
+                           Style="text-transform:none;border-radius:8px;">
+                    @if (_submitting) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> }
+                    Send inn reiseregning
+                </MudButton>
+            }
+        </MudStack>
+    </MudPaper>
+</div>
+
+@code {
+    private int _step = 1;
+    private bool _submitting;
+    private List<ProjectListItemDto> _projects = [];
+    private TravelExpenseCalculationDto? _calculation;
+
+    // Step 1
+    private DateTime? _departureDate = DateTime.Now;
+    private DateTime? _returnDate = DateTime.Now.AddDays(1);
+    private string _destination = "";
+    private string _purpose = "";
+    private string _transportMethod = "Bil";
+    private string? _route;
+    private Guid? _projectId;
+
+    // Step 2
+    private decimal? _totalKm;
+    private int _passengers;
+    private bool _forestRoads;
+    private bool _withTrailer;
+    private int _nightsUndocumented;
+    private decimal _documentedCost;
+
+    // Step 3
+    private List<DayEntry> _days = [];
+
+    private bool CanProceed => _step switch
+    {
+        1 => _departureDate.HasValue && _returnDate.HasValue && !string.IsNullOrWhiteSpace(_destination) && !string.IsNullOrWhiteSpace(_purpose),
+        2 => true,
+        3 => true,
+        _ => false
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        _projects = await ProjectService.GetActiveProjectsAsync();
+    }
+
+    private void NextStep()
+    {
+        if (_step == 1) GenerateDays();
+        _step++;
+        if (_step == 4) _ = CalculatePreview();
+    }
+
+    private void PrevStep() => _step = Math.Max(1, _step - 1);
+
+    private void GenerateDays()
+    {
+        if (!_departureDate.HasValue || !_returnDate.HasValue) return;
+        var start = DateOnly.FromDateTime(_departureDate.Value);
+        var end = DateOnly.FromDateTime(_returnDate.Value);
+        _days.Clear();
+        for (var d = start; d <= end; d = d.AddDays(1))
+            _days.Add(new DayEntry { Date = d });
+    }
+
+    private async Task CalculatePreview()
+    {
+        var req = BuildRequest();
+        _calculation = await ExpenseService.CalculateAsync(req);
+        StateHasChanged();
+    }
+
+    private CreateTravelExpenseRequest BuildRequest()
+    {
+        return new CreateTravelExpenseRequest(
+            _projectId,
+            DateOnly.FromDateTime(_departureDate!.Value),
+            DateOnly.FromDateTime(_returnDate!.Value),
+            _destination, _purpose, _transportMethod, _route,
+            _totalKm, _passengers, _forestRoads, _withTrailer,
+            _nightsUndocumented, _documentedCost,
+            _days.Select(d => new CreateTravelExpenseDayRequest(
+                d.Date, d.BreakfastProvided, d.LunchProvided, d.DinnerProvided, d.IsOvernight)).ToList());
+    }
+
+    private async Task SubmitTravelExpense()
+    {
+        _submitting = true;
+        var id = await ExpenseService.CreateTravelExpenseAsync(BuildRequest());
+        if (id.HasValue)
+        {
+            await ExpenseService.SubmitTravelExpenseAsync(id.Value);
+            Snackbar.Add("Reiseregning sendt inn!", Severity.Success);
+            Navigation.NavigateTo("/utlegg");
+        }
+        else
+        {
+            Snackbar.Add("Kunne ikke opprette reiseregning", Severity.Error);
+        }
+        _submitting = false;
+    }
+
+    private class DayEntry
+    {
+        public DateOnly Date { get; set; }
+        public bool BreakfastProvided { get; set; }
+        public bool LunchProvided { get; set; }
+        public bool DinnerProvided { get; set; }
+        public bool IsOvernight { get; set; }
+    }
+}

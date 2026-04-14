@@ -41,6 +41,32 @@ public class SeedDataService(
                 logger.LogInformation("Created SOLOTRIAL365 coupon code");
             }
 
+            // Ensure 2026 travel expense rates exist for all tenants
+            var tenantIds = await db.Tenants.Where(t => !t.IsDeleted).Select(t => t.Id).ToListAsync(ct);
+            foreach (var tid in tenantIds)
+            {
+                if (!await db.TravelExpenseRates.IgnoreQueryFilters().AnyAsync(r => r.TenantId == tid && r.Year == 2026, ct))
+                {
+                    db.TravelExpenseRates.Add(new Solodoc.Domain.Entities.Expenses.TravelExpenseRate
+                    {
+                        TenantId = tid, Year = 2026,
+                        Diet6To12Hours = 397, Diet12PlusHours = 736, DietOvernight = 1012,
+                        BreakfastDeductionPct = 20, LunchDeductionPct = 30, DinnerDeductionPct = 50,
+                        MileagePerKm = 5.30m, PassengerSurchargePerKm = 1.00m,
+                        ForestRoadSurchargePerKm = 1.00m, TrailerSurchargePerKm = 1.00m,
+                        UndocumentedNightRate = 452
+                    });
+                }
+                if (!await db.ExpenseSettingsTable.IgnoreQueryFilters().AnyAsync(s => s.TenantId == tid, ct))
+                {
+                    db.ExpenseSettingsTable.Add(new Solodoc.Domain.Entities.Expenses.ExpenseSettings
+                    {
+                        TenantId = tid, RequireDate = true
+                    });
+                }
+            }
+            await db.SaveChangesAsync(ct);
+
             logger.LogInformation("Seed data already exists, skipping");
             return;
         }

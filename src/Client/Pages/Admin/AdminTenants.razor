@@ -87,7 +87,7 @@ else
     <div style="display:flex;height:24px;border-radius:8px;overflow:hidden;margin-bottom:16px;border:1px solid #e9ecef;">
         @if (PaidPct > 0) { <div style="@($"width:{PaidPct}%;background:#4361EE;display:flex;align-items:center;justify-content:center;color:#fff;font-size:0.65rem;font-weight:600;")">Betalt @PaidCount</div> }
         @if (CouponPct > 0) { <div style="@($"width:{CouponPct}%;background:#10B981;display:flex;align-items:center;justify-content:center;color:#fff;font-size:0.65rem;font-weight:600;")">Kupong @CouponCount</div> }
-        @if (TrialPct > 0) { <div style="@($"width:{TrialPct}%;background:#F59E0B;display:flex;align-items:center;justify-content:center;color:#fff;font-size:0.65rem;font-weight:600;")">Prove @TrialCount</div> }
+        @if (TrialPct > 0) { <div style="@($"width:{TrialPct}%;background:#F59E0B;display:flex;align-items:center;justify-content:center;color:#fff;font-size:0.65rem;font-weight:600;")">Prøve @TrialCount</div> }
     </div>
 
     @* ── Expiring trials warning ── *@
@@ -97,7 +97,7 @@ else
             <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
                 <MudIcon Icon="@Icons.Material.Filled.Warning" Size="Size.Small" Style="color:#D97706;" />
                 <MudText Typo="Typo.body2" Style="color:#92400E;font-weight:500;">
-                    @ExpiringTrials.Count proveperiode(r) utloper innen 14 dager:
+                    @ExpiringTrials.Count proveperiode(r) utløper innen 14 dager:
                     @string.Join(", ", ExpiringTrials.Select(t => $"{t.Name} ({t.TrialEndsAt!.Value.ToLocalTime():dd.MM})"))
                 </MudText>
             </MudStack>
@@ -139,7 +139,7 @@ else
                         {
                             var capturedT = t;
                             var tierColor = t.SubscriptionTier switch { "trial" => "#F59E0B", "basic" => "#4361EE", "pro" => "#059669", "enterprise" => "#7C3AED", _ => "#6B7280" };
-                            var tierLabel = t.SubscriptionTier switch { "trial" => "Prove", "basic" => "Basis", "pro" => "Pro", "enterprise" => "Enterprise", _ => t.SubscriptionTier };
+                            var tierLabel = t.SubscriptionTier switch { "trial" => "Prøve", "basic" => "Basis", "pro" => "Pro", "enterprise" => "Enterprise", _ => t.SubscriptionTier };
                             var tenantMrr = t.HasCoupon ? 0 : t.MonthlyEstimateKr;
                             var trialExpired = t.TrialEndsAt.HasValue && t.TrialEndsAt.Value < DateTimeOffset.UtcNow;
                             var trialDaysLeft = t.TrialEndsAt.HasValue ? (int)(t.TrialEndsAt.Value - DateTimeOffset.UtcNow).TotalDays : (int?)null;
@@ -271,13 +271,13 @@ else
         <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;" Class="pa-4">
             <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
                 <MudText Typo="Typo.subtitle2" Style="font-weight:600;">Feil rapportert fra brukere</MudText>
-                <MudSwitch T="bool" @bind-Value="_showResolvedErrors" Label="Vis loste" Color="Color.Primary" />
+                <MudSwitch T="bool" @bind-Value="_showResolvedErrors" Label="Vis løste" Color="Color.Primary" />
             </MudStack>
             @if (_errors.Count == 0)
             {
                 <MudStack AlignItems="AlignItems.Center" Spacing="2" Class="pa-8">
                     <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Large" Color="Color.Success" />
-                    <MudText Color="Color.Secondary">Ingen uloste feil</MudText>
+                    <MudText Color="Color.Secondary">Ingen uløste feil</MudText>
                 </MudStack>
             }
             else
@@ -299,7 +299,7 @@ else
                                 {
                                     <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Success"
                                                OnClick="() => ResolveError(capturedErr.Id)"
-                                               Style="text-transform:none;font-size:0.7rem;">Merk som lost</MudButton>
+                                               Style="text-transform:none;font-size:0.7rem;">Merk som løst</MudButton>
                                 }
                             </MudStack>
                             <MudStack Row="true" Spacing="3" Style="flex-wrap:wrap;">
@@ -374,7 +374,7 @@ else
             }
             else
             {
-                <MudText Typo="Typo.body2" Color="Color.Secondary">Ingen kupongkoder opprettet enna.</MudText>
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Ingen kupongkoder opprettet ennå.</MudText>
             }
         </MudStack>
     </DialogContent>

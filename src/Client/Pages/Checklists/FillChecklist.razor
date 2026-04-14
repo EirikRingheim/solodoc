@@ -555,7 +555,7 @@ else
         </div>
         <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="ClearSignature"
                    Style="text-transform:none;margin-top:4px;" Color="Color.Secondary">
-            Slett og tegn pa nytt
+            Slett og tegn på nytt
         </MudButton>
     </DialogContent>
     <DialogActions>
@@ -921,7 +921,7 @@ else
                 var base64 = Convert.ToBase64String(fileBytes);
                 await OfflineStorage.SaveOfflinePhotoAsync("checklistItem", item.Id.ToString(), file.Name, base64, file.ContentType);
                 key = $"offline:{item.Id}";
-                Snackbar.Add("Bilde lagret lokalt — synkroniseres nar du er online", Severity.Info);
+                Snackbar.Add("Bilde lagret lokalt — synkroniseres når du er online", Severity.Info);
             }
 
             if (key is not null)
@@ -977,7 +977,7 @@ else
         var isEmpty = await JS.InvokeAsync<bool>("signaturePad.isEmpty");
         if (isEmpty)
         {
-            Snackbar.Add("Tegn signaturen din forst", Severity.Warning);
+            Snackbar.Add("Tegn signaturen din først", Severity.Warning);
             return;
         }
 

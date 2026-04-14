@@ -44,7 +44,24 @@
                           Style="max-width:300px;" />
         </ToolBarContent>
         <Columns>
-            <PropertyColumn Property="x => x.Name" Title="Prosjektnavn" />
+            <TemplateColumn Title="Prosjektnavn" SortLabel="name">
+                <CellTemplate>
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1"
+                              Style="@(context.Item.ParentProjectId.HasValue ? "padding-left:20px;" : "")">
+                        @if (context.Item.ParentProjectId.HasValue)
+                        {
+                            <MudIcon Icon="@Icons.Material.Filled.SubdirectoryArrowRight" Size="Size.Small" Style="color:#9CA3AF;" />
+                        }
+                        <div>
+                            <MudText Typo="Typo.body2" Style="font-weight:500;">@context.Item.Name</MudText>
+                            @if (context.Item.ParentProjectName is not null)
+                            {
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">@context.Item.ParentProjectName</MudText>
+                            }
+                        </div>
+                    </MudStack>
+                </CellTemplate>
+            </TemplateColumn>
             <TemplateColumn Title="Status" SortLabel="status">
                 <CellTemplate>
                     @{
@@ -57,6 +74,16 @@
                     }
                     <MudChip T="string" Size="Size.Small" Color="@color"
                              Style="height:22px;">@context.Item.Status</MudChip>
+                </CellTemplate>
+            </TemplateColumn>
+            <TemplateColumn Title="Underprosjekter">
+                <CellTemplate>
+                    @if (context.Item.SubProjectCount > 0)
+                    {
+                        var pct = context.Item.SubProjectCount > 0 ? context.Item.SubProjectsCompleted * 100 / context.Item.SubProjectCount : 0;
+                        var col = pct == 100 ? "#059669" : pct > 0 ? "#4361EE" : "#6B7280";
+                        <span style="@($"color:{col};font-weight:600;font-size:0.8rem;")">@context.Item.SubProjectsCompleted / @context.Item.SubProjectCount</span>
+                    }
                 </CellTemplate>
             </TemplateColumn>
             <PropertyColumn Property="x => x.ClientName" Title="Kunde" SortLabel="clientname" />
@@ -125,7 +152,7 @@
 
         var page = state.Page + 1; // MudDataGrid is 0-indexed
         var result = await ProjectService.GetProjectsAsync(
-            page, state.PageSize, _search, sortBy, sortDesc);
+            page, state.PageSize, _search, sortBy, sortDesc, topLevelOnly: true);
 
         _loading = false;
 

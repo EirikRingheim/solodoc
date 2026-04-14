@@ -10,9 +10,11 @@ public class ProjectService(ApiHttpClient api, OfflineAwareApiClient offlineApi)
     private record IdResponse(Guid Id);
 
     public async Task<PagedResult<ProjectListItemDto>> GetProjectsAsync(
-        int page, int pageSize, string? search, string? sortBy, bool sortDesc)
+        int page, int pageSize, string? search, string? sortBy, bool sortDesc,
+        bool topLevelOnly = false)
     {
         var url = $"api/projects?page={page}&pageSize={pageSize}&sortDesc={sortDesc}";
+        if (topLevelOnly) url += "&topLevelOnly=true";
 
         if (!string.IsNullOrWhiteSpace(search))
             url += $"&search={Uri.EscapeDataString(search)}";
@@ -73,5 +75,19 @@ public class ProjectService(ApiHttpClient api, OfflineAwareApiClient offlineApi)
     {
         var response = await api.DeleteAsync($"api/projects/{id}");
         return response.IsSuccessStatusCode;
+    }
+
+    public async Task<List<SubProjectSummaryDto>> GetSubProjectsAsync(Guid parentId)
+    {
+        var response = await api.GetAsync($"api/projects/{parentId}/subprojects");
+        return response.IsSuccessStatusCode
+            ? await response.Content.ReadFromJsonAsync<List<SubProjectSummaryDto>>() ?? []
+            : [];
+    }
+
+    public async Task<List<ProjectListItemDto>> GetTopLevelProjectsAsync()
+    {
+        var result = await GetProjectsAsync(1, 100, null, "name", false);
+        return result.Items.Where(p => p.ParentProjectId is null).ToList();
     }
 }

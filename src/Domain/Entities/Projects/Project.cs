@@ -18,7 +18,12 @@ public class Project : TenantScopedEntity
     public double? Longitude { get; set; }
     public string? QrCodeSlug { get; set; }
 
+    // Hierarchy — one level only (sub-projects cannot have children)
+    public Guid? ParentProjectId { get; set; }
+
     // Navigation
     public Customer? Customer { get; set; }
+    public Project? ParentProject { get; set; }
+    public ICollection<Project> SubProjects { get; set; } = [];
     public ICollection<ProjectMembership> Memberships { get; set; } = [];
 }

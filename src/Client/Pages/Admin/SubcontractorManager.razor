@@ -17,7 +17,7 @@
 
 @* ── Invite form ── *@
 <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;" Class="pa-5 mb-4">
-    <MudText Typo="Typo.subtitle1" Style="font-weight:600;" Class="mb-3">Inviter underentreprenor</MudText>
+    <MudText Typo="Typo.subtitle1" Style="font-weight:600;" Class="mb-3">Inviter underentreprenør</MudText>
     <MudStack Spacing="3">
         <MudGrid Spacing="2">
             <MudItem xs="12" sm="6">
@@ -25,16 +25,49 @@
                               Placeholder="navn@firma.no" InputType="InputType.Email" Required="true" Immediate="true" />
             </MudItem>
             <MudItem xs="12" sm="6">
-                <MudSelect T="Guid?" @bind-Value="_inviteProjectId" Label="Prosjekt" Variant="Variant.Outlined"
+                <MudSelect T="Guid?" Value="_inviteProjectId" ValueChanged="OnInviteProjectChanged"
+                           Label="Prosjekt" Variant="Variant.Outlined"
                            Placeholder="Velg prosjekt..." Required="true"
                            AdornmentIcon="@Icons.Material.Filled.Folder">
-                    @foreach (var p in _projects)
+                    @foreach (var p in _projects.Where(p => p.ParentProjectId is null))
                     {
                         <MudSelectItem T="Guid?" Value="@((Guid?)p.Id)">@p.Name</MudSelectItem>
                     }
                 </MudSelect>
             </MudItem>
         </MudGrid>
+
+        @* Project access checkboxes — choose exactly which projects/sub-projects *@
+        @if (_inviteProjectId.HasValue && _inviteSubProjects.Count > 0)
+        {
+            var parentName = _projects.FirstOrDefault(p => p.Id == _inviteProjectId.Value)?.Name ?? "Hovedprosjekt";
+            <MudPaper Elevation="0" Style="border:1px solid #4361EE30;border-radius:10px;background:#F8FAFF;" Class="pa-3">
+                <MudText Typo="Typo.caption" Style="font-weight:600;color:#4361EE;" Class="mb-2">Velg hvilke prosjekter de far tilgang til</MudText>
+                <MudCheckBox T="bool" Value="_inviteAllSelected" ValueChanged="ToggleAll"
+                             Color="Color.Primary" Dense="true">
+                    <span style="font-weight:600;">Alle (hovedprosjekt + underprosjekter)</span>
+                </MudCheckBox>
+                <MudDivider Class="my-1" />
+                <MudCheckBox T="bool" Value="@_inviteIncludeParent" ValueChanged="@(v => { _inviteIncludeParent = v; UpdateAllFlag(); })"
+                             Dense="true">
+                    <span style="font-weight:500;">@parentName</span>
+                    <span style="font-size:0.7rem;color:#9CA3AF;margin-left:4px;">(hovedprosjekt)</span>
+                </MudCheckBox>
+                @foreach (var sub in _inviteSubProjects)
+                {
+                    var capturedSub = sub;
+                    <MudCheckBox T="bool" Value="@_inviteSelectedSubIds.Contains(capturedSub.Id)"
+                                 ValueChanged="@(v => { ToggleSub(capturedSub.Id, v); UpdateAllFlag(); })"
+                                 Dense="true">
+                        <span style="padding-left:8px;">↳ @capturedSub.Name</span>
+                    </MudCheckBox>
+                }
+                @if (!_inviteIncludeParent && _inviteSelectedSubIds.Count == 0)
+                {
+                    <MudText Typo="Typo.caption" Color="Color.Error" Style="margin-top:4px;">Velg minst ett prosjekt</MudText>
+                }
+            </MudPaper>
+        }
 
         <MudGrid Spacing="2">
             <MudItem xs="12" sm="6">
@@ -54,7 +87,7 @@
 
         <MudButton Variant="Variant.Filled" Color="Color.Primary"
                    OnClick="SendInvite"
-                   Disabled="@(_inviting || string.IsNullOrWhiteSpace(_inviteEmail) || !_inviteProjectId.HasValue)"
+                   Disabled="@(_inviting || string.IsNullOrWhiteSpace(_inviteEmail) || !_inviteProjectId.HasValue || (_inviteSubProjects.Count > 0 && !_inviteIncludeParent && _inviteSelectedSubIds.Count == 0))"
                    Style="text-transform:none;border-radius:8px;align-self:flex-start;">
             @if (_inviting) { <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" /> }
             Send invitasjon
@@ -82,7 +115,7 @@
 }
 
 @* ── Active subcontractors ── *@
-<MudText Typo="Typo.subtitle1" Style="font-weight:600;" Class="mb-2">Aktive underentreprenorer</MudText>
+<MudText Typo="Typo.subtitle1" Style="font-weight:600;" Class="mb-2">Aktive underentreprenører</MudText>
 
 @if (_loadingList)
 {
@@ -93,7 +126,7 @@ else if (_subcontractors.Count == 0)
     <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;" Class="pa-8">
         <MudStack AlignItems="AlignItems.Center" Spacing="2">
             <MudIcon Icon="@Icons.Material.Filled.GroupAdd" Size="Size.Large" Color="Color.Secondary" />
-            <MudText Color="Color.Secondary">Ingen underentreprenorer enna. Inviter den forste!</MudText>
+            <MudText Color="Color.Secondary">Ingen underentreprenører ennå. Inviter den forste!</MudText>
         </MudStack>
     </MudPaper>
 }
@@ -167,7 +200,7 @@ else
                         <MudText Typo="Typo.subtitle2" Style="font-weight:600;">1. UE-invitasjon</MudText>
                     </MudStack>
                     <MudText Typo="Typo.body2" Color="Color.Secondary">
-                        Slik ser det ut nar en underentreprenor mottar invitasjonslenken og oppretter konto.
+                        Slik ser det ut når en underentreprenør mottar invitasjonslenken og oppretter konto.
                     </MudText>
                     @if (_previewInviteId is null)
                     {
@@ -199,7 +232,7 @@ else
                         <MudText Typo="Typo.subtitle2" Style="font-weight:600;">2. Gjest QR-innsjekking</MudText>
                     </MudStack>
                     <MudText Typo="Typo.body2" Color="Color.Secondary">
-                        Slik ser det ut nar en besokende skanner QR-koden pa byggeplassen uten konto.
+                        Slik ser det ut når en besøkende skanner QR-koden pa byggeplassen uten konto.
                     </MudText>
                     <MudButton Variant="Variant.Filled" OnClick="() => _showGuestPreview = true"
                                Style="text-transform:none;border-radius:8px;background:#059669;color:#fff;">
@@ -265,7 +298,7 @@ else
                 <div style="font-size:2rem;margin-bottom:8px;">&#10003;</div>
                 <div style="font-weight:700;font-size:1.1rem;color:#059669;">Velkommen!</div>
                 <div style="font-size:0.85rem;color:#6B7280;margin-top:4px;">
-                    Du har na tilgang til <b>@_testInviteDetails?.ProjectName</b>
+                    Du har nå tilgang til <b>@_testInviteDetails?.ProjectName</b>
                 </div>
                 <div style="font-size:0.8rem;color:#9CA3AF;margin-top:4px;">
                     Sjekklister, avviksrapportering og innsjekking
@@ -280,7 +313,7 @@ else
             <MudButton Variant="Variant.Filled" Color="Color.Primary"
                        Href="@($"/invite/sub/{_previewInviteId}")" Target="_blank"
                        Style="text-transform:none;border-radius:8px;">
-                Apne ekte side (inkognito)
+                Åpne ekte side (inkognito)
             </MudButton>
         }
     </DialogActions>
@@ -335,13 +368,13 @@ else
                 <div style="font-size:2rem;margin-bottom:8px;">&#10003;</div>
                 <div style="font-weight:700;font-size:1.1rem;color:#059669;">Sjekket inn!</div>
                 <div style="font-size:0.85rem;color:#6B7280;margin-top:4px;">
-                    Du er na registrert pa <b>@(_projects.FirstOrDefault()?.Name ?? "Prosjekt")</b>
+                    Du er nå registrert på <b>@(_projects.FirstOrDefault()?.Name ?? "Prosjekt")</b>
                 </div>
             </div>
         </MudStack>
 
         <MudAlert Severity="Severity.Info" Dense="true" Class="mt-3">
-            Gjester far ingen tilgang til Solodoc — de registreres kun i personellregisteret pa byggeplassen.
+            Gjester får ingen tilgang til Solodoc — de registreres kun i personellregisteret pa byggeplassen.
         </MudAlert>
     </DialogContent>
     <DialogActions>
@@ -357,6 +390,10 @@ else
     // Invite form
     private string _inviteEmail = "";
     private Guid? _inviteProjectId;
+    private List<ProjectListItemDto> _inviteSubProjects = [];
+    private HashSet<Guid> _inviteSelectedSubIds = [];
+    private bool _inviteIncludeParent = true;
+    private bool _inviteAllSelected;
     private int _inviteAccessDays = 30;
     private bool _inviteHoursEnabled = true;
     private bool _inviting;
@@ -380,6 +417,38 @@ else
         _loadingList = false;
     }
 
+    private void OnInviteProjectChanged(Guid? projectId)
+    {
+        _inviteProjectId = projectId;
+        _inviteSubProjects = projectId.HasValue
+            ? _projects.Where(p => p.ParentProjectId == projectId.Value).ToList()
+            : [];
+        _inviteSelectedSubIds.Clear();
+        _inviteIncludeParent = true;
+        _inviteAllSelected = _inviteSubProjects.Count == 0;
+    }
+
+    private void ToggleAll(bool val)
+    {
+        _inviteAllSelected = val;
+        _inviteIncludeParent = val;
+        if (val)
+            _inviteSelectedSubIds = _inviteSubProjects.Select(s => s.Id).ToHashSet();
+        else
+            _inviteSelectedSubIds.Clear();
+    }
+
+    private void ToggleSub(Guid subId, bool val)
+    {
+        if (val) _inviteSelectedSubIds.Add(subId);
+        else _inviteSelectedSubIds.Remove(subId);
+    }
+
+    private void UpdateAllFlag()
+    {
+        _inviteAllSelected = _inviteIncludeParent && _inviteSelectedSubIds.Count == _inviteSubProjects.Count;
+    }
+
     private async Task SendInvite()
     {
         if (string.IsNullOrWhiteSpace(_inviteEmail) || !_inviteProjectId.HasValue) return;
@@ -388,29 +457,42 @@ else
 
         try
         {
-            var request = new InviteSubcontractorRequest(
-                _inviteEmail.Trim(), _inviteProjectId.Value,
-                _inviteAccessDays, _inviteHoursEnabled);
+            // Build list of project IDs the subcontractor gets access to
+            var projectIds = new List<Guid>();
+            if (_inviteIncludeParent) projectIds.Add(_inviteProjectId.Value);
+            projectIds.AddRange(_inviteSelectedSubIds);
 
-            var r = await Api.PostAsJsonAsync("api/subcontractors/invite", request);
-            if (r.IsSuccessStatusCode)
+            if (projectIds.Count == 0)
             {
-                var result = await r.Content.ReadFromJsonAsync<SubcontractorInviteDto>();
-                if (result is not null)
-                {
-                    _lastInviteUrl = result.InviteUrl;
-                    _lastInviteFullUrl = $"{Navigation.BaseUri.TrimEnd('/')}{result.InviteUrl}";
-                    Snackbar.Add($"Invitasjon sendt til {result.Email}!", Severity.Success);
-                    _inviteEmail = "";
+                Snackbar.Add("Velg minst ett prosjekt", Severity.Warning);
+                _inviting = false;
+                return;
+            }
 
-                    // Refresh list
-                    _subcontractors = await GetSubcontractorsAsync() ?? [];
-                }
+            // Create one invite per project
+            HttpResponseMessage? r = null;
+            SubcontractorInviteDto? firstResult = null;
+            foreach (var pid in projectIds)
+            {
+                var req = new InviteSubcontractorRequest(
+                    _inviteEmail.Trim(), pid, _inviteAccessDays, _inviteHoursEnabled);
+                r = await Api.PostAsJsonAsync("api/subcontractors/invite", req);
+                if (r.IsSuccessStatusCode && firstResult is null)
+                    firstResult = await r.Content.ReadFromJsonAsync<SubcontractorInviteDto>();
+            }
+
+            if (firstResult is not null)
+            {
+                _lastInviteUrl = firstResult.InviteUrl;
+                _lastInviteFullUrl = $"{Navigation.BaseUri.TrimEnd('/')}{firstResult.InviteUrl}";
+                var accessDesc = projectIds.Count == 1 ? "1 prosjekt" : $"{projectIds.Count} prosjekter";
+                Snackbar.Add($"Invitasjon sendt til {firstResult.Email} ({accessDesc})!", Severity.Success);
+                _inviteEmail = "";
+                _subcontractors = await GetSubcontractorsAsync();
             }
             else
             {
-                var error = await r.Content.ReadFromJsonAsync<ErrorBody>();
-                Snackbar.Add(error?.Error ?? "Kunne ikke sende invitasjon", Severity.Error);
+                Snackbar.Add("Kunne ikke sende invitasjon", Severity.Error);
             }
         }
         catch
