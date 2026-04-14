@@ -45,12 +45,9 @@
                         <MudText Typo="Typo.caption" Color="Color.Secondary">JPG, PNG, PDF — maks 25 MB</MudText>
                     }
                 </MudStack>
-                @if (!_uploading)
-                {
-                    <InputFile @ref="_fileInput" OnChange="HandlePhotoUpload"
-                               accept="image/*,.pdf" capture="environment"
-                               style="position:absolute;inset:0;opacity:0;cursor:pointer;" />
-                }
+                <InputFile @ref="_fileInput" OnChange="HandlePhotoUpload"
+                           accept="image/*,.pdf" capture="environment"
+                           style="@($"position:absolute;inset:0;opacity:0;cursor:pointer;{(_uploading ? "pointer-events:none;" : "")}")" />
             </MudPaper>
 
             @* 2. Amount (always required) *@
@@ -137,17 +134,18 @@
     {
         var file = e.File;
         if (file is null) return;
-        _uploading = true;
-        StateHasChanged();
-
         try
         {
+            // Read file BEFORE setting _uploading (prevents InputFile disposal)
             using var ms = new MemoryStream();
             await using var stream = file.OpenReadStream(maxAllowedSize: 25 * 1024 * 1024);
             await stream.CopyToAsync(ms);
             ms.Position = 0;
 
-            _receiptKey = await FileUploadService.UploadPhotoAsync(ms, file.Name, file.ContentType);
+            _uploading = true;
+            StateHasChanged();
+
+            _receiptKey = await FileUploadService.UploadPhotoAsync(ms, file.Name, file.ContentType ?? "image/jpeg");
             if (_receiptKey is not null)
                 Snackbar.Add("Bilde lastet opp", Severity.Success);
             else
