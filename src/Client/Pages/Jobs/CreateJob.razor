@@ -67,7 +67,8 @@
             _model.Description,
             null,
             string.IsNullOrWhiteSpace(_model.Address) ? null : _model.Address,
-            string.IsNullOrWhiteSpace(_model.Notes) ? null : _model.Notes);
+            string.IsNullOrWhiteSpace(_model.Notes) ? null : _model.Notes,
+            string.IsNullOrWhiteSpace(_model.CustomerName) ? null : _model.CustomerName);
 
         var id = await JobService.CreateJobAsync(request);
         if (id.HasValue)

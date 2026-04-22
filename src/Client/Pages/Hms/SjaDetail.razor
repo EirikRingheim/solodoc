@@ -1,8 +1,10 @@
 @page "/hms/sja/{Id:guid}"
 @attribute [Authorize]
 @inject HmsService HmsService
+@inject EmployeeService EmployeeService
 @inject NavigationManager Navigation
 @inject ISnackbar Snackbar
+@using Solodoc.Shared.Employees
 
 <PageTitle>Solodoc - @(_sja?.Title ?? "SJA")</PageTitle>
 
@@ -235,10 +237,51 @@ else
 
     @* Participants section *@
     <MudPaper Class="pa-5" Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;">
-        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-3">
-            <MudIcon Icon="@Icons.Material.Filled.People" Size="Size.Small" Color="Color.Secondary" />
-            <MudText Typo="Typo.subtitle2">Deltakere (@_sja.Participants.Count)</MudText>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudIcon Icon="@Icons.Material.Filled.People" Size="Size.Small" Color="Color.Secondary" />
+                <MudText Typo="Typo.subtitle2">Deltakere (@_sja.Participants.Count)</MudText>
+            </MudStack>
+            <MudButton Variant="Variant.Outlined" Size="Size.Small" StartIcon="@Icons.Material.Filled.PersonAdd"
+                       OnClick="() => _showAddParticipant = !_showAddParticipant"
+                       Style="text-transform:none;border-radius:8px;">Legg til</MudButton>
         </MudStack>
+
+        @* Add participant form *@
+        @if (_showAddParticipant)
+        {
+            <MudPaper Elevation="0" Style="border:1px solid #D1E7DD;border-radius:10px;background:#F0FDF4;" Class="pa-4 mb-3">
+                <MudText Typo="Typo.caption" Style="font-weight:600;" Class="mb-2">Legg til ansatt</MudText>
+                <MudStack Row="true" Spacing="2" AlignItems="AlignItems.End">
+                    <MudSelect T="Guid?" @bind-Value="_selectedEmployeeId" Label="Velg ansatt" Variant="Variant.Outlined"
+                               Margin="Margin.Dense" Style="flex:1;">
+                        @foreach (var e in _employeeList)
+                        {
+                            <MudSelectItem T="Guid?" Value="@((Guid?)e.PersonId)">@e.FullName</MudSelectItem>
+                        }
+                    </MudSelect>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                               OnClick="AddEmployeeParticipant" Disabled="!_selectedEmployeeId.HasValue"
+                               Style="text-transform:none;border-radius:8px;">Legg til</MudButton>
+                </MudStack>
+
+                <MudDivider Class="my-3" />
+                <MudText Typo="Typo.caption" Style="font-weight:600;" Class="mb-2">Ekstern deltaker (UE)</MudText>
+                <MudStack Spacing="2">
+                    <MudStack Row="true" Spacing="2" Style="flex-wrap:wrap;">
+                        <MudTextField T="string" @bind-Value="_extName" Label="Navn *" Variant="Variant.Outlined"
+                                      Margin="Margin.Dense" Style="flex:1;min-width:150px;" />
+                        <MudTextField T="string" @bind-Value="_extPhone" Label="Telefon" Variant="Variant.Outlined"
+                                      Margin="Margin.Dense" Style="flex:1;min-width:120px;" />
+                        <MudTextField T="string" @bind-Value="_extCompany" Label="Firma" Variant="Variant.Outlined"
+                                      Margin="Margin.Dense" Style="flex:1;min-width:120px;" />
+                    </MudStack>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                               OnClick="AddExternalParticipant" Disabled="string.IsNullOrWhiteSpace(_extName)"
+                               Style="text-transform:none;border-radius:8px;align-self:flex-start;">Legg til ekstern</MudButton>
+                </MudStack>
+            </MudPaper>
+        }
 
         @if (_sja.Participants.Count == 0)
         {
@@ -258,6 +301,7 @@ else
             <MudStack Spacing="1">
                 @foreach (var participant in _sja.Participants)
                 {
+                    var captured = participant;
                     <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:8px;" Class="pa-3">
                         <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
                             <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
@@ -270,21 +314,35 @@ else
                                     <MudIcon Icon="@Icons.Material.Filled.RadioButtonUnchecked" Size="Size.Small" Color="Color.Default" />
                                 }
                                 <MudStack Spacing="0">
-                                    <MudText Typo="Typo.body2" Style="font-weight:500;">@participant.PersonName</MudText>
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                        <MudText Typo="Typo.body2" Style="font-weight:500;">@participant.PersonName</MudText>
+                                        @if (participant.IsExternal)
+                                        {
+                                            <span style="background:#FEF3C7;color:#92400E;padding:1px 6px;border-radius:4px;font-size:0.6rem;font-weight:600;">UE</span>
+                                        }
+                                    </MudStack>
+                                    @if (participant.IsExternal && !string.IsNullOrEmpty(participant.ExternalCompany))
+                                    {
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary">@participant.ExternalCompany @(!string.IsNullOrEmpty(participant.ExternalPhone) ? $"- {participant.ExternalPhone}" : "")</MudText>
+                                    }
                                     <MudText Typo="Typo.caption" Color="@(participant.HasSigned ? Color.Success : Color.Secondary)">
                                         @(participant.HasSigned ? "Signert" : "Ikke signert")
                                     </MudText>
                                 </MudStack>
                             </MudStack>
-                            @if (!participant.HasSigned)
-                            {
-                                <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
-                                           StartIcon="@Icons.Material.Filled.Draw"
-                                           Style="text-transform:none;border-radius:8px;"
-                                           OnClick="@(() => OnSignClick(participant.PersonName))">
-                                    Signer
-                                </MudButton>
-                            }
+                            <MudStack Row="true" Spacing="1">
+                                @if (!participant.HasSigned)
+                                {
+                                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+                                               StartIcon="@Icons.Material.Filled.Draw"
+                                               Style="text-transform:none;border-radius:8px;"
+                                               OnClick="@(() => OnSignClick(participant.PersonName))">
+                                        Signer
+                                    </MudButton>
+                                }
+                                <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" Color="Color.Error"
+                                               OnClick="@(async () => await RemoveParticipant(captured.Id))" />
+                            </MudStack>
                         </MudStack>
                     </MudPaper>
                 }
@@ -299,6 +357,12 @@ else
     private SjaFormDetailDto? _sja;
     private bool _loading = true;
 
+    // Participant form
+    private bool _showAddParticipant;
+    private List<EmployeeListItemDto> _employeeList = [];
+    private Guid? _selectedEmployeeId;
+    private string _extName = "", _extPhone = "", _extCompany = "";
+
     // Hazard form
     private bool _showHazardForm;
     private string _hazardDescription = "";
@@ -309,7 +373,10 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        _sja = await HmsService.GetSjaFormByIdAsync(Id);
+        var sjaTask = HmsService.GetSjaFormByIdAsync(Id);
+        var empTask = EmployeeService.GetEmployeesAsync();
+        _sja = await sjaTask;
+        try { _employeeList = await empTask; } catch { }
         _loading = false;
     }
 
@@ -360,5 +427,41 @@ else
     {
         if (_sja is null || _sja.Participants.Count == 0) return 0;
         return (double)_sja.Participants.Count(p => p.HasSigned) / _sja.Participants.Count * 100;
+    }
+
+    private async Task AddEmployeeParticipant()
+    {
+        if (!_selectedEmployeeId.HasValue || _sja is null) return;
+        var ok = await HmsService.AddParticipantAsync(Id, _selectedEmployeeId.Value);
+        if (ok)
+        {
+            _sja = await HmsService.GetSjaFormByIdAsync(Id);
+            _selectedEmployeeId = null;
+            Snackbar.Add("Deltaker lagt til", Severity.Success);
+        }
+        else Snackbar.Add("Kunne ikke legge til deltaker", Severity.Error);
+    }
+
+    private async Task AddExternalParticipant()
+    {
+        if (string.IsNullOrWhiteSpace(_extName) || _sja is null) return;
+        var ok = await HmsService.AddExternalParticipantAsync(Id, _extName, _extPhone, _extCompany);
+        if (ok)
+        {
+            _sja = await HmsService.GetSjaFormByIdAsync(Id);
+            _extName = ""; _extPhone = ""; _extCompany = "";
+            Snackbar.Add("Ekstern deltaker lagt til", Severity.Success);
+        }
+        else Snackbar.Add("Kunne ikke legge til deltaker", Severity.Error);
+    }
+
+    private async Task RemoveParticipant(Guid participantId)
+    {
+        var ok = await HmsService.RemoveParticipantAsync(Id, participantId);
+        if (ok)
+        {
+            _sja = await HmsService.GetSjaFormByIdAsync(Id);
+            Snackbar.Add("Deltaker fjernet", Severity.Success);
+        }
     }
 }

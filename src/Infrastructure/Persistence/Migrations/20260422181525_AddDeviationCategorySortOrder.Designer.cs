@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Solodoc.Infrastructure.Persistence;
@@ -11,9 +12,11 @@ using Solodoc.Infrastructure.Persistence;
 namespace Solodoc.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(SolodocDbContext))]
-    partial class SolodocDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260422181525_AddDeviationCategorySortOrder")]
+    partial class AddDeviationCategorySortOrder
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -6981,14 +6984,6 @@ namespace Solodoc.Infrastructure.Persistence.Migrations
                     b.Property<decimal?>("EstimatedHours")
                         .HasColumnType("numeric")
                         .HasColumnName("estimated_hours");
-
-                    b.Property<string>("GeofenceGeoJson")
-                        .HasColumnType("text")
-                        .HasColumnName("geofence_geo_json");
-
-                    b.Property<double?>("GeofenceRadiusMeters")
-                        .HasColumnType("double precision")
-                        .HasColumnName("geofence_radius_meters");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean")

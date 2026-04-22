@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Solodoc.Infrastructure.Persistence;
@@ -11,9 +12,11 @@ using Solodoc.Infrastructure.Persistence;
 namespace Solodoc.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(SolodocDbContext))]
-    partial class SolodocDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260422155842_AddParticipantSystem")]
+    partial class AddParticipantSystem
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -2760,10 +2763,6 @@ namespace Solodoc.Infrastructure.Persistence.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("is_active");
 
-                    b.Property<bool>("IsDefault")
-                        .HasColumnType("boolean")
-                        .HasColumnName("is_default");
-
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean")
                         .HasColumnName("is_deleted");
@@ -2773,10 +2772,6 @@ namespace Solodoc.Infrastructure.Persistence.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)")
                         .HasColumnName("name");
-
-                    b.Property<int>("SortOrder")
-                        .HasColumnType("integer")
-                        .HasColumnName("sort_order");
 
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid")
@@ -2795,9 +2790,6 @@ namespace Solodoc.Infrastructure.Persistence.Migrations
                     b.HasIndex("TenantId", "Name")
                         .IsUnique()
                         .HasDatabaseName("ix_deviation_categories_tenant_id_name");
-
-                    b.HasIndex("TenantId", "SortOrder")
-                        .HasDatabaseName("ix_deviation_categories_tenant_id_sort_order");
 
                     b.ToTable("deviation_categories", (string)null);
                 });
@@ -6420,38 +6412,6 @@ namespace Solodoc.Infrastructure.Persistence.Migrations
                     b.ToTable("announcement_comments", (string)null);
                 });
 
-            modelBuilder.Entity("Solodoc.Domain.Entities.Notifications.AnnouncementDismissal", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<Guid>("AnnouncementId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("announcement_id");
-
-                    b.Property<DateTimeOffset>("DismissedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("dismissed_at");
-
-                    b.Property<Guid>("PersonId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("person_id");
-
-                    b.HasKey("Id")
-                        .HasName("pk_announcement_dismissals");
-
-                    b.HasIndex("PersonId")
-                        .HasDatabaseName("ix_announcement_dismissals_person_id");
-
-                    b.HasIndex("AnnouncementId", "PersonId")
-                        .IsUnique()
-                        .HasDatabaseName("ix_announcement_dismissals_announcement_id_person_id");
-
-                    b.ToTable("announcement_dismissals", (string)null);
-                });
-
             modelBuilder.Entity("Solodoc.Domain.Entities.Notifications.Notification", b =>
                 {
                     b.Property<Guid>("Id")
@@ -6981,14 +6941,6 @@ namespace Solodoc.Infrastructure.Persistence.Migrations
                     b.Property<decimal?>("EstimatedHours")
                         .HasColumnType("numeric")
                         .HasColumnName("estimated_hours");
-
-                    b.Property<string>("GeofenceGeoJson")
-                        .HasColumnType("text")
-                        .HasColumnName("geofence_geo_json");
-
-                    b.Property<double?>("GeofenceRadiusMeters")
-                        .HasColumnType("double precision")
-                        .HasColumnName("geofence_radius_meters");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean")
@@ -8196,18 +8148,6 @@ namespace Solodoc.Infrastructure.Persistence.Migrations
                     b.Navigation("Announcement");
                 });
 
-            modelBuilder.Entity("Solodoc.Domain.Entities.Notifications.AnnouncementDismissal", b =>
-                {
-                    b.HasOne("Solodoc.Domain.Entities.Notifications.Announcement", "Announcement")
-                        .WithMany("Dismissals")
-                        .HasForeignKey("AnnouncementId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_announcement_dismissals_announcements_announcement_id");
-
-                    b.Navigation("Announcement");
-                });
-
             modelBuilder.Entity("Solodoc.Domain.Entities.Procedures.ProcedureBlock", b =>
                 {
                     b.HasOne("Solodoc.Domain.Entities.Procedures.ProcedureTemplate", "ProcedureTemplate")
@@ -8487,8 +8427,6 @@ namespace Solodoc.Infrastructure.Persistence.Migrations
                     b.Navigation("Acknowledgments");
 
                     b.Navigation("Comments");
-
-                    b.Navigation("Dismissals");
                 });
 
             modelBuilder.Entity("Solodoc.Domain.Entities.Projects.Job", b =>

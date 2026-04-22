@@ -6,6 +6,7 @@
 @inject AuthenticationStateProvider AuthStateProvider
 @inject Blazored.LocalStorage.ILocalStorageService LocalStorage
 @inject SyncService SyncService
+@inject EmployeeService EmployeeService
 @using Solodoc.Shared.Auth
 @implements IAsyncDisposable
 
@@ -137,11 +138,8 @@
                             Icon="@Icons.Material.Filled.HealthAndSafety">HMS</MudNavLink>
                 <MudNavLink Href="/chemicals" Match="NavLinkMatch.Prefix"
                             Icon="@Icons.Material.Filled.Science">Stoffkartotek</MudNavLink>
-                @if (ShowProjectLeaderSection)
-                {
-                    <MudNavLink Href="/reports" Match="NavLinkMatch.Prefix"
-                                Icon="@Icons.Material.Filled.Assessment">Rapporter</MudNavLink>
-                }
+                <MudNavLink Href="/reports" Match="NavLinkMatch.Prefix"
+                            Icon="@Icons.Material.Filled.Assessment">Rapporter</MudNavLink>
             }
 
             <div class="nav-group-label mt-4">MIN KONTO</div>
@@ -373,6 +371,8 @@
     <ChatWidget />
 </MudLayout>
 
+<GpsConsentDialog @bind-Visible="_showGpsConsent" OnConsentChanged="@(v => _showGpsConsent = false)" />
+
 @code {
     private bool _drawerOpen = true;
     private bool _notificationsOpen;
@@ -395,6 +395,9 @@
     private bool _syncOnline = true;
     private int _syncPendingCount;
     private DateTimeOffset? _syncLastSynced;
+
+    // GPS consent
+    private bool _showGpsConsent;
 
     // Impersonation roles
     private static readonly Dictionary<string, string> _impersonationRoles = new()
@@ -497,6 +500,15 @@
                             _syncLastSynced = SyncService.LastSyncedAt;
                             InvokeAsync(StateHasChanged);
                         };
+                    }
+                    catch { }
+
+                    // Check if GPS consent prompt is needed
+                    try
+                    {
+                        var gps = await EmployeeService.GetGpsConsentAsync();
+                        if (gps is { GpsEnabledByTenant: true, ConsentGiven: false } && gps.ConsentChangedAt is null)
+                            _showGpsConsent = true;
                     }
                     catch { }
                 }

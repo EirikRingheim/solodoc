@@ -202,7 +202,7 @@
 
         @foreach (var rule in _allowanceRules)
         {
-            var capturedRuleId = rule.Id;
+            var captured = rule;
             <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;" Class="pa-3 mb-2">
                 <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
                     <MudStack Spacing="0">
@@ -210,10 +210,18 @@
                         <MudText Typo="Typo.caption" Color="Color.Secondary">
                             @rule.Amount @(rule.AmountType == "FixedKroner" ? "kr" : "%")
                             per @(rule.Type switch { "TimeBased" => "time", "DayBased" => "dag", "OperationBased" => "operasjon", "FixedPerDay" => "dag", _ => "time" })
+                            @if (rule.TimeRangeStart.HasValue && rule.TimeRangeEnd.HasValue)
+                            {
+                                <span> (@rule.TimeRangeStart.Value.ToString("HH:mm")–@rule.TimeRangeEnd.Value.ToString("HH:mm"))</span>
+                            }
                         </MudText>
                     </MudStack>
-                    <MudIconButton Icon="@Icons.Material.Filled.DeleteOutline" Size="Size.Small"
-                                   Color="Color.Error" Title="Slett" />
+                    <MudStack Row="true" Spacing="1">
+                        <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                                       Color="Color.Primary" OnClick="() => EditAllowance(captured)" />
+                        <MudIconButton Icon="@Icons.Material.Filled.DeleteOutline" Size="Size.Small"
+                                       Color="Color.Error" OnClick="async () => await DeleteAllowance(captured.Id)" />
+                    </MudStack>
                 </MudStack>
             </MudPaper>
         }
@@ -348,7 +356,7 @@
 
 @* ═══ New Allowance Dialog ═══ *@
 <MudDialog @bind-Visible="_alDialogOpen" Options="_dlgOpts">
-    <TitleContent><MudText Typo="Typo.h6">Nytt tillegg</MudText></TitleContent>
+    <TitleContent><MudText Typo="Typo.h6">@(_editingAllowanceId.HasValue ? "Rediger tillegg" : "Nytt tillegg")</MudText></TitleContent>
     <DialogContent>
         <MudStack Spacing="2">
             <MudTextField T="string" @bind-Value="_alName" Label="Navn" Variant="Variant.Outlined" />
@@ -464,6 +472,7 @@
 
     // Allowance dialog
     private bool _alDialogOpen;
+    private Guid? _editingAllowanceId;
     private string _alName = "", _alType = "TimeBased", _alAmountType = "FixedKroner";
     private decimal _alAmount;
     private Guid? _alShiftId;
@@ -725,21 +734,46 @@
     // ── Allowance ──
     private void OpenNewAllowance()
     {
+        _editingAllowanceId = null;
         _alName = ""; _alType = "TimeBased"; _alAmountType = "FixedKroner"; _alAmount = 0; _alShiftId = null;
+        _alDialogOpen = true;
+    }
+
+    private void EditAllowance(AllowanceRuleDto rule)
+    {
+        _editingAllowanceId = rule.Id;
+        _alName = rule.Name; _alType = rule.Type; _alAmountType = rule.AmountType; _alAmount = rule.Amount;
         _alDialogOpen = true;
     }
 
     private async Task SaveAllowance()
     {
-        var dto = new AllowanceRuleDto(Guid.Empty, _alName, _alType, _alAmountType, _alAmount, null, null, true);
-        var ok = await HoursService.CreateAllowanceRuleAsync(dto);
+        var dto = new AllowanceRuleDto(_editingAllowanceId ?? Guid.Empty, _alName, _alType, _alAmountType, _alAmount, null, null, true);
+
+        bool ok;
+        if (_editingAllowanceId.HasValue)
+            ok = await HoursService.UpdateAllowanceRuleAsync(_editingAllowanceId.Value, dto);
+        else
+            ok = await HoursService.CreateAllowanceRuleAsync(dto);
+
         if (ok)
         {
-            Snackbar.Add("Tillegg opprettet", Severity.Success);
+            Snackbar.Add(_editingAllowanceId.HasValue ? "Tillegg oppdatert" : "Tillegg opprettet", Severity.Success);
             _alDialogOpen = false;
             _allowanceRules = await HoursService.GetAllowanceRulesAsync();
         }
         else Snackbar.Add("Feil", Severity.Error);
+    }
+
+    private async Task DeleteAllowance(Guid id)
+    {
+        var ok = await HoursService.DeleteAllowanceRuleAsync(id);
+        if (ok)
+        {
+            Snackbar.Add("Tillegg slettet", Severity.Success);
+            _allowanceRules = await HoursService.GetAllowanceRulesAsync();
+        }
+        else Snackbar.Add("Kunne ikke slette", Severity.Error);
     }
 
     // ── Settings ──

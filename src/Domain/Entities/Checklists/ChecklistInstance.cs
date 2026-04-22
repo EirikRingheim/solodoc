@@ -27,4 +27,5 @@ public class ChecklistInstance : TenantScopedEntity
     // Navigation properties
     public ChecklistTemplateVersion TemplateVersion { get; set; } = null!;
     public ICollection<ChecklistInstanceItem> Items { get; set; } = new List<ChecklistInstanceItem>();
+    public ICollection<ChecklistParticipant> Participants { get; set; } = [];
 }

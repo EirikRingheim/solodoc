@@ -27,6 +27,11 @@ public record CreateExpenseRequest(
     Guid? ProjectId, Guid? JobId,
     string ReceiptFileKey);
 
+public record UpdateExpenseRequest(
+    DateOnly? Date, decimal? Amount,
+    string? Category, string? Description,
+    Guid? ProjectId, Guid? JobId);
+
 public record ApproveExpenseRequest(string? Notes);
 public record RejectExpenseRequest(string Reason);
 

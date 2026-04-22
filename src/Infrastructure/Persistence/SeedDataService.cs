@@ -730,9 +730,40 @@ public class SeedDataService(
 
         db.HelpContents.AddRange(helpContents);
 
+        // ── Default deviation categories (Norwegian HMS standards) ──
+        var defaultCategories = new[]
+        {
+            ("Personskade", 1),
+            ("Nestenulykke", 2),
+            ("Materiell skade", 3),
+            ("Farlig tilstand", 4),
+            ("Kvalitetsavvik", 5),
+            ("Miljøavvik", 6),
+            ("Sikkerhet", 7),
+            ("Brann/eksplosjon", 8),
+            ("Kjemikalie/gass", 9),
+            ("Ergonomi", 10),
+            ("Annet", 99)
+        };
+        foreach (var tid in new[] { tenant.Id, tenant2.Id })
+        {
+            foreach (var (name, sort) in defaultCategories)
+            {
+                db.DeviationCategories.Add(new DeviationCategory
+                {
+                    TenantId = tid,
+                    Name = name,
+                    SortOrder = sort,
+                    IsDefault = true,
+                    IsActive = true
+                });
+            }
+        }
+
         await db.SaveChangesAsync(ct);
 
         logger.LogInformation(
-            "Seeded: 2 tenants, 2 users, 3 projects, 5 deviations, {HelpCount} help content entries", helpContents.Count);
+            "Seeded: 2 tenants, 2 users, 3 projects, 5 deviations, {HelpCount} help content entries, {CatCount} deviation categories",
+            helpContents.Count, defaultCategories.Length * 2);
     }
 }

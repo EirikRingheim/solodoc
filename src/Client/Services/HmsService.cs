@@ -86,5 +86,24 @@ public class HmsService(ApiHttpClient api)
         return [];
     }
 
+    // ─── Participants ───
+    public async Task<bool> AddParticipantAsync(Guid sjaId, Guid personId)
+    {
+        var r = await api.PostAsJsonAsync($"api/hms/sja/{sjaId}/participants", new AddSjaParticipantRequest(personId));
+        return r.IsSuccessStatusCode;
+    }
+
+    public async Task<bool> AddExternalParticipantAsync(Guid sjaId, string name, string? phone, string? company)
+    {
+        var r = await api.PostAsJsonAsync($"api/hms/sja/{sjaId}/participants/external", new AddExternalParticipantRequest(name, phone, company));
+        return r.IsSuccessStatusCode;
+    }
+
+    public async Task<bool> RemoveParticipantAsync(Guid sjaId, Guid participantId)
+    {
+        var r = await api.DeleteAsync($"api/hms/sja/{sjaId}/participants/{participantId}");
+        return r.IsSuccessStatusCode;
+    }
+
     private record IdResponse(Guid Id);
 }

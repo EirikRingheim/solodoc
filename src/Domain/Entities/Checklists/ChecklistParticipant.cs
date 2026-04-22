@@ -1,10 +1,10 @@
 using Solodoc.Domain.Common;
 
-namespace Solodoc.Domain.Entities.Hms;
+namespace Solodoc.Domain.Entities.Checklists;
 
-public class SjaParticipant : BaseEntity
+public class ChecklistParticipant : BaseEntity
 {
-    public Guid SjaFormId { get; set; }
+    public Guid ChecklistInstanceId { get; set; }
 
     // Internal participant (employee or UE with account)
     public Guid? PersonId { get; set; }
@@ -20,5 +20,5 @@ public class SjaParticipant : BaseEntity
     public DateTimeOffset? SignedAt { get; set; }
 
     // Navigation
-    public SjaForm SjaForm { get; set; } = null!;
+    public ChecklistInstance ChecklistInstance { get; set; } = null!;
 }

@@ -24,6 +24,7 @@ public static class CheckInEndpoints
         app.MapPost("/api/checkin/guest", GuestCheckIn).AllowAnonymous();
         app.MapGet("/api/checkin/qr-branding/{siteType}/{siteId:guid}", GetQrBranding).RequireAuthorization();
         app.MapPost("/api/checkin/generate-qr/{siteType}/{siteId:guid}", GenerateQrSlug).RequireAuthorization();
+        app.MapGet("/api/checkin/export/{siteType}/{siteId:guid}", ExportCheckInLog).RequireAuthorization();
 
         return app;
     }
@@ -583,6 +584,58 @@ public static class CheckInEndpoints
         }
 
         return Results.BadRequest(new { error = "Ugyldig siteType." });
+    }
+
+    // ─── Export CSV ─────────────────────────────────────────────────
+
+    private static async Task<IResult> ExportCheckInLog(
+        string siteType,
+        Guid siteId,
+        SolodocDbContext db,
+        ITenantProvider tp,
+        CancellationToken ct,
+        int days = 90)
+    {
+        if (tp.TenantId is null) return Results.Unauthorized();
+
+        var since = DateTimeOffset.UtcNow.AddDays(-days);
+        var query = db.WorksiteCheckIns
+            .Where(c => c.TenantId == tp.TenantId.Value && c.CheckedInAt >= since);
+
+        query = siteType.ToLowerInvariant() switch
+        {
+            "project" => query.Where(c => c.ProjectId == siteId),
+            "job" => query.Where(c => c.JobId == siteId),
+            "location" => query.Where(c => c.LocationId == siteId),
+            _ => query.Where(c => false)
+        };
+
+        var checkIns = await query
+            .OrderByDescending(c => c.CheckedInAt)
+            .Select(c => new { c.PersonId, c.CheckedInAt, c.CheckedOutAt, c.Source, c.IsGuest, c.GuestName, c.GuestCompany })
+            .Take(5000)
+            .ToListAsync(ct);
+
+        var personIds = checkIns.Where(c => c.PersonId.HasValue).Select(c => c.PersonId!.Value).Distinct().ToList();
+        var persons = personIds.Count > 0
+            ? await db.Persons.Where(p => personIds.Contains(p.Id)).ToDictionaryAsync(p => p.Id, p => p.FullName, ct)
+            : new Dictionary<Guid, string>();
+
+        var csv = new System.Text.StringBuilder();
+        csv.AppendLine("Navn,Firma,Innsjekket,Utsjekket,Varighet (min),Kilde");
+
+        foreach (var c in checkIns)
+        {
+            var name = c.IsGuest ? (c.GuestName ?? "Gjest") : (c.PersonId.HasValue && persons.TryGetValue(c.PersonId.Value, out var n) ? n : "Ukjent");
+            var company = c.IsGuest ? (c.GuestCompany ?? "") : "";
+            var checkedIn = c.CheckedInAt.ToOffset(TimeSpan.FromHours(2)).ToString("dd.MM.yyyy HH:mm");
+            var checkedOut = c.CheckedOutAt?.ToOffset(TimeSpan.FromHours(2)).ToString("dd.MM.yyyy HH:mm") ?? "";
+            var duration = c.CheckedOutAt.HasValue ? ((int)(c.CheckedOutAt.Value - c.CheckedInAt).TotalMinutes).ToString() : "";
+            csv.AppendLine($"\"{name}\",\"{company}\",{checkedIn},{checkedOut},{duration},{c.Source}");
+        }
+
+        var bytes = System.Text.Encoding.UTF8.GetPreamble().Concat(System.Text.Encoding.UTF8.GetBytes(csv.ToString())).ToArray();
+        return Results.File(bytes, "text/csv; charset=utf-8", $"innsjekking-{siteType}-{DateOnly.FromDateTime(DateTime.UtcNow):yyyy-MM-dd}.csv");
     }
 
     // ─── Helpers ────────────────────────────────────────────────────

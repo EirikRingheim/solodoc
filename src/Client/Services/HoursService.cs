@@ -226,6 +226,18 @@ public class HoursService(ApiHttpClient api, OfflineAwareApiClient offlineApi, O
         return response.IsSuccessStatusCode;
     }
 
+    public async Task<bool> UpdateAllowanceRuleAsync(Guid id, AllowanceRuleDto dto)
+    {
+        var response = await api.PutAsJsonAsync($"api/allowances/rules/{id}", dto);
+        return response.IsSuccessStatusCode;
+    }
+
+    public async Task<bool> DeleteAllowanceRuleAsync(Guid id)
+    {
+        var response = await api.DeleteAsync($"api/allowances/rules/{id}");
+        return response.IsSuccessStatusCode;
+    }
+
     public async Task<List<AllowanceRuleDto>> GetAllowanceRulesAsync()
     {
         var response = await api.GetAsync("api/allowances/rules");

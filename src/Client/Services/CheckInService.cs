@@ -39,6 +39,9 @@ public class CheckInService(ApiHttpClient api, OfflineAwareApiClient offlineApi)
         return r.IsSuccessStatusCode ? await r.Content.ReadFromJsonAsync<List<CheckInHistoryDto>>() ?? [] : [];
     }
 
+    public string GetExportUrl(string siteType, Guid siteId, int days = 90)
+        => $"api/checkin/export/{siteType}/{siteId}?days={days}";
+
     public async Task<List<CheckInLogEntryDto>> GetMyLogAsync(int days = 30)
     {
         var r = await api.GetAsync($"api/checkin/log?days={days}");

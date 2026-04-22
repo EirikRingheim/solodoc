@@ -30,7 +30,10 @@ public record SjaHazardDto(
 public record SjaParticipantDto(
     Guid Id,
     string PersonName,
-    bool HasSigned);
+    bool HasSigned,
+    bool IsExternal = false,
+    string? ExternalPhone = null,
+    string? ExternalCompany = null);
 
 public record CreateSjaFormRequest(
     string Title,
@@ -57,6 +60,11 @@ public record CreateHmsMeetingRequest(
     string? Location);
 
 public record AddSjaParticipantRequest(Guid PersonId);
+
+public record AddExternalParticipantRequest(
+    string Name,
+    string? Phone,
+    string? Company);
 
 public record HmsMeetingDetailDto(
     Guid Id,

@@ -207,6 +207,22 @@ public record ChecklistInstanceGroupDto(
     int CompletedCount,
     List<ChecklistInstanceListItemDto> Items);
 
+// ─── Participants ─────────────────────────────────────
+public record ChecklistParticipantDto(
+    Guid Id,
+    string PersonName,
+    bool HasSigned,
+    bool IsExternal = false,
+    string? ExternalPhone = null,
+    string? ExternalCompany = null);
+
+public record AddChecklistParticipantRequest(Guid PersonId);
+
+public record AddExternalChecklistParticipantRequest(
+    string Name,
+    string? Phone,
+    string? Company);
+
 // ─── Procedure Read Tracking ──────────────────────────
 public record ProcedureReadStatusDto(
     int TotalWorkers,

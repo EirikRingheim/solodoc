@@ -121,4 +121,20 @@ public class EmployeeService(ApiHttpClient api)
         var response = await api.PatchAsync($"api/employees/{personId}/vacation/{entryId}/approve");
         return response.IsSuccessStatusCode;
     }
+
+    // ── GPS Consent ──
+
+    public async Task<GpsConsentStatusDto?> GetGpsConsentAsync()
+    {
+        var r = await api.GetAsync("api/profile/gps-consent");
+        if (r.IsSuccessStatusCode)
+            return await r.Content.ReadFromJsonAsync<GpsConsentStatusDto>();
+        return null;
+    }
+
+    public async Task<bool> UpdateGpsConsentAsync(bool consent)
+    {
+        var r = await api.PostAsJsonAsync("api/profile/gps-consent", new GpsConsentRequest(consent));
+        return r.IsSuccessStatusCode;
+    }
 }

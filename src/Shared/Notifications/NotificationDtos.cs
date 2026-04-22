@@ -19,6 +19,7 @@ public record AnnouncementDto(
     DateTimeOffset CreatedAt,
     bool RequiresAcknowledgment,
     bool HasAcknowledged,
+    bool IsDismissed = false,
     string? PhotoFileKey = null,
     string? PhotoUrl = null,
     List<AnnouncementCommentDto>? Comments = null);

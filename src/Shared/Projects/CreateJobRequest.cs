@@ -4,4 +4,5 @@ public record CreateJobRequest(
     string Description,
     Guid? CustomerId,
     string? Address,
-    string? Notes);
+    string? Notes,
+    string? CustomerName = null);

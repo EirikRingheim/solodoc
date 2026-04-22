@@ -108,6 +108,7 @@ public class SolodocDbContext : DbContext
     public DbSet<ChecklistInstance> ChecklistInstances => Set<ChecklistInstance>();
     public DbSet<TemplateAssignment> TemplateAssignments => Set<TemplateAssignment>();
     public DbSet<ChecklistInstanceItem> ChecklistInstanceItems => Set<ChecklistInstanceItem>();
+    public DbSet<ChecklistParticipant> ChecklistParticipants => Set<ChecklistParticipant>();
     public DbSet<MarketplaceTemplate> MarketplaceTemplates => Set<MarketplaceTemplate>();
     public DbSet<MarketplacePurchase> MarketplacePurchases => Set<MarketplacePurchase>();
 
@@ -178,6 +179,7 @@ public class SolodocDbContext : DbContext
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<Announcement> Announcements => Set<Announcement>();
     public DbSet<AnnouncementAcknowledgment> AnnouncementAcknowledgments => Set<AnnouncementAcknowledgment>();
+    public DbSet<AnnouncementDismissal> AnnouncementDismissals => Set<AnnouncementDismissal>();
     public DbSet<AnnouncementComment> AnnouncementComments => Set<AnnouncementComment>();
 
     // Project posts
@@ -216,6 +218,7 @@ public class SolodocDbContext : DbContext
     public override int SaveChanges()
     {
         SetTimestamps();
+        LogAuditEvents();
         return base.SaveChanges();
     }
 

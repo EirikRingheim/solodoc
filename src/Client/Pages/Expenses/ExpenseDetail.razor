@@ -1,0 +1,165 @@
+@page "/utlegg/{Id:guid}"
+@attribute [Authorize]
+@inject ExpenseService ExpenseService
+@inject ApiHttpClient Api
+@inject IJSRuntime JS
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
+@using Solodoc.Shared.Expenses
+
+<PageTitle>Solodoc - Kvittering</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-4">
+    <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Href="/utlegg" />
+    <MudText Typo="Typo.h5" Style="font-weight:700;">Kvittering</MudText>
+</MudStack>
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+}
+else if (_expense is null)
+{
+    <MudAlert Severity="Severity.Warning">Kvittering ikke funnet.</MudAlert>
+}
+else
+{
+    <MudGrid Spacing="3">
+        @* Left: receipt image *@
+        <MudItem xs="12" md="5">
+            <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;overflow:hidden;">
+                @if (_receiptImageUrl is not null)
+                {
+                    <img src="@_receiptImageUrl" alt="Kvittering"
+                         style="width:100%;max-height:500px;object-fit:contain;cursor:pointer;background:#F9FAFB;"
+                         @onclick="() => _lightboxUrl = _receiptImageUrl" />
+                }
+                else
+                {
+                    <div style="padding:40px;text-align:center;background:#F9FAFB;">
+                        <MudIcon Icon="@Icons.Material.Filled.Receipt" Size="Size.Large" Color="Color.Secondary" />
+                        <MudText Color="Color.Secondary" Class="mt-2">Kvitteringsbilde</MudText>
+                    </div>
+                }
+            </MudPaper>
+        </MudItem>
+
+        @* Right: details *@
+        <MudItem xs="12" md="7">
+            <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;" Class="pa-5">
+                <MudStack Spacing="3">
+                    @* Status badge *@
+                    @{
+                        var statusColor = _expense.Status switch { "Approved" or "Paid" => "#059669", "Submitted" => "#4361EE", "Rejected" => "#DC2626", _ => "#6B7280" };
+                        var statusLabel = _expense.Status switch { "Draft" => "Utkast", "Submitted" => "Innsendt", "Approved" => "Godkjent", "Rejected" => "Avvist", "Paid" => "Betalt", _ => _expense.Status };
+                    }
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                        <span style="@($"background:{statusColor}20;color:{statusColor};padding:4px 12px;border-radius:6px;font-weight:600;font-size:0.85rem;")">@statusLabel</span>
+                    </MudStack>
+
+                    @* Amount *@
+                    <div>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Beløp</MudText>
+                        <MudText Typo="Typo.h4" Style="font-weight:700;color:#4361EE;">kr @_expense.Amount.ToString("N2")</MudText>
+                    </div>
+
+                    @* Info grid *@
+                    <MudGrid Spacing="2">
+                        <MudItem xs="6">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Dato</MudText>
+                            <MudText Typo="Typo.body2" Style="font-weight:500;">@_expense.Date.ToString("dd.MM.yyyy")</MudText>
+                        </MudItem>
+                        <MudItem xs="6">
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Ansatt</MudText>
+                            <MudText Typo="Typo.body2" Style="font-weight:500;">@_expense.EmployeeName</MudText>
+                        </MudItem>
+                        @if (_expense.Category is not null)
+                        {
+                            <MudItem xs="6">
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">Kategori</MudText>
+                                <MudText Typo="Typo.body2" Style="font-weight:500;">@_expense.Category</MudText>
+                            </MudItem>
+                        }
+                        @if (_expense.ProjectName is not null)
+                        {
+                            <MudItem xs="6">
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">Prosjekt</MudText>
+                                <MudText Typo="Typo.body2" Style="font-weight:500;">@_expense.ProjectName</MudText>
+                            </MudItem>
+                        }
+                    </MudGrid>
+
+                    @if (!string.IsNullOrWhiteSpace(_expense.Description))
+                    {
+                        <div>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Beskrivelse</MudText>
+                            <MudText Typo="Typo.body2">@_expense.Description</MudText>
+                        </div>
+                    }
+
+                    @* Approval info *@
+                    @if (_expense.ApprovedByName is not null)
+                    {
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Style="color:#059669;">
+                            <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small" />
+                            <MudText Typo="Typo.caption">Godkjent av @_expense.ApprovedByName — @_expense.ApprovedAt?.ToLocalTime().ToString("dd.MM.yy HH:mm")</MudText>
+                        </MudStack>
+                    }
+                    @if (_expense.PaidByName is not null)
+                    {
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Style="color:#4361EE;">
+                            <MudIcon Icon="@Icons.Material.Filled.Paid" Size="Size.Small" />
+                            <MudText Typo="Typo.caption">Betalt av @_expense.PaidByName — @_expense.PaidAt?.ToLocalTime().ToString("dd.MM.yy HH:mm")</MudText>
+                        </MudStack>
+                    }
+                    @if (_expense.RejectionReason is not null)
+                    {
+                        <MudAlert Severity="Severity.Error" Dense="true">Avvist: @_expense.RejectionReason</MudAlert>
+                    }
+                </MudStack>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+}
+
+@* Lightbox *@
+@if (_lightboxUrl is not null)
+{
+    <div @onclick="() => _lightboxUrl = null"
+         style="position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:9999;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:24px;">
+        <img src="@_lightboxUrl" style="max-width:95%;max-height:95%;object-fit:contain;border-radius:8px;" />
+        <div style="position:absolute;top:16px;right:16px;color:#fff;font-size:1.5rem;">✕</div>
+    </div>
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    private ExpenseDetailDto? _expense;
+    private bool _loading = true;
+    private string? _receiptImageUrl;
+    private string? _lightboxUrl;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _expense = await ExpenseService.GetExpenseAsync(Id);
+        _loading = false;
+
+        // Load receipt image
+        if (_expense?.ReceiptFileKey is not null)
+        {
+            try
+            {
+                var r = await Api.GetAsync($"api/files/download/{_expense.ReceiptFileKey}");
+                if (r.IsSuccessStatusCode)
+                {
+                    var bytes = await r.Content.ReadAsByteArrayAsync();
+                    var ct = r.Content.Headers.ContentType?.MediaType ?? "image/png";
+                    _receiptImageUrl = $"data:{ct};base64,{Convert.ToBase64String(bytes)}";
+                    StateHasChanged();
+                }
+            }
+            catch { }
+        }
+    }
+}

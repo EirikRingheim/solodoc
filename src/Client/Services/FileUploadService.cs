@@ -3,7 +3,7 @@ using System.Net.Http.Json;
 
 namespace Solodoc.Client.Services;
 
-public class FileUploadService(ApiHttpClient api)
+public class FileUploadService(ApiHttpClient api, ILogger<FileUploadService> logger)
 {
     public async Task<string?> UploadPhotoAsync(Stream stream, string fileName, string contentType)
     {
@@ -23,8 +23,14 @@ public class FileUploadService(ApiHttpClient api)
                 var result = await response.Content.ReadFromJsonAsync<UploadResult>();
                 return result?.Key;
             }
+
+            var body = await response.Content.ReadAsStringAsync();
+            logger.LogWarning("Photo upload failed: {Status} — {Body}", response.StatusCode, body);
         }
-        catch { }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Photo upload failed for {FileName}", fileName);
+        }
         return null;
     }
 

@@ -139,11 +139,35 @@ public static class JobEndpoints
         if (!Guid.TryParse(personIdClaim, out var personId) || tenantProvider.TenantId is null)
             return Results.Unauthorized();
 
+        // Resolve customer: use provided ID, or find/create by name
+        Guid? customerId = request.CustomerId;
+        if (!customerId.HasValue && !string.IsNullOrWhiteSpace(request.CustomerName))
+        {
+            var existing = await db.Customers
+                .Where(c => c.TenantId == tenantProvider.TenantId.Value && c.Name == request.CustomerName.Trim())
+                .FirstOrDefaultAsync(ct);
+            if (existing is not null)
+            {
+                customerId = existing.Id;
+            }
+            else
+            {
+                var customer = new Customer
+                {
+                    TenantId = tenantProvider.TenantId.Value,
+                    Name = request.CustomerName.Trim(),
+                    Type = CustomerType.Privatperson
+                };
+                db.Customers.Add(customer);
+                customerId = customer.Id;
+            }
+        }
+
         var job = new Job
         {
             TenantId = tenantProvider.TenantId.Value,
             Description = request.Description,
-            CustomerId = request.CustomerId,
+            CustomerId = customerId,
             Address = request.Address,
             Notes = request.Notes,
             CreatedById = personId,

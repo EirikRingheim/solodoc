@@ -18,6 +18,10 @@ public class Project : TenantScopedEntity
     public double? Longitude { get; set; }
     public string? QrCodeSlug { get; set; }
 
+    // Geofence: GeoJSON polygon for site boundary verification
+    public string? GeofenceGeoJson { get; set; }
+    public double? GeofenceRadiusMeters { get; set; }
+
     // Hierarchy — one level only (sub-projects cannot have children)
     public Guid? ParentProjectId { get; set; }
 

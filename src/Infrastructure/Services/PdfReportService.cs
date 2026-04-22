@@ -394,7 +394,7 @@ public class PdfReportService(SolodocDbContext db, ILogger<PdfReportService> log
 
                             foreach (var participant in sja.Participants)
                             {
-                                var name = personNames.GetValueOrDefault(participant.PersonId, "Ukjent");
+                                var name = participant.IsExternal ? (participant.ExternalName ?? "Ukjent") : (participant.PersonId.HasValue ? personNames.GetValueOrDefault(participant.PersonId.Value, "Ukjent") : "Ukjent");
                                 var hasSigned = participant.SignedAt.HasValue;
 
                                 table.Cell().BorderBottom(1).BorderColor(Colors.Grey.Lighten2).Padding(4).Text(name);

@@ -205,4 +205,30 @@ public class ChecklistService(ApiHttpClient api, OfflineAwareApiClient offlineAp
             return await response.Content.ReadFromJsonAsync<BatchDuplicateResponse>();
         return null;
     }
+
+    // ─── Participants ───
+
+    public async Task<List<ChecklistParticipantDto>> GetParticipantsAsync(Guid instanceId)
+    {
+        var r = await api.GetAsync($"api/checklists/instances/{instanceId}/participants");
+        return r.IsSuccessStatusCode ? await r.Content.ReadFromJsonAsync<List<ChecklistParticipantDto>>() ?? [] : [];
+    }
+
+    public async Task<bool> AddParticipantAsync(Guid instanceId, Guid personId)
+    {
+        var r = await api.PostAsJsonAsync($"api/checklists/instances/{instanceId}/participants", new AddChecklistParticipantRequest(personId));
+        return r.IsSuccessStatusCode;
+    }
+
+    public async Task<bool> AddExternalParticipantAsync(Guid instanceId, string name, string? phone, string? company)
+    {
+        var r = await api.PostAsJsonAsync($"api/checklists/instances/{instanceId}/participants/external", new AddExternalChecklistParticipantRequest(name, phone, company));
+        return r.IsSuccessStatusCode;
+    }
+
+    public async Task<bool> RemoveParticipantAsync(Guid instanceId, Guid participantId)
+    {
+        var r = await api.DeleteAsync($"api/checklists/instances/{instanceId}/participants/{participantId}");
+        return r.IsSuccessStatusCode;
+    }
 }

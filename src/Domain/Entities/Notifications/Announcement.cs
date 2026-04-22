@@ -16,5 +16,6 @@ public class Announcement : TenantScopedEntity
 
     // Navigation
     public ICollection<AnnouncementAcknowledgment> Acknowledgments { get; set; } = [];
+    public ICollection<AnnouncementDismissal> Dismissals { get; set; } = [];
     public ICollection<AnnouncementComment> Comments { get; set; } = [];
 }

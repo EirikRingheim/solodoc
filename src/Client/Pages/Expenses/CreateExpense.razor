@@ -20,11 +20,18 @@
         <MudStack Spacing="3">
             @* 1. Photo upload (always required) *@
             <MudText Typo="Typo.subtitle2" Style="font-weight:600;">Kvitteringsbilde *</MudText>
-            @if (!string.IsNullOrEmpty(_receiptKey))
+            @if (!string.IsNullOrEmpty(_receiptPreviewUrl))
+            {
+                <MudPaper Elevation="0" Style="border:1px solid #D1FAE5;border-radius:8px;background:#F0FDF4;padding:12px;text-align:center;">
+                    <img src="@_receiptPreviewUrl" alt="Kvittering" style="max-width:100%;max-height:200px;border-radius:6px;object-fit:contain;" />
+                    <MudText Typo="Typo.caption" Style="color:#059669;margin-top:4px;">Kvittering lastet opp</MudText>
+                </MudPaper>
+            }
+            else if (!string.IsNullOrEmpty(_receiptKey))
             {
                 <MudPaper Elevation="0" Style="border:1px solid #D1FAE5;border-radius:8px;background:#F0FDF4;padding:12px;text-align:center;">
                     <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" />
-                    <MudText Typo="Typo.body2" Style="color:#059669;font-weight:500;">Bilde lastet opp</MudText>
+                    <MudText Typo="Typo.body2" Style="color:#059669;font-weight:500;">Dokument lastet opp</MudText>
                 </MudPaper>
             }
 
@@ -114,6 +121,7 @@
     private bool _submitting;
     private InputFile? _fileInput;
     private string? _receiptKey;
+    private string? _receiptPreviewUrl;
     private decimal _amount;
     private DateTime? _date = DateTime.Now;
     private string? _description;
@@ -145,11 +153,17 @@
             _uploading = true;
             StateHasChanged();
 
-            _receiptKey = await FileUploadService.UploadPhotoAsync(ms, file.Name, file.ContentType ?? "image/jpeg");
+            // Generate preview from the bytes we already have
+            var ct2 = file.ContentType ?? "image/jpeg";
+            if (ct2.StartsWith("image/"))
+                _receiptPreviewUrl = $"data:{ct2};base64,{Convert.ToBase64String(ms.ToArray())}";
+
+            ms.Position = 0;
+            _receiptKey = await FileUploadService.UploadPhotoAsync(ms, file.Name, ct2);
             if (_receiptKey is not null)
-                Snackbar.Add("Bilde lastet opp", Severity.Success);
+                Snackbar.Add("Kvittering lastet opp", Severity.Success);
             else
-                Snackbar.Add("Kunne ikke laste opp bilde", Severity.Error);
+                Snackbar.Add("Kunne ikke laste opp", Severity.Error);
         }
         catch (Exception ex)
         {

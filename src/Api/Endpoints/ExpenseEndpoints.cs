@@ -56,12 +56,19 @@ public static class ExpenseEndpoints
     {
         if (tp.TenantId is null) return Results.Unauthorized();
         var tenantId = tp.TenantId.Value;
+        var (currentPid, pidValid) = GetPerson(user);
+        if (!pidValid) return Results.Unauthorized();
 
         var query = db.Expenses.Where(e => e.TenantId == tenantId);
 
+        // Privacy: non-admin users only see their own expenses
+        var isAdmin = await IsAdminOrPL(currentPid!.Value, tenantId, db, ct);
+        if (!isAdmin)
+            query = query.Where(e => e.PersonId == currentPid!.Value);
+
         if (!string.IsNullOrEmpty(status) && Enum.TryParse<ExpenseStatus>(status, true, out var s))
             query = query.Where(e => e.Status == s);
-        if (personId.HasValue)
+        if (personId.HasValue && isAdmin)
             query = query.Where(e => e.PersonId == personId.Value);
         if (projectId.HasValue)
             query = query.Where(e => e.ProjectId == projectId.Value);
@@ -169,15 +176,37 @@ public static class ExpenseEndpoints
     // ── Update (draft only) ──
 
     private static async Task<IResult> UpdateExpense(
-        Guid id, UpdateExpenseSettingsRequest request, SolodocDbContext db, ITenantProvider tp, CancellationToken ct)
+        Guid id, UpdateExpenseRequest request, ClaimsPrincipal user, SolodocDbContext db, ITenantProvider tp, CancellationToken ct)
     {
         if (tp.TenantId is null) return Results.Unauthorized();
+        var (pid, valid) = GetPerson(user);
+        if (!valid) return Results.Unauthorized();
+
         var e = await db.Expenses.FirstOrDefaultAsync(x => x.Id == id && x.TenantId == tp.TenantId.Value, ct);
         if (e is null) return Results.NotFound();
+
+        // Only owner or admin can edit
+        if (e.PersonId != pid!.Value && !await IsAdminOrPL(pid!.Value, tp.TenantId.Value, db, ct))
+            return Results.Forbid();
+
         if (e.Status is not ExpenseStatus.Draft and not ExpenseStatus.Rejected)
             return Results.BadRequest(new { error = "Kan kun redigere utkast eller avviste utlegg." });
 
-        // Apply updates from whatever fields are provided
+        if (request.Date.HasValue) e.Date = request.Date.Value;
+        if (request.Amount.HasValue && request.Amount.Value > 0) e.Amount = request.Amount.Value;
+        if (request.Description is not null) e.Description = request.Description;
+        if (request.ProjectId.HasValue) e.ProjectId = request.ProjectId;
+        if (request.JobId.HasValue) e.JobId = request.JobId;
+        if (request.Category is not null && Enum.TryParse<ExpenseCategory>(request.Category, true, out var cat))
+            e.Category = cat;
+
+        // If it was rejected, reset to draft on edit
+        if (e.Status == ExpenseStatus.Rejected)
+        {
+            e.Status = ExpenseStatus.Draft;
+            e.RejectionReason = null;
+        }
+
         await db.SaveChangesAsync(ct);
         return Results.Ok();
     }

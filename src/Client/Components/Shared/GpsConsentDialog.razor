@@ -1,0 +1,77 @@
+@inject EmployeeService EmployeeService
+@inject ISnackbar Snackbar
+
+<MudDialog @bind-Visible="Visible" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, BackdropClick = false })">
+    <TitleContent>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Filled.LocationOn" Color="Color.Primary" />
+            <MudText Typo="Typo.h6">GPS-samtykke</MudText>
+        </MudStack>
+    </TitleContent>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudAlert Severity="Severity.Info" Dense="true" Variant="Variant.Outlined">
+                Din arbeidsgiver har aktivert GPS-registrering i Solodoc.
+            </MudAlert>
+
+            <MudText Typo="Typo.body2">
+                Posisjonen din registreres <strong>kun</strong> ved spesifikke handlinger:
+            </MudText>
+
+            <MudList T="string" Dense="true" DisableGutters="true">
+                <MudListItem T="string" Icon="@Icons.Material.Filled.Login">Innsjekking pa arbeidssted</MudListItem>
+                <MudListItem T="string" Icon="@Icons.Material.Filled.Schedule">Stempling inn/ut</MudListItem>
+                <MudListItem T="string" Icon="@Icons.Material.Filled.ReportProblem">Avviksrapportering</MudListItem>
+            </MudList>
+
+            <MudText Typo="Typo.body2">
+                Det foretas <strong>ingen kontinuerlig sporing</strong>. Du kan trekke tilbake samtykket
+                nar som helst under Innstillinger. A avsta pavirker ikke funksjonaliteten —
+                GPS-felter forblir tomme.
+            </MudText>
+
+            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                Hjemmel: Personopplysningsloven / GDPR art. 6(1)(a) — samtykke.
+                Arbeidsgiver har gjennomfort DPIA iht. GDPR art. 35.
+                Datatilsynets veileder om GPS-sporing i arbeidsforhold er lagt til grunn.
+            </MudText>
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Decline" Style="text-transform:none;" Color="Color.Secondary">
+            Avslå
+        </MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="Accept"
+                   Style="text-transform:none;border-radius:8px;">
+            Godta GPS-registrering
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public EventCallback<bool> VisibleChanged { get; set; }
+    [Parameter] public EventCallback<bool> OnConsentChanged { get; set; }
+
+    private async Task Accept()
+    {
+        var ok = await EmployeeService.UpdateGpsConsentAsync(true);
+        if (ok)
+        {
+            Snackbar.Add("GPS-samtykke godtatt", Severity.Success);
+            await OnConsentChanged.InvokeAsync(true);
+        }
+        Visible = false;
+        await VisibleChanged.InvokeAsync(false);
+    }
+
+    private async Task Decline()
+    {
+        var ok = await EmployeeService.UpdateGpsConsentAsync(false);
+        if (ok)
+            Snackbar.Add("GPS-samtykke avslatt — ingen funksjonalitet pavirkes", Severity.Info);
+        Visible = false;
+        await VisibleChanged.InvokeAsync(false);
+        await OnConsentChanged.InvokeAsync(false);
+    }
+}

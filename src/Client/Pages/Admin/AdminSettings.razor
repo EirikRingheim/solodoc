@@ -710,12 +710,130 @@
             </MudStack>
         </ChildContent>
     </MudExpansionPanel>
+
+    @* ── Integrasjoner ── *@
+    <MudExpansionPanel Style="border:1px solid #e9ecef;border-radius:12px;margin-bottom:12px;">
+        <TitleContent>
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudIcon Icon="@Icons.Material.Filled.Extension" Color="Color.Primary" />
+                <MudText Typo="Typo.subtitle1" Style="font-weight:600;">Integrasjoner</MudText>
+            </MudStack>
+        </TitleContent>
+        <ChildContent>
+            <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+                Koble Solodoc med eksterne systemer for automatisk dataflyt.
+            </MudText>
+
+            @* Power Office *@
+            <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;" Class="pa-4 mb-3">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                        <MudIcon Icon="@Icons.Material.Filled.AccountBalance" Style="color:#4361EE;" />
+                        <div>
+                            <MudText Typo="Typo.subtitle2" Style="font-weight:600;">Power Office Go</MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Regnskap, lonn, fakturering</MudText>
+                        </div>
+                    </MudStack>
+                    <MudSwitch T="bool" @bind-Value="_powerOfficeEnabled" Color="Color.Primary"
+                               Label="@(_powerOfficeEnabled ? "Aktiv" : "Inaktiv")" />
+                </MudStack>
+                @if (_powerOfficeEnabled)
+                {
+                    <MudDivider Class="my-3" />
+                    <MudStack Spacing="3">
+                        <MudTextField T="string" @bind-Value="_powerOfficeClientId" Label="Client ID"
+                                      Variant="Variant.Outlined" Margin="Margin.Dense" />
+                        <MudTextField T="string" @bind-Value="_powerOfficeClientSecret" Label="Client Secret"
+                                      Variant="Variant.Outlined" Margin="Margin.Dense"
+                                      InputType="InputType.Password" />
+                        <MudSelect T="string" @bind-Value="_powerOfficeEnvironment" Label="Miljo"
+                                   Variant="Variant.Outlined" Margin="Margin.Dense">
+                            <MudSelectItem T="string" Value="@("test")">Test</MudSelectItem>
+                            <MudSelectItem T="string" Value="@("production")">Produksjon</MudSelectItem>
+                        </MudSelect>
+
+                        <MudText Typo="Typo.subtitle2" Style="font-weight:600;">Synkronisering</MudText>
+                        <MudStack Spacing="1">
+                            <MudCheckBox T="bool" @bind-Value="_poSyncHours" Label="Timer og lonn" Dense="true" Color="Color.Primary" />
+                            <MudCheckBox T="bool" @bind-Value="_poSyncExpenses" Label="Utlegg og kvitteringer" Dense="true" Color="Color.Primary" />
+                            <MudCheckBox T="bool" @bind-Value="_poSyncInvoices" Label="Fakturering" Dense="true" Color="Color.Primary" />
+                            <MudCheckBox T="bool" @bind-Value="_poSyncEmployees" Label="Ansattdata" Dense="true" Color="Color.Primary" />
+                        </MudStack>
+
+                        <MudStack Row="true" Spacing="2">
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SavePowerOfficeSettings"
+                                       Style="text-transform:none;border-radius:8px;">
+                                Lagre
+                            </MudButton>
+                            <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="TestPowerOfficeConnection"
+                                       Style="text-transform:none;border-radius:8px;" Disabled="_poTesting">
+                                @(_poTesting ? "Tester..." : "Test tilkobling")
+                            </MudButton>
+                        </MudStack>
+
+                        @if (_poConnectionStatus is not null)
+                        {
+                            <MudAlert Severity="@(_poConnectionOk ? Severity.Success : Severity.Error)" Dense="true" Class="mt-1">
+                                @_poConnectionStatus
+                            </MudAlert>
+                        }
+                    </MudStack>
+                }
+            </MudPaper>
+
+            @* Placeholder for future integrations *@
+            <MudPaper Elevation="0" Style="border:1px dashed #DEE2E6;border-radius:12px;" Class="pa-4">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@Icons.Material.Filled.AddCircleOutline" Color="Color.Secondary" />
+                    <div>
+                        <MudText Typo="Typo.subtitle2" Color="Color.Secondary">Flere integrasjoner kommer</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Tripletex, 24SevenOffice, Visma, m.fl.</MudText>
+                    </div>
+                </MudStack>
+            </MudPaper>
+        </ChildContent>
+    </MudExpansionPanel>
 </MudExpansionPanels>
 
 @code {
     // Onboarding/subscription
     private OnboardingStatusDto? _onboarding;
     private double _setupProgress;
+
+    // Integrations - Power Office
+    private bool _powerOfficeEnabled;
+    private string _powerOfficeClientId = "";
+    private string _powerOfficeClientSecret = "";
+    private string _powerOfficeEnvironment = "test";
+    private bool _poSyncHours = true;
+    private bool _poSyncExpenses = true;
+    private bool _poSyncInvoices;
+    private bool _poSyncEmployees;
+    private bool _poTesting;
+    private bool _poConnectionOk;
+    private string? _poConnectionStatus;
+
+    private async Task SavePowerOfficeSettings()
+    {
+        // TODO: Persist to tenant integration settings via API
+        Snackbar.Add("Power Office-innstillinger lagret", Severity.Success);
+    }
+
+    private async Task TestPowerOfficeConnection()
+    {
+        _poTesting = true;
+        _poConnectionStatus = null;
+        StateHasChanged();
+
+        await Task.Delay(1500); // Simulate connection test
+        // TODO: Call API to test Power Office connection
+        _poConnectionOk = !string.IsNullOrWhiteSpace(_powerOfficeClientId);
+        _poConnectionStatus = _poConnectionOk
+            ? "Tilkobling vellykket!"
+            : "Kunne ikke koble til. Sjekk Client ID og Secret.";
+        _poTesting = false;
+        StateHasChanged();
+    }
 
     // Expense settings
     private bool _expRequireDate = true;

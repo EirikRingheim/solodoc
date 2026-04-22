@@ -17,6 +17,8 @@ public static class HmsEndpoints
         app.MapGet("/api/hms/sja/{id:guid}", GetSjaFormDetail).RequireAuthorization();
         app.MapPost("/api/hms/sja/{id:guid}/hazards", AddHazard).RequireAuthorization();
         app.MapPost("/api/hms/sja/{id:guid}/participants", AddParticipant).RequireAuthorization();
+        app.MapPost("/api/hms/sja/{id:guid}/participants/external", AddExternalParticipant).RequireAuthorization();
+        app.MapDelete("/api/hms/sja/{id:guid}/participants/{participantId:guid}", RemoveParticipant).RequireAuthorization();
 
         // HMS Meetings
         app.MapGet("/api/hms/meetings", ListMeetings).RequireAuthorization();
@@ -130,8 +132,11 @@ public static class HmsEndpoints
                     .Where(p => p.SjaFormId == f.Id)
                     .Select(p => new SjaParticipantDto(
                         p.Id,
-                        db.Persons.Where(per => per.Id == p.PersonId).Select(per => per.FullName).FirstOrDefault() ?? "",
-                        p.SignedAt != null))
+                        p.IsExternal ? (p.ExternalName ?? "Ukjent") : (db.Persons.Where(per => per.Id == p.PersonId).Select(per => per.FullName).FirstOrDefault() ?? ""),
+                        p.SignedAt != null,
+                        p.IsExternal,
+                        p.ExternalPhone,
+                        p.ExternalCompany))
                     .ToList()))
             .FirstOrDefaultAsync(ct);
 
@@ -200,6 +205,49 @@ public static class HmsEndpoints
         await db.SaveChangesAsync(ct);
 
         return Results.Created($"/api/hms/sja/{id}/participants/{participant.Id}", new { id = participant.Id });
+    }
+
+    private static async Task<IResult> AddExternalParticipant(
+        Guid id,
+        AddExternalParticipantRequest request,
+        ITenantProvider tenantProvider,
+        SolodocDbContext db,
+        CancellationToken ct)
+    {
+        if (tenantProvider.TenantId is null) return Results.Unauthorized();
+        if (string.IsNullOrWhiteSpace(request.Name)) return Results.BadRequest(new { error = "Navn er pakrevd." });
+
+        var exists = await db.SjaForms.AnyAsync(f => f.Id == id && f.TenantId == tenantProvider.TenantId.Value, ct);
+        if (!exists) return Results.NotFound();
+
+        var participant = new SjaParticipant
+        {
+            SjaFormId = id,
+            IsExternal = true,
+            ExternalName = request.Name.Trim(),
+            ExternalPhone = request.Phone?.Trim(),
+            ExternalCompany = request.Company?.Trim()
+        };
+
+        db.SjaParticipants.Add(participant);
+        await db.SaveChangesAsync(ct);
+        return Results.Created($"/api/hms/sja/{id}/participants/{participant.Id}", new { id = participant.Id });
+    }
+
+    private static async Task<IResult> RemoveParticipant(
+        Guid id,
+        Guid participantId,
+        SolodocDbContext db,
+        ITenantProvider tenantProvider,
+        CancellationToken ct)
+    {
+        if (tenantProvider.TenantId is null) return Results.Unauthorized();
+        var participant = await db.SjaParticipants.FirstOrDefaultAsync(p => p.Id == participantId && p.SjaFormId == id, ct);
+        if (participant is null) return Results.NotFound();
+
+        db.SjaParticipants.Remove(participant);
+        await db.SaveChangesAsync(ct);
+        return Results.NoContent();
     }
 
     private static async Task<IResult> ListMeetings(

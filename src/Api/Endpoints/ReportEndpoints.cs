@@ -18,6 +18,13 @@ public static class ReportEndpoints
         app.MapGet("/api/reports/project/{id:guid}/summary", GetProjectSummary).RequireAuthorization();
         app.MapGet("/api/reports/accounting", GetAccountingReport).RequireAuthorization();
 
+        // CSV Exports
+        app.MapGet("/api/reports/hours/export", ExportHoursCsv).RequireAuthorization();
+        app.MapGet("/api/reports/deviations/export", ExportDeviationsCsv).RequireAuthorization();
+        app.MapGet("/api/reports/certifications/export", ExportCertificationsCsv).RequireAuthorization();
+        app.MapGet("/api/reports/safety/export", ExportSafetyCsv).RequireAuthorization();
+        app.MapGet("/api/reports/project/{id:guid}/personnel/export", ExportProjectPersonnelCsv).RequireAuthorization();
+
         return app;
     }
 
@@ -489,5 +496,185 @@ public static class ReportEndpoints
             byEmployee.Sum(e => e.EmployeeTotal));
 
         return Results.Ok(new AccountingReportDto(periodStart, periodEnd, pType, totals, byEmployee, byProject));
+    }
+
+    // ─── CSV Exports ────────────────────────────────────────────────
+
+    private static byte[] ToCsvBytes(System.Text.StringBuilder csv)
+    {
+        return System.Text.Encoding.UTF8.GetPreamble()
+            .Concat(System.Text.Encoding.UTF8.GetBytes(csv.ToString())).ToArray();
+    }
+
+    private static async Task<IResult> ExportHoursCsv(
+        SolodocDbContext db, ITenantProvider tp, CancellationToken ct,
+        string? from = null, string? to = null, Guid? projectId = null, Guid? personId = null)
+    {
+        if (tp.TenantId is null) return Results.Unauthorized();
+        var tenantId = tp.TenantId.Value;
+        var fromDate = DateOnly.TryParse(from, out var fd) ? fd : DateOnly.FromDateTime(DateTimeOffset.UtcNow.AddDays(-30).UtcDateTime);
+        var toDate = DateOnly.TryParse(to, out var td) ? td : DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime);
+
+        var query = db.TimeEntries.Where(t => t.TenantId == tenantId && t.Date >= fromDate && t.Date <= toDate);
+        if (projectId.HasValue) query = query.Where(t => t.ProjectId == projectId.Value);
+        if (personId.HasValue) query = query.Where(t => t.PersonId == personId.Value);
+
+        var entries = await query.OrderBy(t => t.Date).ThenBy(t => t.PersonId)
+            .Select(t => new { t.PersonId, t.Date, t.Hours, t.OvertimeHours, t.Category, t.Status, t.ProjectId, t.JobId, t.Notes })
+            .ToListAsync(ct);
+
+        var personIds = entries.Select(e => e.PersonId).Distinct().ToList();
+        var persons = await db.Persons.Where(p => personIds.Contains(p.Id)).ToDictionaryAsync(p => p.Id, p => p.FullName, ct);
+        var projIds = entries.Where(e => e.ProjectId.HasValue).Select(e => e.ProjectId!.Value).Distinct().ToList();
+        var projects = projIds.Count > 0 ? await db.Projects.Where(p => projIds.Contains(p.Id)).ToDictionaryAsync(p => p.Id, p => p.Name, ct) : new();
+
+        var csv = new System.Text.StringBuilder();
+        csv.AppendLine("Ansatt,Dato,Timer,Overtid,Kategori,Status,Prosjekt,Notat");
+        foreach (var e in entries)
+        {
+            persons.TryGetValue(e.PersonId, out var name);
+            var proj = e.ProjectId.HasValue && projects.TryGetValue(e.ProjectId.Value, out var pn) ? pn : "";
+            csv.AppendLine($"\"{name}\",{e.Date:dd.MM.yyyy},{e.Hours:N2},{e.OvertimeHours:N2},{CategoryToString(e.Category)},{e.Status},\"{proj}\",\"{e.Notes ?? ""}\"");
+        }
+        return Results.File(ToCsvBytes(csv), "text/csv; charset=utf-8", $"timer-{fromDate:yyyy-MM-dd}-{toDate:yyyy-MM-dd}.csv");
+    }
+
+    private static async Task<IResult> ExportDeviationsCsv(
+        SolodocDbContext db, ITenantProvider tp, CancellationToken ct,
+        string? from = null, string? to = null, string? severity = null, string? status = null, Guid? projectId = null)
+    {
+        if (tp.TenantId is null) return Results.Unauthorized();
+        var tenantId = tp.TenantId.Value;
+        var fromDate = DateOnly.TryParse(from, out var fd) ? new DateTimeOffset(fd.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero) : DateTimeOffset.UtcNow.AddDays(-90);
+        var toDate = DateOnly.TryParse(to, out var td) ? new DateTimeOffset(td.ToDateTime(TimeOnly.MaxValue), TimeSpan.Zero) : DateTimeOffset.UtcNow;
+
+        var query = db.Deviations.Where(d => d.TenantId == tenantId && d.CreatedAt >= fromDate && d.CreatedAt <= toDate);
+        if (projectId.HasValue) query = query.Where(d => d.ProjectId == projectId.Value);
+        if (!string.IsNullOrEmpty(severity))
+        {
+            var sev = severity switch { "Lav" => DeviationSeverity.Low, "Middels" => DeviationSeverity.Medium, "Hoy" or "Høy" => DeviationSeverity.High, _ => (DeviationSeverity?)null };
+            if (sev.HasValue) query = query.Where(d => d.Severity == sev.Value);
+        }
+        if (!string.IsNullOrEmpty(status))
+        {
+            var st = status switch { "Apen" or "Åpen" => DeviationStatus.Open, "UnderBehandling" => DeviationStatus.InProgress, "Lukket" => DeviationStatus.Closed, _ => (DeviationStatus?)null };
+            if (st.HasValue) query = query.Where(d => d.Status == st.Value);
+        }
+
+        var deviations = await query.OrderByDescending(d => d.CreatedAt)
+            .Select(d => new { d.Id, d.Title, d.Description, d.Status, d.Severity, d.CreatedAt, d.ClosedAt, d.ReportedById, d.ProjectId })
+            .ToListAsync(ct);
+
+        var personIds = deviations.Select(d => d.ReportedById).Distinct().ToList();
+        var persons = await db.Persons.Where(p => personIds.Contains(p.Id)).ToDictionaryAsync(p => p.Id, p => p.FullName, ct);
+        var projIds = deviations.Where(d => d.ProjectId.HasValue).Select(d => d.ProjectId!.Value).Distinct().ToList();
+        var projects = projIds.Count > 0 ? await db.Projects.Where(p => projIds.Contains(p.Id)).ToDictionaryAsync(p => p.Id, p => p.Name, ct) : new();
+
+        var csv = new System.Text.StringBuilder();
+        csv.AppendLine("Tittel,Beskrivelse,Alvorlighet,Status,Prosjekt,Rapportert av,Opprettet,Lukket");
+        foreach (var d in deviations)
+        {
+            persons.TryGetValue(d.ReportedById, out var reporter);
+            var proj = d.ProjectId.HasValue && projects.TryGetValue(d.ProjectId.Value, out var pn) ? pn : "";
+            var statusStr = d.Status switch { DeviationStatus.Open => "Apen", DeviationStatus.InProgress => "Under behandling", DeviationStatus.Closed => "Lukket", _ => "" };
+            csv.AppendLine($"\"{d.Title}\",\"{d.Description ?? ""}\",{SeverityToString(d.Severity)},{statusStr},\"{proj}\",\"{reporter}\",{d.CreatedAt.ToOffset(TimeSpan.FromHours(2)):dd.MM.yyyy HH:mm},{d.ClosedAt?.ToOffset(TimeSpan.FromHours(2)).ToString("dd.MM.yyyy HH:mm") ?? ""}");
+        }
+        return Results.File(ToCsvBytes(csv), "text/csv; charset=utf-8", $"avvik-eksport.csv");
+    }
+
+    private static async Task<IResult> ExportCertificationsCsv(
+        SolodocDbContext db, ITenantProvider tp, CancellationToken ct,
+        string? type = null, Guid? personId = null, string? status = null)
+    {
+        if (tp.TenantId is null) return Results.Unauthorized();
+        var tenantId = tp.TenantId.Value;
+        var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime);
+
+        var query = db.EmployeeCertifications.Where(c => c.TenantId == tenantId);
+        if (!string.IsNullOrEmpty(type)) query = query.Where(c => c.Type == type);
+        if (personId.HasValue) query = query.Where(c => c.PersonId == personId.Value);
+        if (status == "expired") query = query.Where(c => c.ExpiryDate != null && c.ExpiryDate.Value < today);
+        else if (status == "expiring") query = query.Where(c => c.ExpiryDate != null && c.ExpiryDate.Value >= today && c.ExpiryDate.Value <= today.AddDays(90));
+        else if (status == "valid") query = query.Where(c => c.ExpiryDate == null || c.ExpiryDate.Value >= today);
+
+        var certs = await query.OrderBy(c => c.PersonId).ThenBy(c => c.Type)
+            .Select(c => new { c.PersonId, c.Name, c.Type, c.IssuedBy, c.ExpiryDate })
+            .ToListAsync(ct);
+
+        var personIds = certs.Select(c => c.PersonId).Distinct().ToList();
+        var persons = await db.Persons.Where(p => personIds.Contains(p.Id)).ToDictionaryAsync(p => p.Id, p => p.FullName, ct);
+
+        var csv = new System.Text.StringBuilder();
+        csv.AppendLine("Ansatt,Sertifikat,Type,Utstedt av,Utlopsdato,Status");
+        foreach (var c in certs)
+        {
+            persons.TryGetValue(c.PersonId, out var name);
+            var expStatus = c.ExpiryDate is null ? "Ingen utlop" : c.ExpiryDate.Value < today ? "Utlopt" : c.ExpiryDate.Value <= today.AddDays(90) ? "Utloper snart" : "Gyldig";
+            csv.AppendLine($"\"{name}\",\"{c.Name}\",\"{c.Type}\",\"{c.IssuedBy ?? ""}\",{c.ExpiryDate?.ToString("dd.MM.yyyy") ?? ""},\"{expStatus}\"");
+        }
+        return Results.File(ToCsvBytes(csv), "text/csv; charset=utf-8", $"sertifikater-eksport.csv");
+    }
+
+    private static async Task<IResult> ExportSafetyCsv(
+        SolodocDbContext db, ITenantProvider tp, CancellationToken ct,
+        string? from = null, string? to = null, string? type = null)
+    {
+        if (tp.TenantId is null) return Results.Unauthorized();
+        var tenantId = tp.TenantId.Value;
+        var fromDate = DateOnly.TryParse(from, out var fd) ? fd : DateOnly.FromDateTime(DateTimeOffset.UtcNow.AddDays(-90).UtcDateTime);
+        var toDate = DateOnly.TryParse(to, out var td) ? td : DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime);
+
+        // SJA forms
+        var sjas = await db.SjaForms
+            .Where(s => s.TenantId == tenantId && s.Date >= fromDate && s.Date <= toDate)
+            .Select(s => new { s.Title, s.Status, s.Date, s.Location,
+                Participants = db.SjaParticipants.Count(p => p.SjaFormId == s.Id),
+                Hazards = db.SjaHazards.Count(h => h.SjaFormId == s.Id),
+                ProjectName = s.ProjectId != null ? db.Projects.Where(p => p.Id == s.ProjectId).Select(p => p.Name).FirstOrDefault() : null })
+            .ToListAsync(ct);
+
+        var meetings = await db.HmsMeetings
+            .Where(m => m.TenantId == tenantId && m.Date >= fromDate && m.Date <= toDate)
+            .Select(m => new { m.Title, m.Date, m.Location })
+            .ToListAsync(ct);
+
+        var csv = new System.Text.StringBuilder();
+        csv.AppendLine("Type,Tittel,Dato,Sted,Prosjekt,Status,Deltakere,Farer");
+        var includeAll = string.IsNullOrEmpty(type);
+        if (includeAll || type == "SJA")
+            foreach (var s in sjas)
+                csv.AppendLine($"SJA,\"{s.Title}\",{s.Date:dd.MM.yyyy},\"{s.Location ?? ""}\",\"{s.ProjectName ?? ""}\",{s.Status},{s.Participants},{s.Hazards}");
+        if (includeAll || type == "HMS-mote")
+            foreach (var m in meetings)
+                csv.AppendLine($"HMS-mote,\"{m.Title}\",{m.Date:dd.MM.yyyy},\"{m.Location ?? ""}\",,,");
+
+        return Results.File(ToCsvBytes(csv), "text/csv; charset=utf-8", $"hms-eksport.csv");
+    }
+
+    private static async Task<IResult> ExportProjectPersonnelCsv(
+        Guid id, SolodocDbContext db, ITenantProvider tp, CancellationToken ct)
+    {
+        if (tp.TenantId is null) return Results.Unauthorized();
+
+        var project = await db.Projects.FirstOrDefaultAsync(p => p.Id == id && p.TenantId == tp.TenantId.Value, ct);
+        if (project is null) return Results.NotFound();
+
+        var entries = await db.TimeEntries
+            .Where(t => t.ProjectId == id)
+            .GroupBy(t => t.PersonId)
+            .Select(g => new { PersonId = g.Key, Hours = g.Sum(t => t.Hours), OvertimeHours = g.Sum(t => t.OvertimeHours), Days = g.Select(t => t.Date).Distinct().Count() })
+            .ToListAsync(ct);
+
+        var personIds = entries.Select(e => e.PersonId).ToList();
+        var persons = await db.Persons.Where(p => personIds.Contains(p.Id)).ToDictionaryAsync(p => p.Id, p => p.FullName, ct);
+
+        var csv = new System.Text.StringBuilder();
+        csv.AppendLine("Ansatt,Timer,Overtid,Antall dager");
+        foreach (var e in entries.OrderByDescending(e => e.Hours))
+        {
+            persons.TryGetValue(e.PersonId, out var name);
+            csv.AppendLine($"\"{name}\",{e.Hours:N2},{e.OvertimeHours:N2},{e.Days}");
+        }
+        return Results.File(ToCsvBytes(csv), "text/csv; charset=utf-8", $"personell-{project.Name}.csv");
     }
 }

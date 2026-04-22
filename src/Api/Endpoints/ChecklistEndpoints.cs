@@ -40,6 +40,12 @@ public static class ChecklistEndpoints
         app.MapPost("/api/checklists/instances/batch-duplicate", BatchDuplicate).RequireAuthorization();
         app.MapDelete("/api/checklists/instances/{id:guid}", DeleteInstance).RequireAuthorization();
 
+        // Participants
+        app.MapGet("/api/checklists/instances/{id:guid}/participants", GetParticipants).RequireAuthorization();
+        app.MapPost("/api/checklists/instances/{id:guid}/participants", AddParticipant).RequireAuthorization();
+        app.MapPost("/api/checklists/instances/{id:guid}/participants/external", AddExternalParticipant).RequireAuthorization();
+        app.MapDelete("/api/checklists/instances/{id:guid}/participants/{participantId:guid}", RemoveParticipant).RequireAuthorization();
+
         return app;
     }
 
@@ -1357,4 +1363,76 @@ public static class ChecklistEndpoints
     }
 
     private record ImportedItem(string? Label, string? Type);
+
+    // ─── Participants ────────────────────────────────────────────────
+
+    private static async Task<IResult> GetParticipants(
+        Guid id, SolodocDbContext db, ITenantProvider tp, CancellationToken ct)
+    {
+        if (tp.TenantId is null) return Results.Unauthorized();
+        var exists = await db.ChecklistInstances.AnyAsync(i => i.Id == id && i.TenantId == tp.TenantId.Value, ct);
+        if (!exists) return Results.NotFound();
+
+        var participants = await db.ChecklistParticipants
+            .Where(p => p.ChecklistInstanceId == id)
+            .Select(p => new ChecklistParticipantDto(
+                p.Id,
+                p.IsExternal ? (p.ExternalName ?? "Ukjent") : (db.Persons.Where(per => per.Id == p.PersonId).Select(per => per.FullName).FirstOrDefault() ?? ""),
+                p.SignedAt != null,
+                p.IsExternal,
+                p.ExternalPhone,
+                p.ExternalCompany))
+            .ToListAsync(ct);
+
+        return Results.Ok(participants);
+    }
+
+    private static async Task<IResult> AddParticipant(
+        Guid id, AddChecklistParticipantRequest request, SolodocDbContext db, ITenantProvider tp, CancellationToken ct)
+    {
+        if (tp.TenantId is null) return Results.Unauthorized();
+        var exists = await db.ChecklistInstances.AnyAsync(i => i.Id == id && i.TenantId == tp.TenantId.Value, ct);
+        if (!exists) return Results.NotFound();
+
+        var participant = new ChecklistParticipant
+        {
+            ChecklistInstanceId = id,
+            PersonId = request.PersonId
+        };
+        db.ChecklistParticipants.Add(participant);
+        await db.SaveChangesAsync(ct);
+        return Results.Created($"/api/checklists/instances/{id}/participants/{participant.Id}", new { id = participant.Id });
+    }
+
+    private static async Task<IResult> AddExternalParticipant(
+        Guid id, AddExternalChecklistParticipantRequest request, SolodocDbContext db, ITenantProvider tp, CancellationToken ct)
+    {
+        if (tp.TenantId is null) return Results.Unauthorized();
+        if (string.IsNullOrWhiteSpace(request.Name)) return Results.BadRequest(new { error = "Navn er pakrevd." });
+        var exists = await db.ChecklistInstances.AnyAsync(i => i.Id == id && i.TenantId == tp.TenantId.Value, ct);
+        if (!exists) return Results.NotFound();
+
+        var participant = new ChecklistParticipant
+        {
+            ChecklistInstanceId = id,
+            IsExternal = true,
+            ExternalName = request.Name.Trim(),
+            ExternalPhone = request.Phone?.Trim(),
+            ExternalCompany = request.Company?.Trim()
+        };
+        db.ChecklistParticipants.Add(participant);
+        await db.SaveChangesAsync(ct);
+        return Results.Created($"/api/checklists/instances/{id}/participants/{participant.Id}", new { id = participant.Id });
+    }
+
+    private static async Task<IResult> RemoveParticipant(
+        Guid id, Guid participantId, SolodocDbContext db, ITenantProvider tp, CancellationToken ct)
+    {
+        if (tp.TenantId is null) return Results.Unauthorized();
+        var participant = await db.ChecklistParticipants.FirstOrDefaultAsync(p => p.Id == participantId && p.ChecklistInstanceId == id, ct);
+        if (participant is null) return Results.NotFound();
+        db.ChecklistParticipants.Remove(participant);
+        await db.SaveChangesAsync(ct);
+        return Results.NoContent();
+    }
 }

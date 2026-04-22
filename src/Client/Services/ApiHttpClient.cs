@@ -170,7 +170,7 @@ public class ApiHttpClient
         await _localStorage.RemoveItemAsync("accessToken");
         await _localStorage.RemoveItemAsync("refreshToken");
         await _localStorage.RemoveItemAsync("selectedTenantId");
-        _navigation.NavigateTo("/login", forceLoad: true);
+        _navigation.NavigateTo("/login", forceLoad: false);
     }
 
     private record RefreshResult(string AccessToken, string RefreshToken);

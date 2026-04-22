@@ -16,10 +16,24 @@ public static class ProjectEndpoints
         app.MapPost("/api/projects", CreateProject).RequireAuthorization();
         app.MapPut("/api/projects/{id:guid}", UpdateProject).RequireAuthorization();
         app.MapPatch("/api/projects/{id:guid}/status", ChangeProjectStatus).RequireAuthorization();
+        // Geofence is registered inline in Program.cs
         app.MapDelete("/api/projects/{id:guid}", DeleteProject).RequireAuthorization();
         app.MapGet("/api/projects/{id:guid}/subprojects", GetSubProjects).RequireAuthorization();
 
         return app;
+    }
+
+    private static (Guid? personId, bool valid) GetPerson(ClaimsPrincipal user)
+    {
+        var claim = user.FindFirstValue(ClaimTypes.NameIdentifier) ?? user.FindFirstValue("sub");
+        return Guid.TryParse(claim, out var pid) ? (pid, true) : (null, false);
+    }
+
+    private static async Task<bool> IsAdminOrPL(Guid personId, Guid tenantId, SolodocDbContext db, CancellationToken ct)
+    {
+        var m = await db.TenantMemberships.FirstOrDefaultAsync(
+            m => m.PersonId == personId && m.TenantId == tenantId && m.State == TenantMembershipState.Active, ct);
+        return m?.Role is TenantRole.TenantAdmin or TenantRole.ProjectLeader;
     }
 
     private static async Task<IResult> CreateProject(
@@ -70,11 +84,16 @@ public static class ProjectEndpoints
     private static async Task<IResult> UpdateProject(
         Guid id,
         UpdateProjectRequest request,
+        ClaimsPrincipal user,
         SolodocDbContext db,
         ITenantProvider tenantProvider,
         CancellationToken ct)
     {
         if (tenantProvider.TenantId is null) return Results.Unauthorized();
+        var (pid, valid) = GetPerson(user);
+        if (!valid) return Results.Unauthorized();
+        if (!await IsAdminOrPL(pid!.Value, tenantProvider.TenantId.Value, db, ct))
+            return Results.Forbid();
         if (string.IsNullOrWhiteSpace(request.Name))
             return Results.BadRequest(new { error = "Navn er påkrevd." });
 
@@ -99,11 +118,16 @@ public static class ProjectEndpoints
     private static async Task<IResult> ChangeProjectStatus(
         Guid id,
         ChangeStatusRequest request,
+        ClaimsPrincipal user,
         SolodocDbContext db,
         ITenantProvider tenantProvider,
         CancellationToken ct)
     {
         if (tenantProvider.TenantId is null) return Results.Unauthorized();
+        var (pid, valid) = GetPerson(user);
+        if (!valid) return Results.Unauthorized();
+        if (!await IsAdminOrPL(pid!.Value, tenantProvider.TenantId.Value, db, ct))
+            return Results.Forbid();
 
         var project = await db.Projects
             .FirstOrDefaultAsync(p => p.Id == id && p.TenantId == tenantProvider.TenantId.Value, ct);
@@ -135,15 +159,15 @@ public static class ProjectEndpoints
         CancellationToken ct)
     {
         if (tenantProvider.TenantId is null) return Results.Unauthorized();
+        var (personId, valid) = GetPerson(user);
+        if (!valid) return Results.Unauthorized();
+        if (!await IsAdminOrPL(personId!.Value, tenantProvider.TenantId.Value, db, ct))
+            return Results.Forbid();
 
         var project = await db.Projects
             .FirstOrDefaultAsync(p => p.Id == id && p.TenantId == tenantProvider.TenantId.Value, ct);
         if (project is null)
             return Results.NotFound();
-
-        var personIdClaim = user.FindFirstValue(ClaimTypes.NameIdentifier)
-                            ?? user.FindFirstValue("sub");
-        Guid.TryParse(personIdClaim, out var personId);
 
         // Block deletion if project has active sub-projects
         var hasChildren = await db.Projects.AnyAsync(p => p.ParentProjectId == id && !p.IsDeleted, ct);
@@ -182,5 +206,27 @@ public static class ProjectEndpoints
             .ToListAsync(ct);
 
         return Results.Ok(subs);
+    }
+
+    private static async Task<IResult> UpdateProjectGeofence(
+        Guid id,
+        UpdateProjectGeofenceRequest request,
+        SolodocDbContext db,
+        ITenantProvider tp,
+        CancellationToken ct)
+    {
+        if (tp.TenantId is null) return Results.Unauthorized();
+
+        var project = await db.Projects.FirstOrDefaultAsync(
+            p => p.Id == id && p.TenantId == tp.TenantId.Value, ct);
+        if (project is null) return Results.NotFound();
+
+        project.Latitude = request.Latitude;
+        project.Longitude = request.Longitude;
+        project.GeofenceGeoJson = request.GeofenceGeoJson;
+        project.GeofenceRadiusMeters = request.GeofenceRadiusMeters;
+        await db.SaveChangesAsync(ct);
+
+        return Results.Ok();
     }
 }

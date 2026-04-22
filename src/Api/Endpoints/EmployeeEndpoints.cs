@@ -37,6 +37,8 @@ public static class EmployeeEndpoints
         // Self-service profile
         app.MapGet("/api/profile", GetProfile).RequireAuthorization();
         app.MapPut("/api/profile", UpdateProfile).RequireAuthorization();
+        app.MapPost("/api/profile/gps-consent", UpdateGpsConsent).RequireAuthorization();
+        app.MapGet("/api/profile/gps-consent", GetGpsConsent).RequireAuthorization();
 
         // Vacation
         app.MapGet("/api/employees/{personId:guid}/vacation", GetVacation).RequireAuthorization();
@@ -119,12 +121,19 @@ public static class EmployeeEndpoints
 
         var tenantId = tenantProvider.TenantId.Value;
 
-        // Crew = distinct persons who have time entries on this project
-        var crewPersonIds = await db.TimeEntries
-            .Where(t => t.TenantId == tenantId && t.ProjectId == projectId)
+        // Crew = distinct persons who have time entries OR check-ins on this project
+        var fromHours = await db.TimeEntries
+            .Where(t => t.TenantId == tenantId && t.ProjectId == projectId && !t.IsDeleted)
             .Select(t => t.PersonId)
-            .Distinct()
             .ToListAsync(ct);
+
+        var fromCheckIns = await db.WorksiteCheckIns
+            .Where(c => c.TenantId == tenantId && c.ProjectId == projectId && !c.IsDeleted)
+            .Where(c => c.PersonId != null)
+            .Select(c => c.PersonId!.Value)
+            .ToListAsync(ct);
+
+        var crewPersonIds = fromHours.Concat(fromCheckIns).Distinct().ToList();
 
         if (crewPersonIds.Count == 0)
             return Results.Ok(new List<EmployeeListItemDto>());
@@ -725,7 +734,7 @@ public static class EmployeeEndpoints
                 e.EndDate,
                 e.Days,
                 VacationStatusToString(e.Status),
-                e.ApprovedById,
+                e.ApprovedById.HasValue ? db.Persons.Where(p => p.Id == e.ApprovedById.Value).Select(p => p.FullName).FirstOrDefault() : null,
                 e.ApprovedAt))
             .ToListAsync(ct);
 
@@ -808,7 +817,7 @@ public static class EmployeeEndpoints
             return Results.BadRequest(new { error = "Kun ventende ferieposter kan godkjennes." });
 
         entry.Status = VacationStatus.Approved;
-        entry.ApprovedById = callerId!.Value.ToString();
+        entry.ApprovedById = callerId!.Value;
         entry.ApprovedAt = DateTimeOffset.UtcNow;
 
         // Update vacation balance used days
@@ -825,5 +834,43 @@ public static class EmployeeEndpoints
 
         await db.SaveChangesAsync(ct);
         return Results.Ok(new { status = "Godkjent" });
+    }
+
+    // ── GPS Consent ──
+
+    private static async Task<IResult> GetGpsConsent(
+        ClaimsPrincipal user, SolodocDbContext db, ITenantProvider tp, CancellationToken ct)
+    {
+        var (personId, valid) = GetPersonId(user);
+        if (!valid || tp.TenantId is null) return Results.Unauthorized();
+
+        var tenant = await db.Tenants.FirstOrDefaultAsync(t => t.Id == tp.TenantId.Value, ct);
+        var membership = await db.TenantMemberships
+            .FirstOrDefaultAsync(m => m.PersonId == personId!.Value && m.TenantId == tp.TenantId.Value, ct);
+
+        return Results.Ok(new
+        {
+            gpsEnabledByTenant = tenant?.GpsEnabled ?? false,
+            consentGiven = membership?.GpsConsent ?? false,
+            consentChangedAt = membership?.GpsConsentChangedAt
+        });
+    }
+
+    private static async Task<IResult> UpdateGpsConsent(
+        GpsConsentRequest request,
+        ClaimsPrincipal user, SolodocDbContext db, ITenantProvider tp, CancellationToken ct)
+    {
+        var (personId, valid) = GetPersonId(user);
+        if (!valid || tp.TenantId is null) return Results.Unauthorized();
+
+        var membership = await db.TenantMemberships
+            .FirstOrDefaultAsync(m => m.PersonId == personId!.Value && m.TenantId == tp.TenantId.Value, ct);
+        if (membership is null) return Results.NotFound();
+
+        membership.GpsConsent = request.Consent;
+        membership.GpsConsentChangedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync(ct);
+
+        return Results.Ok(new { consentGiven = membership.GpsConsent });
     }
 }

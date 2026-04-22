@@ -18,6 +18,9 @@ public static class NotificationEndpoints
         app.MapGet("/api/announcements", ListAnnouncements).RequireAuthorization();
         app.MapPost("/api/announcements", CreateAnnouncement).RequireAuthorization();
         app.MapPost("/api/announcements/{id:guid}/acknowledge", Acknowledge).RequireAuthorization();
+        app.MapPost("/api/announcements/{id:guid}/dismiss", DismissAnnouncement).RequireAuthorization();
+        app.MapDelete("/api/announcements/{id:guid}/dismiss", UndismissAnnouncement).RequireAuthorization();
+        app.MapGet("/api/announcements/dismissed", ListDismissedAnnouncements).RequireAuthorization();
         app.MapPut("/api/announcements/{id:guid}", UpdateAnnouncement).RequireAuthorization();
         app.MapDelete("/api/announcements/{id:guid}", DeleteAnnouncement).RequireAuthorization();
         app.MapPost("/api/announcements/{id:guid}/comments", AddAnnouncementComment).RequireAuthorization();
@@ -116,9 +119,15 @@ public static class NotificationEndpoints
             return Results.Unauthorized();
 
         var pidStr = personId.Value.ToString();
+        var dismissedIds = await db.AnnouncementDismissals
+            .Where(d => d.PersonId == personId.Value)
+            .Select(d => d.AnnouncementId)
+            .ToListAsync(ct);
+
         var announcements = await db.Announcements
             .Where(a => a.TenantId == tenantProvider.TenantId.Value)
             .Where(a => a.TargetPersonIds == null || a.TargetPersonIds.Contains(pidStr))
+            .Where(a => !dismissedIds.Contains(a.Id))
             .OrderByDescending(a => a.CreatedAt)
             .Include(a => a.Comments.Where(c => !c.IsDeleted))
             .Include(a => a.Acknowledgments)
@@ -154,7 +163,8 @@ public static class NotificationEndpoints
                 creatorName ?? "", a.CreatedById, a.CreatedAt,
                 a.RequiresAcknowledgment,
                 a.Acknowledgments.Any(ack => ack.PersonId == personId.Value),
-                a.PhotoFileKey, photoUrl, comments));
+                IsDismissed: false,
+                PhotoFileKey: a.PhotoFileKey, PhotoUrl: photoUrl, Comments: comments));
         }
 
         return Results.Ok(items);
@@ -224,6 +234,100 @@ public static class NotificationEndpoints
         await db.SaveChangesAsync(ct);
 
         return Results.Ok();
+    }
+
+    // ── Dismiss / Undismiss ──
+
+    private static async Task<IResult> DismissAnnouncement(
+        Guid id,
+        ClaimsPrincipal user,
+        SolodocDbContext db,
+        CancellationToken ct)
+    {
+        var personId = GetPersonId(user);
+        if (personId is null) return Results.Unauthorized();
+
+        var announcement = await db.Announcements.FirstOrDefaultAsync(a => a.Id == id, ct);
+        if (announcement is null) return Results.NotFound();
+
+        var exists = await db.AnnouncementDismissals
+            .AnyAsync(d => d.AnnouncementId == id && d.PersonId == personId.Value, ct);
+        if (exists) return Results.Ok();
+
+        db.AnnouncementDismissals.Add(new AnnouncementDismissal
+        {
+            AnnouncementId = id,
+            PersonId = personId.Value,
+            DismissedAt = DateTimeOffset.UtcNow
+        });
+        await db.SaveChangesAsync(ct);
+        return Results.Ok();
+    }
+
+    private static async Task<IResult> UndismissAnnouncement(
+        Guid id,
+        ClaimsPrincipal user,
+        SolodocDbContext db,
+        CancellationToken ct)
+    {
+        var personId = GetPersonId(user);
+        if (personId is null) return Results.Unauthorized();
+
+        var dismissal = await db.AnnouncementDismissals
+            .FirstOrDefaultAsync(d => d.AnnouncementId == id && d.PersonId == personId.Value, ct);
+        if (dismissal is not null)
+        {
+            db.AnnouncementDismissals.Remove(dismissal);
+            await db.SaveChangesAsync(ct);
+        }
+        return Results.Ok();
+    }
+
+    private static async Task<IResult> ListDismissedAnnouncements(
+        ClaimsPrincipal user,
+        SolodocDbContext db,
+        ITenantProvider tenantProvider,
+        IFileStorageService fileStorage,
+        CancellationToken ct)
+    {
+        var personId = GetPersonId(user);
+        if (personId is null || tenantProvider.TenantId is null)
+            return Results.Unauthorized();
+
+        var dismissedIds = await db.AnnouncementDismissals
+            .Where(d => d.PersonId == personId.Value)
+            .Select(d => d.AnnouncementId)
+            .ToListAsync(ct);
+
+        if (dismissedIds.Count == 0)
+            return Results.Ok(new List<AnnouncementDto>());
+
+        var pidStr = personId.Value.ToString();
+        var announcements = await db.Announcements
+            .Where(a => a.TenantId == tenantProvider.TenantId.Value)
+            .Where(a => dismissedIds.Contains(a.Id))
+            .Where(a => a.TargetPersonIds == null || a.TargetPersonIds.Contains(pidStr))
+            .OrderByDescending(a => a.CreatedAt)
+            .Include(a => a.Acknowledgments)
+            .ToListAsync(ct);
+
+        var personIds = announcements.Select(a => a.CreatedById).Distinct().ToList();
+        var names = await db.Persons.Where(p => personIds.Contains(p.Id))
+            .ToDictionaryAsync(p => p.Id, p => p.FullName, ct);
+
+        var items = new List<AnnouncementDto>();
+        foreach (var a in announcements)
+        {
+            names.TryGetValue(a.CreatedById, out var creatorName);
+            items.Add(new AnnouncementDto(
+                a.Id, a.Title, a.Body, a.UrgencyLevel,
+                creatorName ?? "", a.CreatedById, a.CreatedAt,
+                a.RequiresAcknowledgment,
+                a.Acknowledgments.Any(ack => ack.PersonId == personId.Value),
+                IsDismissed: true));
+        }
+
+        return Results.Ok(items);
     }
 
     // ── Update announcement (admin only, own announcements) ──

@@ -11,7 +11,7 @@ public class VacationEntry : BaseEntity
     public DateOnly EndDate { get; set; }
     public decimal Days { get; set; }
     public VacationStatus Status { get; set; } = VacationStatus.Pending;
-    public string? ApprovedById { get; set; }
+    public Guid? ApprovedById { get; set; }
     public DateTimeOffset? ApprovedAt { get; set; }
     public string? RejectionReason { get; set; }
 }

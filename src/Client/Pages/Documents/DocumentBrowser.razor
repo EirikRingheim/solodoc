@@ -5,6 +5,7 @@
 @inject NavigationManager Navigation
 @inject ISnackbar Snackbar
 @inject ApiHttpClient Api
+@inject IJSRuntime JS
 @using Solodoc.Shared.Documents
 
 <PageTitle>Solodoc - Dokumenter</PageTitle>
@@ -64,14 +65,45 @@ else
                 {
                     var capturedFolder = folder;
                     var isActive = _currentFolderId == folder.Id;
-                    <div @onclick="() => SelectFolder(capturedFolder)"
-                         style="@($"padding:6px 10px;border-radius:6px;cursor:pointer;margin-bottom:2px;display:flex;align-items:center;gap:6px;background:{(isActive ? "#EBF0FF" : "transparent")};font-weight:{(isActive ? "600" : "400")};")">
-                        <MudIcon Icon="@(isActive ? Icons.Material.Filled.FolderOpen : Icons.Material.Filled.Folder)"
-                                 Size="Size.Small" Style="@($"color:{(isActive ? "#4361EE" : "#6B7280")};font-size:1rem;")" />
-                        <span style="font-size:0.85rem;">@folder.Name</span>
-                        @if (folder.DocumentCount > 0)
+                    var isExpanded = _expandedFolders.Contains(folder.Id);
+                    <div>
+                        <div @onclick="() => OnFolderClick(capturedFolder)"
+                             style="@($"padding:6px 10px;border-radius:6px;cursor:pointer;margin-bottom:1px;display:flex;align-items:center;gap:6px;background:{(isActive ? "#EBF0FF" : "transparent")};font-weight:{(isActive ? "600" : "400")};")">
+                            @if (folder.SubFolderCount > 0)
+                            {
+                                <MudIcon Icon="@(isExpanded ? Icons.Material.Filled.ExpandMore : Icons.Material.Filled.ChevronRight)"
+                                         Size="Size.Small" Style="color:#9CA3AF;font-size:0.9rem;" />
+                            }
+                            else
+                            {
+                                <span style="width:18px;"></span>
+                            }
+                            <MudIcon Icon="@(isActive ? Icons.Material.Filled.FolderOpen : Icons.Material.Filled.Folder)"
+                                     Size="Size.Small" Style="@($"color:{(isActive ? "#4361EE" : "#6B7280")};font-size:1rem;")" />
+                            <span style="font-size:0.85rem;flex:1;">@folder.Name</span>
+                            @if (folder.DocumentCount > 0)
+                            {
+                                <span style="font-size:0.6rem;color:#9CA3AF;">@folder.DocumentCount</span>
+                            }
+                        </div>
+                        @* Subfolders (expanded) *@
+                        @if (isExpanded && _subFolders.TryGetValue(folder.Id, out var subs))
                         {
-                            <span style="font-size:0.65rem;color:#9CA3AF;margin-left:auto;">@folder.DocumentCount</span>
+                            @foreach (var sub in subs)
+                            {
+                                var capturedSub = sub;
+                                var isSubActive = _currentFolderId == sub.Id;
+                                <div @onclick="() => OnFolderClick(capturedSub)"
+                                     style="@($"padding:5px 10px 5px 36px;border-radius:6px;cursor:pointer;margin-bottom:1px;display:flex;align-items:center;gap:6px;background:{(isSubActive ? "#EBF0FF" : "transparent")};font-weight:{(isSubActive ? "600" : "400")};")">
+                                    <MudIcon Icon="@(isSubActive ? Icons.Material.Filled.FolderOpen : Icons.Material.Filled.Folder)"
+                                             Size="Size.Small" Style="@($"color:{(isSubActive ? "#4361EE" : "#9CA3AF")};font-size:0.9rem;")" />
+                                    <span style="font-size:0.8rem;">@sub.Name</span>
+                                    @if (sub.DocumentCount > 0)
+                                    {
+                                        <span style="font-size:0.6rem;color:#9CA3AF;margin-left:auto;">@sub.DocumentCount</span>
+                                    }
+                                </div>
+                            }
                         }
                     </div>
                 }
@@ -153,16 +185,19 @@ else
                                         var t when t.Contains("word") || t.Contains("document") => "#4361EE",
                                         _ => "#6B7280"
                                     };
-                                    <tr style="cursor:pointer;" @onclick="@(() => DownloadDoc(capturedDoc))">
+                                    <tr style="cursor:pointer;" @onclick="@(() => OpenDoc(capturedDoc))">
                                         <td><MudIcon Icon="@icon" Size="Size.Small" Style="@($"color:{iconColor};")" /></td>
                                         <td style="font-weight:500;">@doc.Name</td>
                                         <td style="color:#6B7280;">@FormatSize(doc.FileSize)</td>
                                         <td style="color:#6B7280;">@doc.UploadedByName</td>
                                         <td style="color:#9CA3AF;">@doc.CreatedAt.ToLocalTime().ToString("dd.MM.yy HH:mm")</td>
-                                        <td>
+                                        <td style="white-space:nowrap;">
+                                            <MudIconButton Icon="@Icons.Material.Filled.Download" Size="Size.Small" Color="Color.Primary"
+                                                           OnClick="@(async () => await DownloadDoc(capturedDoc))"
+                                                           OnClick:stopPropagation="true" Title="Last ned" />
                                             <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
                                                            OnClick="@(async () => await DeleteDoc(capturedDoc))"
-                                                           OnClick:stopPropagation="true" />
+                                                           OnClick:stopPropagation="true" Title="Slett" />
                                         </td>
                                     </tr>
                                 }
@@ -201,6 +236,8 @@ else
     private Guid? ProjectId => Guid.TryParse(ProjectIdStr, out var pid) ? pid : null;
 
     private List<DocumentFolderDto> _rootFolders = [];
+    private Dictionary<Guid, List<DocumentFolderDto>> _subFolders = new();
+    private HashSet<Guid> _expandedFolders = new();
     private List<DocumentDto> _documents = [];
     private DocumentFolderDto? _currentFolder;
     private Guid? _currentFolderId;
@@ -216,20 +253,33 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        await LoadFolders();
+        _rootFolders = await DocumentService.GetFoldersAsync(projectId: ProjectId);
         _loading = false;
     }
 
-    private async Task LoadFolders()
+    private async Task OnFolderClick(DocumentFolderDto folder)
     {
-        _rootFolders = await DocumentService.GetFoldersAsync(projectId: ProjectId);
-    }
-
-    private async Task SelectFolder(DocumentFolderDto folder)
-    {
+        // Select this folder and show its documents
         _currentFolder = folder;
         _currentFolderId = folder.Id;
         _documents = await DocumentService.GetDocumentsAsync(folderId: folder.Id, sortBy: _sortBy);
+
+        // Toggle expand if it has subfolders
+        if (folder.SubFolderCount > 0)
+        {
+            if (_expandedFolders.Contains(folder.Id))
+            {
+                // Already expanded — just select, don't collapse
+            }
+            else
+            {
+                _expandedFolders.Add(folder.Id);
+                if (!_subFolders.ContainsKey(folder.Id))
+                {
+                    _subFolders[folder.Id] = await DocumentService.GetFoldersAsync(projectId: ProjectId, parentId: folder.Id);
+                }
+            }
+        }
         StateHasChanged();
     }
 
@@ -238,7 +288,6 @@ else
         _currentFolder = null;
         _currentFolderId = null;
         _documents = [];
-        await LoadFolders();
         StateHasChanged();
     }
 
@@ -266,8 +315,22 @@ else
         {
             _showNewFolder = false;
             _newFolderName = "";
-            await LoadFolders();
+            // Refresh: if inside a folder, refresh its subfolders. Otherwise refresh root.
+            if (_currentFolderId.HasValue)
+            {
+                _subFolders[_currentFolderId.Value] = await DocumentService.GetFoldersAsync(projectId: ProjectId, parentId: _currentFolderId);
+                _expandedFolders.Add(_currentFolderId.Value);
+                // Update parent's subfolder count
+                var parent = _rootFolders.FirstOrDefault(f => f.Id == _currentFolderId.Value);
+                if (parent is not null)
+                    _rootFolders = await DocumentService.GetFoldersAsync(projectId: ProjectId);
+            }
+            else
+            {
+                _rootFolders = await DocumentService.GetFoldersAsync(projectId: ProjectId);
+            }
             Snackbar.Add("Mappe opprettet", Severity.Success);
+            StateHasChanged();
         }
     }
 
@@ -303,18 +366,53 @@ else
         StateHasChanged();
     }
 
+    private async Task OpenDoc(DocumentDto doc)
+    {
+        var r = await Api.GetAsync($"api/documents/{doc.Id}/download");
+        if (!r.IsSuccessStatusCode) { Snackbar.Add("Kunne ikke åpne dokument", Severity.Error); return; }
+
+        var bytes = await r.Content.ReadAsByteArrayAsync();
+        var base64 = Convert.ToBase64String(bytes);
+
+        // Use Blob URL (works in all browsers, unlike data: URLs)
+        await JS.InvokeVoidAsync("eval", $$"""
+            (function() {
+                var byteChars = atob('{{base64}}');
+                var byteArray = new Uint8Array(byteChars.length);
+                for (var i = 0; i < byteChars.length; i++) byteArray[i] = byteChars.charCodeAt(i);
+                var blob = new Blob([byteArray], { type: '{{doc.ContentType}}' });
+                var url = URL.createObjectURL(blob);
+                window.open(url, '_blank');
+            })()
+        """);
+    }
+
     private async Task DownloadDoc(DocumentDto doc)
     {
-        // Download through API proxy
         var r = await Api.GetAsync($"api/documents/{doc.Id}/download");
-        if (r.IsSuccessStatusCode)
-        {
-            var bytes = await r.Content.ReadAsByteArrayAsync();
-            var base64 = Convert.ToBase64String(bytes);
-            var dataUrl = $"data:{doc.ContentType};base64,{base64}";
-            // Trigger download via JS
-            Snackbar.Add($"Lastet ned {doc.Name}", Severity.Info);
-        }
+        if (!r.IsSuccessStatusCode) { Snackbar.Add("Kunne ikke laste ned", Severity.Error); return; }
+
+        var bytes = await r.Content.ReadAsByteArrayAsync();
+        var base64 = Convert.ToBase64String(bytes);
+        var safeName = doc.Name.Replace("'", "").Replace("\"", "");
+
+        await JS.InvokeVoidAsync("eval", $$"""
+            (function() {
+                var byteChars = atob('{{base64}}');
+                var byteArray = new Uint8Array(byteChars.length);
+                for (var i = 0; i < byteChars.length; i++) byteArray[i] = byteChars.charCodeAt(i);
+                var blob = new Blob([byteArray], { type: '{{doc.ContentType}}' });
+                var url = URL.createObjectURL(blob);
+                var a = document.createElement('a');
+                a.href = url;
+                a.download = '{{safeName}}';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(url);
+            })()
+        """);
+        Snackbar.Add($"Lastet ned {doc.Name}", Severity.Success);
     }
 
     private async Task DeleteDoc(DocumentDto doc)

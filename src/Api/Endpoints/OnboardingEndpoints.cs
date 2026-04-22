@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Solodoc.Application.Common;
 using Solodoc.Application.Services;
 using Solodoc.Domain.Entities.Auth;
+using Solodoc.Domain.Entities.Deviations;
 using Solodoc.Domain.Enums;
 using Solodoc.Application.Auth;
 using Solodoc.Infrastructure.Auth;
@@ -98,6 +99,18 @@ public static class OnboardingEndpoints
             State = TenantMembershipState.Active
         };
         db.TenantMemberships.Add(membership);
+
+        // Seed default deviation categories for new tenant
+        var defaultCategories = new (string Name, int Sort)[]
+        {
+            ("Personskade", 1), ("Nestenulykke", 2), ("Materiell skade", 3),
+            ("Farlig tilstand", 4), ("Kvalitetsavvik", 5), ("Miljøavvik", 6),
+            ("Sikkerhet", 7), ("Brann/eksplosjon", 8), ("Kjemikalie/gass", 9),
+            ("Ergonomi", 10), ("Annet", 99)
+        };
+        foreach (var (name, sort) in defaultCategories)
+            db.DeviationCategories.Add(new DeviationCategory
+                { TenantId = tenant.Id, Name = name, SortOrder = sort, IsDefault = true, IsActive = true });
 
         await db.SaveChangesAsync(ct);
 

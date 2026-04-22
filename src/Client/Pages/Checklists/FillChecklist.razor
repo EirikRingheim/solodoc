@@ -7,6 +7,7 @@
 @inject IDialogService DialogService
 @inject FileUploadService FileUploadService
 @inject OfflineStorageService OfflineStorage
+@inject EmployeeService EmployeeService
 
 <PageTitle>Solodoc - Fyll ut sjekkliste</PageTitle>
 
@@ -170,6 +171,50 @@ else if (_showSummary)
             @MissingCount obligatoriske punkt er ikke utfylt
         </MudAlert>
     }
+
+    @* Participants section *@
+    <MudPaper Class="pa-4 mb-3" Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-2">
+            <MudText Typo="Typo.subtitle2" Style="font-weight:600;">Deltakere (@_participants.Count)</MudText>
+            <MudButton Variant="Variant.Text" Size="Size.Small" StartIcon="@Icons.Material.Filled.PersonAdd"
+                       OnClick="() => _showAddParticipant = !_showAddParticipant"
+                       Style="text-transform:none;">Legg til</MudButton>
+        </MudStack>
+        @if (_showAddParticipant)
+        {
+            <MudStack Spacing="2" Class="mb-3" Style="background:#F9FAFB;border-radius:8px;padding:12px;">
+                <MudSelect T="Guid?" @bind-Value="_selectedEmpId" Label="Ansatt" Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true">
+                    @foreach (var e in _empList)
+                    {
+                        <MudSelectItem T="Guid?" Value="@((Guid?)e.PersonId)">@e.FullName</MudSelectItem>
+                    }
+                </MudSelect>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" Disabled="!_selectedEmpId.HasValue"
+                           OnClick="AddEmpParticipant" Style="text-transform:none;border-radius:8px;align-self:flex-start;">Legg til ansatt</MudButton>
+                <MudDivider />
+                <MudText Typo="Typo.caption" Style="font-weight:600;">Ekstern (UE)</MudText>
+                <MudStack Row="true" Spacing="2" Style="flex-wrap:wrap;">
+                    <MudTextField T="string" @bind-Value="_extPName" Label="Navn *" Variant="Variant.Outlined" Margin="Margin.Dense" Style="flex:1;min-width:120px;" />
+                    <MudTextField T="string" @bind-Value="_extPPhone" Label="Telefon" Variant="Variant.Outlined" Margin="Margin.Dense" Style="min-width:100px;" />
+                    <MudTextField T="string" @bind-Value="_extPCompany" Label="Firma" Variant="Variant.Outlined" Margin="Margin.Dense" Style="min-width:100px;" />
+                </MudStack>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" Disabled="string.IsNullOrWhiteSpace(_extPName)"
+                           OnClick="AddExtParticipant" Style="text-transform:none;border-radius:8px;align-self:flex-start;">Legg til ekstern</MudButton>
+            </MudStack>
+        }
+        @foreach (var p in _participants)
+        {
+            var cap = p;
+            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Style="padding:6px 0;border-bottom:1px solid #F3F4F6;">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                    <MudText Typo="Typo.body2" Style="font-weight:500;">@p.PersonName</MudText>
+                    @if (p.IsExternal) { <span style="background:#FEF3C7;color:#92400E;padding:1px 5px;border-radius:3px;font-size:0.6rem;font-weight:600;">UE</span> }
+                </MudStack>
+                <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" Color="Color.Error"
+                               OnClick="@(async () => await RemoveClParticipant(cap.Id))" />
+            </MudStack>
+        }
+    </MudPaper>
 
     <MudButton Variant="Variant.Outlined" FullWidth="true" Class="mb-3"
                StartIcon="@(_signatureDataUrl is not null ? Icons.Material.Filled.Check : Icons.Material.Filled.Draw)"
@@ -620,6 +665,13 @@ else
     private string _duplicateLocation = string.Empty;
     private bool _savingItem;
 
+    // Participants
+    private List<Solodoc.Shared.Checklists.ChecklistParticipantDto> _participants = [];
+    private List<Solodoc.Shared.Employees.EmployeeListItemDto> _empList = [];
+    private bool _showAddParticipant;
+    private Guid? _selectedEmpId;
+    private string _extPName = "", _extPPhone = "", _extPCompany = "";
+
     // Signature
     private bool _signatureOpen;
     private string? _signatureDataUrl;
@@ -635,7 +687,11 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        await LoadInstance();
+        var loadTask = LoadInstance();
+        var empTask = EmployeeService.GetEmployeesAsync();
+        await loadTask;
+        try { _empList = await empTask; } catch { }
+        try { _participants = await ChecklistService.GetParticipantsAsync(Id); } catch { }
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -951,7 +1007,7 @@ else
             if (isOnline)
             {
                 var uploadStream = new MemoryStream(fileBytes);
-                key = await FileUploadService.UploadPhotoAsync(uploadStream, file.Name, file.ContentType);
+                key = await FileUploadService.UploadPhotoAsync(uploadStream, file.Name, file.ContentType ?? "image/jpeg");
             }
 
             // If offline or upload failed, store locally
@@ -1065,5 +1121,29 @@ else
         {
             Snackbar.Add("Feil ved lagring av signatur", Severity.Error);
         }
+    }
+
+    // ─── Participants ───
+
+    private async Task AddEmpParticipant()
+    {
+        if (!_selectedEmpId.HasValue) return;
+        var ok = await ChecklistService.AddParticipantAsync(Id, _selectedEmpId.Value);
+        if (ok) { _participants = await ChecklistService.GetParticipantsAsync(Id); _selectedEmpId = null; Snackbar.Add("Deltaker lagt til", Severity.Success); }
+        else Snackbar.Add("Kunne ikke legge til", Severity.Error);
+    }
+
+    private async Task AddExtParticipant()
+    {
+        if (string.IsNullOrWhiteSpace(_extPName)) return;
+        var ok = await ChecklistService.AddExternalParticipantAsync(Id, _extPName, _extPPhone, _extPCompany);
+        if (ok) { _participants = await ChecklistService.GetParticipantsAsync(Id); _extPName = ""; _extPPhone = ""; _extPCompany = ""; Snackbar.Add("Ekstern deltaker lagt til", Severity.Success); }
+        else Snackbar.Add("Kunne ikke legge til", Severity.Error);
+    }
+
+    private async Task RemoveClParticipant(Guid participantId)
+    {
+        var ok = await ChecklistService.RemoveParticipantAsync(Id, participantId);
+        if (ok) { _participants = await ChecklistService.GetParticipantsAsync(Id); }
     }
 }

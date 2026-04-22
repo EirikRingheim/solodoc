@@ -445,10 +445,33 @@ app.MapGet("/api/projects/{id:guid}", async (
                     db.Deviations.Count(d => d.ProjectId == sub.Id && !d.IsDeleted && d.Status != DeviationStatus.Closed),
                     db.ChecklistInstances.Count(c => c.ProjectId == sub.Id && !c.IsDeleted && (c.Status == ChecklistInstanceStatus.Submitted || c.Status == ChecklistInstanceStatus.Approved)),
                     db.ChecklistInstances.Count(c => c.ProjectId == sub.Id && !c.IsDeleted)))
-                .ToList()))
+                .ToList(),
+            p.Latitude,
+            p.Longitude,
+            p.GeofenceGeoJson,
+            p.GeofenceRadiusMeters))
         .FirstOrDefaultAsync(ct);
 
     return project is not null ? Results.Ok(project) : Results.NotFound();
+}).RequireAuthorization();
+
+app.MapPost("/api/projects/{id:guid}/site-boundary", async (
+    Guid id,
+    UpdateProjectGeofenceRequest request,
+    SolodocDbContext db,
+    ITenantProvider tp,
+    CancellationToken ct) =>
+{
+    if (tp.TenantId is null) return Results.Unauthorized();
+    var project = await db.Projects.FirstOrDefaultAsync(
+        p => p.Id == id, ct);
+    if (project is null) return Results.NotFound();
+    project.Latitude = request.Latitude;
+    project.Longitude = request.Longitude;
+    project.GeofenceGeoJson = request.GeofenceGeoJson;
+    project.GeofenceRadiusMeters = request.GeofenceRadiusMeters;
+    await db.SaveChangesAsync(ct);
+    return Results.Ok();
 }).RequireAuthorization();
 
 // Deviations

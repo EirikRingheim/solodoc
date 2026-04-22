@@ -1,0 +1,54 @@
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+<div id="@_mapId" style="height:400px;border-radius:12px;border:1px solid #e9ecef;"></div>
+
+@code {
+    [Parameter] public double? Latitude { get; set; }
+    [Parameter] public double? Longitude { get; set; }
+    [Parameter] public string? GeofenceGeoJson { get; set; }
+    [Parameter] public double? GeofenceRadiusMeters { get; set; }
+    [Parameter] public string? Address { get; set; }
+    [Parameter] public EventCallback<GeofenceData> OnGeofenceChanged { get; set; }
+
+    private readonly string _mapId = $"geofence-map-{Guid.NewGuid():N}";
+    private DotNetObjectReference<GeofenceEditor>? _dotnetRef;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _dotnetRef = DotNetObjectReference.Create(this);
+
+            // If no coordinates but has address, geocode first
+            if (Latitude is null && Longitude is null && !string.IsNullOrWhiteSpace(Address))
+            {
+                await JS.InvokeVoidAsync("mapInterop.showAddress", _mapId, Address, 15);
+                // Then init the editor on top
+                await Task.Delay(1500);
+                await JS.InvokeVoidAsync("mapInterop.destroy", _mapId);
+            }
+
+            await JS.InvokeVoidAsync("mapInterop.initGeofenceEditor",
+                _mapId, Latitude, Longitude, GeofenceGeoJson, GeofenceRadiusMeters, _dotnetRef);
+
+            // If no coordinates and has address, geocode and pan
+            if (Latitude is null && Longitude is null && !string.IsNullOrWhiteSpace(Address))
+                await JS.InvokeVoidAsync("mapInterop.geocodeAndPan", _mapId, Address);
+        }
+    }
+
+    [JSInvokable("OnGeofenceChanged")]
+    public async Task HandleGeofenceChanged(string? geojson, double? radius, double? lat, double? lng)
+    {
+        await OnGeofenceChanged.InvokeAsync(new GeofenceData(lat, lng, geojson, radius));
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try { await JS.InvokeVoidAsync("mapInterop.destroy", _mapId); } catch { }
+        _dotnetRef?.Dispose();
+    }
+
+    public record GeofenceData(double? Latitude, double? Longitude, string? GeoJson, double? RadiusMeters);
+}

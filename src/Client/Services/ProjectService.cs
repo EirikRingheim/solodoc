@@ -90,4 +90,10 @@ public class ProjectService(ApiHttpClient api, OfflineAwareApiClient offlineApi)
         var result = await GetProjectsAsync(1, 100, null, "name", false);
         return result.Items.Where(p => p.ParentProjectId is null).ToList();
     }
+
+    public async Task<bool> UpdateGeofenceAsync(Guid projectId, UpdateProjectGeofenceRequest request)
+    {
+        var r = await api.PostAsJsonAsync($"api/projects/{projectId}/site-boundary", request);
+        return r.IsSuccessStatusCode;
+    }
 }

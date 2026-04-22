@@ -63,4 +63,55 @@ public class ReportService(ApiHttpClient api)
             return await response.Content.ReadFromJsonAsync<ProjectReportSummaryDto>();
         return null;
     }
+
+    // ─── CSV Exports ───
+
+    public async Task<byte[]?> ExportHoursCsvAsync(DateOnly? from, DateOnly? to, Guid? projectId = null, Guid? personId = null)
+    {
+        var url = "api/reports/hours/export?";
+        if (from.HasValue) url += $"from={from.Value:yyyy-MM-dd}&";
+        if (to.HasValue) url += $"to={to.Value:yyyy-MM-dd}&";
+        if (projectId.HasValue) url += $"projectId={projectId.Value}&";
+        if (personId.HasValue) url += $"personId={personId.Value}&";
+        var r = await api.GetAsync(url.TrimEnd('&', '?'));
+        return r.IsSuccessStatusCode ? await r.Content.ReadAsByteArrayAsync() : null;
+    }
+
+    public async Task<byte[]?> ExportDeviationsCsvAsync(DateOnly? from, DateOnly? to, string? severity = null, string? status = null, Guid? projectId = null)
+    {
+        var url = "api/reports/deviations/export?";
+        if (from.HasValue) url += $"from={from.Value:yyyy-MM-dd}&";
+        if (to.HasValue) url += $"to={to.Value:yyyy-MM-dd}&";
+        if (!string.IsNullOrEmpty(severity)) url += $"severity={severity}&";
+        if (!string.IsNullOrEmpty(status)) url += $"status={status}&";
+        if (projectId.HasValue) url += $"projectId={projectId.Value}&";
+        var r = await api.GetAsync(url.TrimEnd('&', '?'));
+        return r.IsSuccessStatusCode ? await r.Content.ReadAsByteArrayAsync() : null;
+    }
+
+    public async Task<byte[]?> ExportCertificationsCsvAsync(string? type = null, Guid? personId = null, string? status = null)
+    {
+        var url = "api/reports/certifications/export?";
+        if (!string.IsNullOrEmpty(type)) url += $"type={Uri.EscapeDataString(type)}&";
+        if (personId.HasValue) url += $"personId={personId.Value}&";
+        if (!string.IsNullOrEmpty(status)) url += $"status={status}&";
+        var r = await api.GetAsync(url.TrimEnd('&', '?'));
+        return r.IsSuccessStatusCode ? await r.Content.ReadAsByteArrayAsync() : null;
+    }
+
+    public async Task<byte[]?> ExportSafetyCsvAsync(DateOnly? from, DateOnly? to, string? type = null)
+    {
+        var url = "api/reports/safety/export?";
+        if (from.HasValue) url += $"from={from.Value:yyyy-MM-dd}&";
+        if (to.HasValue) url += $"to={to.Value:yyyy-MM-dd}&";
+        if (!string.IsNullOrEmpty(type)) url += $"type={Uri.EscapeDataString(type)}&";
+        var r = await api.GetAsync(url.TrimEnd('&', '?'));
+        return r.IsSuccessStatusCode ? await r.Content.ReadAsByteArrayAsync() : null;
+    }
+
+    public async Task<byte[]?> ExportProjectPersonnelCsvAsync(Guid projectId)
+    {
+        var r = await api.GetAsync($"api/reports/project/{projectId}/personnel/export");
+        return r.IsSuccessStatusCode ? await r.Content.ReadAsByteArrayAsync() : null;
+    }
 }

@@ -54,6 +54,8 @@ public static class HoursEndpoints
         // Allowance rules
         app.MapGet("/api/allowances/rules", ListAllowanceRules).RequireAuthorization();
         app.MapPost("/api/allowances/rules", CreateAllowanceRule).RequireAuthorization();
+        app.MapPut("/api/allowances/rules/{id:guid}", UpdateAllowanceRule).RequireAuthorization();
+        app.MapDelete("/api/allowances/rules/{id:guid}", DeleteAllowanceRule).RequireAuthorization();
 
         return app;
     }
@@ -266,6 +268,20 @@ public static class HoursEndpoints
         if (!valid || tenantProvider.TenantId is null)
             return Results.Unauthorized();
 
+        // Block subcontractors from time registration
+        var membership = await db.TenantMemberships
+            .FirstOrDefaultAsync(m => m.PersonId == personId!.Value && m.TenantId == tenantProvider.TenantId.Value
+                && m.State == TenantMembershipState.Active, ct);
+        if (membership is null)
+        {
+            // Check if subcontractor — they can only check in, not register hours
+            var isSub = await db.SubcontractorAccesses
+                .AnyAsync(s => s.PersonId == personId!.Value && s.TenantId == tenantProvider.TenantId.Value
+                    && s.State == SubcontractorAccessState.Active, ct);
+            if (isSub) return Results.BadRequest(new { error = "Underentreprenører kan ikke registrere timer. Bruk innsjekking." });
+            return Results.Unauthorized();
+        }
+
         // Check if there's already an active clock-in
         var activeEntry = await db.TimeEntries
             .FirstOrDefaultAsync(t =>
@@ -416,6 +432,19 @@ public static class HoursEndpoints
         var (personId, valid) = GetPersonId(user);
         if (!valid || tenantProvider.TenantId is null)
             return Results.Unauthorized();
+
+        // Block subcontractors from time registration
+        var hasMembership = await db.TenantMemberships
+            .AnyAsync(m => m.PersonId == personId!.Value && m.TenantId == tenantProvider.TenantId.Value
+                && m.State == TenantMembershipState.Active, ct);
+        if (!hasMembership)
+        {
+            var isSub = await db.SubcontractorAccesses
+                .AnyAsync(s => s.PersonId == personId!.Value && s.TenantId == tenantProvider.TenantId.Value
+                    && s.State == SubcontractorAccessState.Active, ct);
+            if (isSub) return Results.BadRequest(new { error = "Underentreprenører kan ikke registrere timer." });
+            return Results.Unauthorized();
+        }
 
         // Check for conflicting absence on this day
         var hasAbsence = await db.Absences
@@ -1232,5 +1261,70 @@ public static class HoursEndpoints
         await db.SaveChangesAsync(ct);
 
         return Results.Created($"/api/allowances/rules/{rule.Id}", new { id = rule.Id });
+    }
+
+    private static async Task<IResult> UpdateAllowanceRule(
+        Guid id,
+        AllowanceRuleDto request,
+        SolodocDbContext db,
+        ITenantProvider tenantProvider,
+        CancellationToken ct)
+    {
+        if (tenantProvider.TenantId is null) return Results.Unauthorized();
+
+        var rule = await db.AllowanceRules
+            .FirstOrDefaultAsync(r => r.Id == id && r.TenantId == tenantProvider.TenantId.Value, ct);
+        if (rule is null) return Results.NotFound();
+
+        if (!string.IsNullOrWhiteSpace(request.Name)) rule.Name = request.Name;
+        rule.Amount = request.Amount;
+        rule.IsActive = request.IsActive;
+        rule.TimeRangeStart = request.TimeRangeStart;
+        rule.TimeRangeEnd = request.TimeRangeEnd;
+
+        if (request.Type is not null)
+        {
+            var type = request.Type.ToLowerInvariant() switch
+            {
+                "timebased" => AllowanceType.TimeBased,
+                "daybased" => AllowanceType.DayBased,
+                "operationbased" => AllowanceType.OperationBased,
+                "fixedperday" => AllowanceType.FixedPerDay,
+                _ => (AllowanceType?)null
+            };
+            if (type.HasValue) rule.Type = type.Value;
+        }
+
+        if (request.AmountType is not null)
+        {
+            var amountType = request.AmountType.ToLowerInvariant() switch
+            {
+                "fixedkroner" => AllowanceAmountType.FixedKroner,
+                "percentage" => AllowanceAmountType.Percentage,
+                _ => (AllowanceAmountType?)null
+            };
+            if (amountType.HasValue) rule.AmountType = amountType.Value;
+        }
+
+        await db.SaveChangesAsync(ct);
+        return Results.Ok();
+    }
+
+    private static async Task<IResult> DeleteAllowanceRule(
+        Guid id,
+        SolodocDbContext db,
+        ITenantProvider tenantProvider,
+        CancellationToken ct)
+    {
+        if (tenantProvider.TenantId is null) return Results.Unauthorized();
+
+        var rule = await db.AllowanceRules
+            .FirstOrDefaultAsync(r => r.Id == id && r.TenantId == tenantProvider.TenantId.Value, ct);
+        if (rule is null) return Results.NotFound();
+
+        rule.IsDeleted = true;
+        rule.DeletedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync(ct);
+        return Results.NoContent();
     }
 }

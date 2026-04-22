@@ -2,7 +2,9 @@
 @attribute [Authorize]
 @inject ReportService ReportService
 @inject ProjectService ProjectService
+@inject EmployeeService EmployeeService
 @inject ISnackbar Snackbar
+@inject IJSRuntime JS
 
 <PageTitle>Solodoc - Rapporter</PageTitle>
 
@@ -10,9 +12,9 @@
 
 <MudText Typo="Typo.h5" Class="mb-4">Rapporter</MudText>
 
-<MudTabs Elevation="0" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-0 pt-4"
+<MudTabs Elevation="0" Rounded="true" PanelClass="pa-0 pt-4"
          ActivePanelIndexChanged="OnTabChanged" Border="true"
-         Style="border:1px solid #E9ECEF;border-radius:12px;">
+         Style="border:1px solid #E9ECEF;border-radius:12px;overflow:visible;">
 
     @* ─── Tab 1: Timer (Hours) ─── *@
     <MudTabPanel Text="Timer" Icon="@Icons.Material.Filled.Schedule">
@@ -21,9 +23,11 @@
             <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-4 mb-4">
                 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3" Class="flex-wrap">
                     <MudDatePicker @bind-Date="_hoursFrom" Label="Fra" DateFormat="dd.MM.yyyy"
-                                   Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:180px;" />
+                                   Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:180px;"
+                                   PickerVariant="PickerVariant.Dialog" />
                     <MudDatePicker @bind-Date="_hoursTo" Label="Til" DateFormat="dd.MM.yyyy"
-                                   Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:180px;" />
+                                   Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:180px;"
+                                   PickerVariant="PickerVariant.Dialog" />
                     <MudSelect T="Guid?" @bind-Value="_hoursProjectId" Label="Prosjekt" Clearable="true"
                                Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:240px;">
                         @foreach (var p in _projects)
@@ -31,9 +35,21 @@
                             <MudSelectItem T="Guid?" Value="@p.Id">@p.Name</MudSelectItem>
                         }
                     </MudSelect>
+                    <MudSelect T="Guid?" @bind-Value="_hoursPersonId" Label="Ansatt" Clearable="true"
+                               Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:240px;">
+                        @foreach (var e in _employees)
+                        {
+                            <MudSelectItem T="Guid?" Value="@((Guid?)e.PersonId)">@e.FullName</MudSelectItem>
+                        }
+                    </MudSelect>
                     <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="LoadHoursReport"
                                StartIcon="@Icons.Material.Filled.Refresh" Style="text-transform:none;border-radius:8px;">
                         Oppdater
+                    </MudButton>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="ExportHours"
+                               StartIcon="@Icons.Material.Filled.Download" Style="text-transform:none;border-radius:8px;"
+                               Disabled="_hoursExporting">
+                        @(_hoursExporting ? "Eksporterer..." : "Eksporter CSV")
                     </MudButton>
                 </MudStack>
             </MudPaper>
@@ -137,12 +153,38 @@
             <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-4 mb-4">
                 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3" Class="flex-wrap">
                     <MudDatePicker @bind-Date="_devFrom" Label="Fra" DateFormat="dd.MM.yyyy"
-                                   Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:180px;" />
+                                   Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:180px;"
+                                   PickerVariant="PickerVariant.Dialog" />
                     <MudDatePicker @bind-Date="_devTo" Label="Til" DateFormat="dd.MM.yyyy"
-                                   Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:180px;" />
+                                   Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:180px;"
+                                   PickerVariant="PickerVariant.Dialog" />
+                    <MudSelect T="string" @bind-Value="_devSeverityFilter" Label="Alvorlighet" Clearable="true"
+                               Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:160px;">
+                        <MudSelectItem T="string" Value="@("Lav")">Lav</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("Middels")">Middels</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("Hoy")">Hoy</MudSelectItem>
+                    </MudSelect>
+                    <MudSelect T="string" @bind-Value="_devStatusFilter" Label="Status" Clearable="true"
+                               Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:160px;">
+                        <MudSelectItem T="string" Value="@("Apen")">Apen</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("UnderBehandling")">Under behandling</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("Lukket")">Lukket</MudSelectItem>
+                    </MudSelect>
+                    <MudSelect T="Guid?" @bind-Value="_devProjectFilter" Label="Prosjekt" Clearable="true"
+                               Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:240px;">
+                        @foreach (var p in _projects)
+                        {
+                            <MudSelectItem T="Guid?" Value="@p.Id">@p.Name</MudSelectItem>
+                        }
+                    </MudSelect>
                     <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="LoadDeviationReport"
                                StartIcon="@Icons.Material.Filled.Refresh" Style="text-transform:none;border-radius:8px;">
                         Oppdater
+                    </MudButton>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="ExportDeviations"
+                               StartIcon="@Icons.Material.Filled.Download" Style="text-transform:none;border-radius:8px;"
+                               Disabled="_devExporting">
+                        @(_devExporting ? "Eksporterer..." : "Eksporter CSV")
                     </MudButton>
                 </MudStack>
             </MudPaper>
@@ -231,6 +273,35 @@
     @* ─── Tab 3: Sertifikater (Certifications) ─── *@
     <MudTabPanel Text="Sertifikater" Icon="@Icons.Material.Filled.CardMembership">
         <div class="pa-4">
+            <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-4 mb-4">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3" Class="flex-wrap">
+                    <MudSelect T="string" @bind-Value="_certTypeFilter" Label="Sertifikattype" Clearable="true"
+                               Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:200px;">
+                        @foreach (var t in _certTypes)
+                        {
+                            <MudSelectItem T="string" Value="@t">@t</MudSelectItem>
+                        }
+                    </MudSelect>
+                    <MudSelect T="string" @bind-Value="_certStatusFilter" Label="Status" Clearable="true"
+                               Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:160px;">
+                        <MudSelectItem T="string" Value="@("expired")">Utlopt</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("expiring")">Utloper snart</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("valid")">Gyldig</MudSelectItem>
+                    </MudSelect>
+                    <MudSelect T="Guid?" @bind-Value="_certPersonFilter" Label="Ansatt" Clearable="true"
+                               Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:240px;">
+                        @foreach (var e in _employees)
+                        {
+                            <MudSelectItem T="Guid?" Value="@((Guid?)e.PersonId)">@e.FullName</MudSelectItem>
+                        }
+                    </MudSelect>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="ExportCertifications"
+                               StartIcon="@Icons.Material.Filled.Download" Style="text-transform:none;border-radius:8px;"
+                               Disabled="_certExporting">
+                        @(_certExporting ? "Eksporterer..." : "Eksporter CSV")
+                    </MudButton>
+                </MudStack>
+            </MudPaper>
             @if (_certLoading)
             {
                 <MudStack AlignItems="AlignItems.Center" Class="pa-8">
@@ -320,12 +391,24 @@
             <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-4 mb-4">
                 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3" Class="flex-wrap">
                     <MudDatePicker @bind-Date="_safetyFrom" Label="Fra" DateFormat="dd.MM.yyyy"
-                                   Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:180px;" />
+                                   Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:180px;"
+                                   PickerVariant="PickerVariant.Dialog" />
                     <MudDatePicker @bind-Date="_safetyTo" Label="Til" DateFormat="dd.MM.yyyy"
-                                   Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:180px;" />
+                                   Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:180px;"
+                                   PickerVariant="PickerVariant.Dialog" />
+                    <MudSelect T="string" @bind-Value="_safetyTypeFilter" Label="Type" Clearable="true"
+                               Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:200px;">
+                        <MudSelectItem T="string" Value="@("SJA")">SJA</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("HMS-mote")">HMS-moter</MudSelectItem>
+                    </MudSelect>
                     <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="LoadSafetyReport"
                                StartIcon="@Icons.Material.Filled.Refresh" Style="text-transform:none;border-radius:8px;">
                         Oppdater
+                    </MudButton>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="ExportSafety"
+                               StartIcon="@Icons.Material.Filled.Download" Style="text-transform:none;border-radius:8px;"
+                               Disabled="_safetyExporting">
+                        @(_safetyExporting ? "Eksporterer..." : "Eksporter CSV")
                     </MudButton>
                 </MudStack>
             </MudPaper>
@@ -392,6 +475,17 @@
                     }
                 </MudSelect>
             </MudPaper>
+
+            @if (_selectedProjectId.HasValue && _projectReport is not null)
+            {
+                <MudStack Row="true" Spacing="2" Class="mt-2 mb-2">
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="ExportProjectPersonnel"
+                               StartIcon="@Icons.Material.Filled.People" Style="text-transform:none;border-radius:8px;"
+                               Disabled="_projectExporting">
+                        @(_projectExporting ? "Eksporterer..." : "Eksporter personell CSV")
+                    </MudButton>
+                </MudStack>
+            }
 
             @if (_projectLoading)
             {
@@ -488,6 +582,7 @@
     private DateTime? _hoursFrom = DateTime.Today.AddDays(-30);
     private DateTime? _hoursTo = DateTime.Today;
     private Guid? _hoursProjectId;
+    private Guid? _hoursPersonId;
     private bool _hoursLoading;
     private HoursReportDto? _hoursReport;
     private List<ChartSeries<double>> _hoursProjectSeries = [];
@@ -498,7 +593,11 @@
     // ─── Deviations tab ───
     private DateTime? _devFrom = DateTime.Today.AddDays(-90);
     private DateTime? _devTo = DateTime.Today;
+    private string? _devSeverityFilter;
+    private string? _devStatusFilter;
+    private Guid? _devProjectFilter;
     private bool _devLoading;
+    private bool _devExporting;
     private DeviationReportDto? _devReport;
     private double[] _devSeverityData = [];
     private string[] _devSeverityLabels = [];
@@ -509,6 +608,12 @@
 
     // ─── Certifications tab ───
     private bool _certLoading;
+    private bool _certExporting;
+    private string? _certTypeFilter;
+    private string? _certStatusFilter;
+    private Guid? _certPersonFilter;
+    private List<string> _certTypes = [];
+    private List<Solodoc.Shared.Employees.EmployeeListItemDto> _employees = [];
     private CertificationReportDto? _certReport;
     private List<ChartSeries<double>> _certTypeSeries = [];
     private string[] _certTypeLabels = [];
@@ -516,7 +621,12 @@
     // ─── Safety tab ───
     private DateTime? _safetyFrom = DateTime.Today.AddDays(-90);
     private DateTime? _safetyTo = DateTime.Today;
+    private string? _safetyTypeFilter;
     private bool _safetyLoading;
+    private bool _safetyExporting;
+
+    // ─── Export ───
+    private bool _hoursExporting;
     private SafetyReportDto? _safetyReport;
     private List<ChartSeries<double>> _safetyMonthlySeries = [];
     private string[] _safetyMonthlyLabels = [];
@@ -524,15 +634,18 @@
     // ─── Project tab ───
     private Guid? _selectedProjectId;
     private bool _projectLoading;
+    private bool _projectExporting;
     private ProjectReportSummaryDto? _projectReport;
 
     protected override async Task OnInitializedAsync()
     {
-        // Load project list for dropdowns
-        var result = await ProjectService.GetProjectsAsync(1, 100, null, null, false);
-        _projects = result.Items;
+        var projectsTask = ProjectService.GetProjectsAsync(1, 100, null, null, false);
+        var employeesTask = EmployeeService.GetEmployeesAsync();
 
-        // Load the first tab by default
+        var result = await projectsTask;
+        _projects = result.Items;
+        try { _employees = await employeesTask; } catch { }
+
         await LoadHoursReport();
     }
 
@@ -565,7 +678,7 @@
         var from = _hoursFrom.HasValue ? DateOnly.FromDateTime(_hoursFrom.Value) : (DateOnly?)null;
         var to = _hoursTo.HasValue ? DateOnly.FromDateTime(_hoursTo.Value) : (DateOnly?)null;
 
-        _hoursReport = await ReportService.GetHoursReportAsync(from, to, _hoursProjectId);
+        _hoursReport = await ReportService.GetHoursReportAsync(from, to, _hoursProjectId, _hoursPersonId);
 
         if (_hoursReport is not null)
         {
@@ -599,7 +712,7 @@
         var from = _devFrom.HasValue ? DateOnly.FromDateTime(_devFrom.Value) : (DateOnly?)null;
         var to = _devTo.HasValue ? DateOnly.FromDateTime(_devTo.Value) : (DateOnly?)null;
 
-        _devReport = await ReportService.GetDeviationReportAsync(from, to);
+        _devReport = await ReportService.GetDeviationReportAsync(from, to, _devProjectFilter);
 
         if (_devReport is not null)
         {
@@ -646,6 +759,7 @@
                 new ChartSeries<double> { Name = "Utlopt", Data = _certReport.ByType.Select(t => (double)t.Expired).ToArray() },
                 new ChartSeries<double> { Name = "Utloper snart", Data = _certReport.ByType.Select(t => (double)t.ExpiringSoon).ToArray() }
             ];
+            _certTypes = _certReport.ByType.Select(t => t.Type).Distinct().OrderBy(t => t).ToList();
         }
 
         _certLoading = false;
@@ -699,4 +813,61 @@
 
     private static string Truncate(string text, int maxLength)
         => text.Length > maxLength ? text[..maxLength] + "..." : text;
+
+    // ─── CSV Export helpers ───
+
+    private async Task DownloadCsv(byte[]? data, string filename)
+    {
+        if (data is null) { Snackbar.Add("Kunne ikke eksportere", Severity.Error); return; }
+        var b64 = Convert.ToBase64String(data);
+        await JS.InvokeVoidAsync("eval", $"{{ var a=document.createElement('a'); a.href='data:text/csv;base64,{b64}'; a.download='{filename}'; a.click(); }}");
+        Snackbar.Add("Eksport lastet ned", Severity.Success);
+    }
+
+    private async Task ExportHours()
+    {
+        _hoursExporting = true; StateHasChanged();
+        var from = _hoursFrom.HasValue ? DateOnly.FromDateTime(_hoursFrom.Value) : (DateOnly?)null;
+        var to = _hoursTo.HasValue ? DateOnly.FromDateTime(_hoursTo.Value) : (DateOnly?)null;
+        var data = await ReportService.ExportHoursCsvAsync(from, to, _hoursProjectId, _hoursPersonId);
+        await DownloadCsv(data, $"timer-{from:yyyy-MM-dd}.csv");
+        _hoursExporting = false; StateHasChanged();
+    }
+
+    private async Task ExportDeviations()
+    {
+        _devExporting = true; StateHasChanged();
+        var from = _devFrom.HasValue ? DateOnly.FromDateTime(_devFrom.Value) : (DateOnly?)null;
+        var to = _devTo.HasValue ? DateOnly.FromDateTime(_devTo.Value) : (DateOnly?)null;
+        var data = await ReportService.ExportDeviationsCsvAsync(from, to, _devSeverityFilter, _devStatusFilter, _devProjectFilter);
+        await DownloadCsv(data, "avvik-eksport.csv");
+        _devExporting = false; StateHasChanged();
+    }
+
+    private async Task ExportCertifications()
+    {
+        _certExporting = true; StateHasChanged();
+        var data = await ReportService.ExportCertificationsCsvAsync(_certTypeFilter, _certPersonFilter, _certStatusFilter);
+        await DownloadCsv(data, "sertifikater-eksport.csv");
+        _certExporting = false; StateHasChanged();
+    }
+
+    private async Task ExportSafety()
+    {
+        _safetyExporting = true; StateHasChanged();
+        var from = _safetyFrom.HasValue ? DateOnly.FromDateTime(_safetyFrom.Value) : (DateOnly?)null;
+        var to = _safetyTo.HasValue ? DateOnly.FromDateTime(_safetyTo.Value) : (DateOnly?)null;
+        var data = await ReportService.ExportSafetyCsvAsync(from, to, _safetyTypeFilter);
+        await DownloadCsv(data, "hms-eksport.csv");
+        _safetyExporting = false; StateHasChanged();
+    }
+
+    private async Task ExportProjectPersonnel()
+    {
+        if (!_selectedProjectId.HasValue) return;
+        _projectExporting = true; StateHasChanged();
+        var data = await ReportService.ExportProjectPersonnelCsvAsync(_selectedProjectId.Value);
+        await DownloadCsv(data, "personell-eksport.csv");
+        _projectExporting = false; StateHasChanged();
+    }
 }

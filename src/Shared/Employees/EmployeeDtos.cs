@@ -106,3 +106,12 @@ public record InviteEmployeeRequest(
     string Role);
 
 public record ChangeRoleRequest(string Role);
+
+// ─── GPS Consent ──────────────────────────────────────────────────
+
+public record GpsConsentRequest(bool Consent);
+
+public record GpsConsentStatusDto(
+    bool GpsEnabledByTenant,
+    bool ConsentGiven,
+    DateTimeOffset? ConsentChangedAt);

@@ -127,12 +127,20 @@ public static class TravelExpenseEndpoints
     // ── List ──
 
     private static async Task<IResult> ListTravelExpenses(
-        SolodocDbContext db, ITenantProvider tp, CancellationToken ct,
+        ClaimsPrincipal user, SolodocDbContext db, ITenantProvider tp, CancellationToken ct,
         int page = 1, int pageSize = 50, string? status = null)
     {
         if (tp.TenantId is null) return Results.Unauthorized();
+        var (currentPid, pidValid) = GetPerson(user);
+        if (!pidValid) return Results.Unauthorized();
 
         var query = db.TravelExpenses.Where(e => e.TenantId == tp.TenantId.Value);
+
+        // Privacy: non-admin users only see their own travel expenses
+        var isAdmin = await IsAdminOrPL(currentPid!.Value, tp.TenantId.Value, db, ct);
+        if (!isAdmin)
+            query = query.Where(e => e.PersonId == currentPid!.Value);
+
         if (!string.IsNullOrEmpty(status) && Enum.TryParse<ExpenseStatus>(status, true, out var s))
             query = query.Where(e => e.Status == s);
 

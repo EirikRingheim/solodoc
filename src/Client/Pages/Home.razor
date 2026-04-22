@@ -339,6 +339,15 @@ else
                                     Bekreft
                                 </MudButton>
                             }
+                            <MudIconButton Icon="@Icons.Material.Filled.VisibilityOff" Size="Size.Small" Color="Color.Secondary"
+                                           OnClick="@(async () => await DismissAnnouncement(capturedAnn.Id))"
+                                           Title="Skjul" />
+                            @if (_userRole == "admin")
+                            {
+                                <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small" Color="Color.Primary"
+                                               OnClick="@(() => OpenEditAnnouncement(capturedAnn))"
+                                               Title="Rediger" />
+                            }
                             @if (_userRole == "admin")
                             {
                                 <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error"
@@ -349,6 +358,41 @@ else
                 </MudPaper>
             }
         </MudStack>
+
+        @* Toggle dismissed *@
+        <MudButton Variant="Variant.Text" Size="Size.Small" Color="Color.Secondary"
+                   OnClick="LoadDismissedAnnouncements" Class="mt-2"
+                   Style="text-transform:none;">
+            @(_showDismissed ? "Skjul skjulte" : "Vis skjulte kunngjøringer")
+        </MudButton>
+
+        @if (_showDismissed && _dismissedAnnouncements.Count > 0)
+        {
+            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-2 mb-1">Skjulte kunngjøringer</MudText>
+            <MudStack Spacing="1">
+                @foreach (var ann in _dismissedAnnouncements)
+                {
+                    var capturedAnn = ann;
+                    var borderColor = ann.UrgencyLevel switch { 3 => "#E63946", 2 => "#F4A261", _ => "#4361EE" };
+                    <MudPaper Class="pa-3" Elevation="0"
+                              Style="@($"border-left:4px solid {borderColor};border-radius:8px;background:#F5F5F5;opacity:0.75;")">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                            <div style="flex:1;min-width:0;">
+                                <MudText Typo="Typo.subtitle2" Style="font-weight:600;">@ann.Title</MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                    @ann.CreatedBy — @ann.CreatedAt.LocalDateTime.ToString("dd.MM.yyyy")
+                                </MudText>
+                            </div>
+                            <MudButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Primary"
+                                       OnClick="@(async () => await UndismissAnnouncement(capturedAnn.Id))"
+                                       Style="text-transform:none;border-radius:8px;">
+                                Vis igjen
+                            </MudButton>
+                        </MudStack>
+                    </MudPaper>
+                }
+            </MudStack>
+        }
     </MudPaper>
 }
 
@@ -644,7 +688,7 @@ else
 
 @* ── New announcement dialog ── *@
 <MudDialog @bind-Visible="_showNewAnnouncement" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true })">
-    <TitleContent><MudText Typo="Typo.h6">Ny kunngjøring</MudText></TitleContent>
+    <TitleContent><MudText Typo="Typo.h6">@(_editingAnnouncementId.HasValue ? "Rediger kunngjøring" : "Ny kunngjøring")</MudText></TitleContent>
     <DialogContent>
         <MudStack Spacing="3">
             <MudTextField T="string" @bind-Value="_annTitle" Label="Tittel" Variant="Variant.Outlined" Required="true" />
@@ -683,10 +727,12 @@ else
         </MudStack>
     </DialogContent>
     <DialogActions>
-        <MudButton OnClick="() => _showNewAnnouncement = false" Style="text-transform:none;">Avbryt</MudButton>
+        <MudButton OnClick="CloseAnnouncementDialog" Style="text-transform:none;">Avbryt</MudButton>
         <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SendAnnouncement"
                    Disabled="@(string.IsNullOrWhiteSpace(_annTitle))"
-                   Style="text-transform:none;border-radius:8px;">Send kunngjøring</MudButton>
+                   Style="text-transform:none;border-radius:8px;">
+            @(_editingAnnouncementId.HasValue ? "Lagre" : "Send kunngjøring")
+        </MudButton>
     </DialogActions>
 </MudDialog>
 
@@ -696,7 +742,10 @@ else
     private TodayShiftDto? _todayShift;
     private List<SiteOverviewDto> _siteOverview = [];
     private List<AnnouncementDto> _announcements = [];
+    private List<AnnouncementDto> _dismissedAnnouncements = [];
+    private bool _showDismissed;
     private bool _showNewAnnouncement;
+    private Guid? _editingAnnouncementId;
     private string _annTitle = "";
     private string _annBody = "";
     private int _annUrgency = 1;
@@ -959,14 +1008,44 @@ else
 
     private async Task OpenNewAnnouncement()
     {
-        _showNewAnnouncement = true;
+        _editingAnnouncementId = null;
+        _annTitle = "";
+        _annBody = "";
+        _annUrgency = 1;
+        _annRequireAck = false;
+        _annPhotoKey = null;
         _annTarget = "all";
         _annSelectedPersons.Clear();
+        _showNewAnnouncement = true;
         if (_annEmployees.Count == 0)
         {
             try { _annEmployees = await EmployeeService.GetEmployeesAsync(); } catch { }
         }
         StateHasChanged();
+    }
+
+    private async Task OpenEditAnnouncement(AnnouncementDto ann)
+    {
+        _editingAnnouncementId = ann.Id;
+        _annTitle = ann.Title;
+        _annBody = ann.Body;
+        _annUrgency = ann.UrgencyLevel;
+        _annRequireAck = ann.RequiresAcknowledgment;
+        _annPhotoKey = ann.PhotoFileKey;
+        _annTarget = "all";
+        _annSelectedPersons.Clear();
+        _showNewAnnouncement = true;
+        if (_annEmployees.Count == 0)
+        {
+            try { _annEmployees = await EmployeeService.GetEmployeesAsync(); } catch { }
+        }
+        StateHasChanged();
+    }
+
+    private void CloseAnnouncementDialog()
+    {
+        _showNewAnnouncement = false;
+        _editingAnnouncementId = null;
     }
 
     private async Task SendAnnouncement()
@@ -975,22 +1054,30 @@ else
         var targetIds = _annTarget == "select" && _annSelectedPersons.Count > 0
             ? _annSelectedPersons.ToList()
             : null;
-        var ok = await NotificationService.CreateAnnouncementAsync(
-            new CreateAnnouncementRequest(_annTitle, _annBody, _annUrgency, _annRequireAck, _annPhotoKey, targetIds));
+        var request = new CreateAnnouncementRequest(_annTitle, _annBody, _annUrgency, _annRequireAck, _annPhotoKey, targetIds);
+
+        var isEdit = _editingAnnouncementId.HasValue;
+        bool ok;
+        if (isEdit)
+            ok = await NotificationService.UpdateAnnouncementAsync(_editingAnnouncementId!.Value, request);
+        else
+            ok = await NotificationService.CreateAnnouncementAsync(request);
+
         if (ok)
         {
             _showNewAnnouncement = false;
+            _editingAnnouncementId = null;
             _annTitle = "";
             _annBody = "";
             _annUrgency = 1;
             _annRequireAck = false;
             _annPhotoKey = null;
             _announcements = await NotificationService.GetAnnouncementsAsync();
-            Snackbar.Add("Kunngjøring sendt!", Severity.Success);
+            Snackbar.Add(isEdit ? "Kunngjøring oppdatert!" : "Kunngjøring sendt!", Severity.Success);
         }
         else
         {
-            Snackbar.Add("Kunne ikke sende kunngjøring", Severity.Error);
+            Snackbar.Add("Kunne ikke lagre kunngjøring", Severity.Error);
         }
     }
 
@@ -1019,6 +1106,37 @@ else
         _annComments[annId] = "";
         _announcements = await NotificationService.GetAnnouncementsAsync();
         StateHasChanged();
+    }
+
+    private async Task DismissAnnouncement(Guid annId)
+    {
+        var success = await NotificationService.DismissAnnouncementAsync(annId);
+        if (success)
+        {
+            var dismissed = _announcements.FirstOrDefault(a => a.Id == annId);
+            _announcements = _announcements.Where(a => a.Id != annId).ToList();
+            if (dismissed is not null)
+                _dismissedAnnouncements.Add(dismissed with { IsDismissed = true });
+        }
+        StateHasChanged();
+    }
+
+    private async Task UndismissAnnouncement(Guid annId)
+    {
+        var success = await NotificationService.UndismissAnnouncementAsync(annId);
+        if (success)
+        {
+            _dismissedAnnouncements = _dismissedAnnouncements.Where(a => a.Id != annId).ToList();
+            _announcements = await NotificationService.GetAnnouncementsAsync();
+        }
+        StateHasChanged();
+    }
+
+    private async Task LoadDismissedAnnouncements()
+    {
+        _showDismissed = !_showDismissed;
+        if (_showDismissed && _dismissedAnnouncements.Count == 0)
+            _dismissedAnnouncements = await NotificationService.GetDismissedAnnouncementsAsync();
     }
 
     private async Task DeleteAnnouncement(Guid annId)
