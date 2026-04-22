@@ -13,28 +13,43 @@
 
     private readonly string _mapId = $"geofence-map-{Guid.NewGuid():N}";
     private DotNetObjectReference<GeofenceEditor>? _dotnetRef;
+    private bool _initialized;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
             _dotnetRef = DotNetObjectReference.Create(this);
+            await InitMapAsync();
+        }
+    }
 
-            // If no coordinates but has address, geocode first
-            if (Latitude is null && Longitude is null && !string.IsNullOrWhiteSpace(Address))
-            {
-                await JS.InvokeVoidAsync("mapInterop.showAddress", _mapId, Address, 15);
-                // Then init the editor on top
-                await Task.Delay(1500);
-                await JS.InvokeVoidAsync("mapInterop.destroy", _mapId);
-            }
+    private async Task InitMapAsync()
+    {
+        if (_initialized) return;
 
+        // Wait for Leaflet Draw to be available (CDN might be slow)
+        for (var i = 0; i < 20; i++)
+        {
+            var ready = await JS.InvokeAsync<bool>("eval",
+                "typeof L !== 'undefined' && typeof L.Control !== 'undefined' && typeof L.Control.Draw !== 'undefined' && typeof mapInterop !== 'undefined' && typeof mapInterop.initGeofenceEditor === 'function'");
+            if (ready) break;
+            await Task.Delay(250);
+        }
+
+        try
+        {
             await JS.InvokeVoidAsync("mapInterop.initGeofenceEditor",
                 _mapId, Latitude, Longitude, GeofenceGeoJson, GeofenceRadiusMeters, _dotnetRef);
 
-            // If no coordinates and has address, geocode and pan
             if (Latitude is null && Longitude is null && !string.IsNullOrWhiteSpace(Address))
                 await JS.InvokeVoidAsync("mapInterop.geocodeAndPan", _mapId, Address);
+
+            _initialized = true;
+        }
+        catch
+        {
+            // Silently fail — map is non-critical
         }
     }
 
