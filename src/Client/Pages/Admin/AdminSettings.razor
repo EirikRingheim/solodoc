@@ -7,6 +7,7 @@
 @inject ISnackbar Snackbar
 @inject NavigationManager Navigation
 @inject ExpenseService ExpenseService
+@inject EquipmentService EquipmentService
 @using Solodoc.Shared.Onboarding
 
 <PageTitle>Solodoc - Innstillinger</PageTitle>
@@ -316,6 +317,63 @@
                                    OnClick="() => _showNewCategoryField = true"
                                    Style="text-transform:none;border-radius:8px;align-self:flex-start;">
                             Legg til kategori
+                        </MudButton>
+                    }
+                }
+            </MudStack>
+        </ChildContent>
+    </MudExpansionPanel>
+
+    @* Equipment type categories *@
+    <MudExpansionPanel Style="border:1px solid #e9ecef;border-radius:12px;margin-bottom:12px;">
+        <TitleContent>
+            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                <MudIcon Icon="@Icons.Material.Filled.Construction" Color="Color.Primary" />
+                <MudText Typo="Typo.subtitle1" Style="font-weight:600;">Utstyrstyper</MudText>
+            </MudStack>
+        </TitleContent>
+        <ChildContent>
+            <MudStack Spacing="2" Class="pa-2">
+                @if (_loadingEquipTypes)
+                {
+                    <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+                }
+                else
+                {
+                    @foreach (var et in _equipTypeCategories)
+                    {
+                        <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:8px;" Class="pa-3">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                                <MudText Typo="Typo.body1">@et.Name</MudText>
+                                @if (et.IsDefault)
+                                {
+                                    <MudChip T="string" Size="Size.Small" Color="Color.Default" Style="height:22px;">Standard</MudChip>
+                                }
+                            </MudStack>
+                        </MudPaper>
+                    }
+
+                    @if (_showNewEquipType)
+                    {
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudTextField T="string" @bind-Value="_newEquipTypeName" Label="Nytt typenavn"
+                                          Variant="Variant.Outlined" Margin="Margin.Dense" Style="flex:1;" />
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                                       OnClick="AddEquipType" Disabled="string.IsNullOrWhiteSpace(_newEquipTypeName)"
+                                       Style="text-transform:none;border-radius:8px;">
+                                Lagre
+                            </MudButton>
+                            <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
+                                           OnClick="() => { _showNewEquipType = false; _newEquipTypeName = string.Empty; }" />
+                        </MudStack>
+                    }
+                    else
+                    {
+                        <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.Add"
+                                   OnClick="() => _showNewEquipType = true"
+                                   Style="text-transform:none;border-radius:8px;align-self:flex-start;">
+                            Legg til type
                         </MudButton>
                     }
                 }
@@ -869,6 +927,12 @@
     private bool _showNewCategoryField;
     private string _newCategoryName = string.Empty;
 
+    // Equipment type categories
+    private List<Solodoc.Shared.Equipment.EquipmentTypeCategoryDto> _equipTypeCategories = [];
+    private bool _loadingEquipTypes = true;
+    private bool _showNewEquipType;
+    private string _newEquipTypeName = string.Empty;
+
     // Schedules & allowances
     private List<Solodoc.Shared.Hours.WorkScheduleDto> _schedules = [];
     private List<Solodoc.Shared.Hours.AllowanceRuleDto> _allowanceRules = [];
@@ -905,11 +969,12 @@
     protected override async Task OnInitializedAsync()
     {
         var categoriesTask = LoadCategoriesAsync();
+        var equipTypesTask = LoadEquipTypesAsync();
         var schedulesTask = LoadSchedulesAsync();
         var allowancesTask = LoadAllowancesAsync();
         var onboardingTask = LoadOnboardingAsync();
         var expenseTask = LoadExpenseSettingsAsync();
-        await Task.WhenAll(categoriesTask, schedulesTask, allowancesTask, onboardingTask, expenseTask);
+        await Task.WhenAll(categoriesTask, equipTypesTask, schedulesTask, allowancesTask, onboardingTask, expenseTask);
     }
 
     private void GoToRoles() => Navigation.NavigateTo("/admin/roles");
@@ -937,6 +1002,30 @@
         _loadingCategories = true;
         _categories = await DeviationService.GetCategoriesAsync();
         _loadingCategories = false;
+    }
+
+    private async Task LoadEquipTypesAsync()
+    {
+        _loadingEquipTypes = true;
+        _equipTypeCategories = await EquipmentService.GetTypeCategoriesAsync();
+        _loadingEquipTypes = false;
+    }
+
+    private async Task AddEquipType()
+    {
+        if (string.IsNullOrWhiteSpace(_newEquipTypeName)) return;
+        var ok = await EquipmentService.CreateTypeCategoryAsync(_newEquipTypeName.Trim());
+        if (ok)
+        {
+            _newEquipTypeName = string.Empty;
+            _showNewEquipType = false;
+            await LoadEquipTypesAsync();
+            Snackbar.Add("Utstyrstype lagt til", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add("Kunne ikke legge til type", Severity.Error);
+        }
     }
 
     private async Task LoadSchedulesAsync()

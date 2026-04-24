@@ -50,23 +50,28 @@ public static class ProjectEndpoints
             return Results.Unauthorized();
 
         // Validate parent project (one-level enforcement)
+        Project? parentProject = null;
         if (request.ParentProjectId.HasValue)
         {
-            var parent = await db.Projects
+            parentProject = await db.Projects
                 .FirstOrDefaultAsync(p => p.Id == request.ParentProjectId.Value && p.TenantId == tenantProvider.TenantId.Value, ct);
-            if (parent is null)
+            if (parentProject is null)
                 return Results.BadRequest(new { error = "Hovedprosjekt ikke funnet." });
-            if (parent.ParentProjectId.HasValue)
+            if (parentProject.ParentProjectId.HasValue)
                 return Results.BadRequest(new { error = "Underprosjekter kan ikke ha egne underprosjekter." });
         }
+
+        // Inherit customer from parent if not explicitly set
+        var customerId = request.CustomerId ?? parentProject?.CustomerId;
+        var clientName = request.ClientName ?? parentProject?.ClientName;
 
         var project = new Project
         {
             TenantId = tenantProvider.TenantId.Value,
             Name = request.Name,
             Description = request.Description,
-            CustomerId = request.CustomerId,
-            ClientName = request.ClientName,
+            CustomerId = customerId,
+            ClientName = clientName,
             Address = request.Address,
             StartDate = request.StartDate,
             PlannedEndDate = request.PlannedEndDate,

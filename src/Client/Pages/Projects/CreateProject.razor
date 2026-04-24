@@ -55,7 +55,7 @@
                 <MudSelect T="Guid?" @bind-Value="_customerId" Label="Kunde (valgfritt)"
                            Variant="Variant.Outlined" Clearable="true" Style="flex:1;"
                            AnchorOrigin="Origin.BottomCenter">
-                    @foreach (var contact in _contacts.Where(c => c.Type is "Kunde" or "Leverandor" or "Leverandør" or "Annet"))
+                    @foreach (var contact in _contacts)
                     {
                         <MudSelectItem T="Guid?" Value="@((Guid?)contact.Id)">
                             <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
@@ -180,17 +180,21 @@
         if (Guid.TryParse(queryStr["parentId"], out var pid))
         {
             _parentId = pid;
-            try { _parentProject = await ProjectService.GetProjectByIdAsync(pid); } catch { }
+            try
+            {
+                _parentProject = await ProjectService.GetProjectByIdAsync(pid);
+                // Inherit customer from parent
+                if (_parentProject is not null)
+                {
+                    _clientName = _parentProject.ClientName;
+                    _address = _parentProject.Address;
+                }
+            }
+            catch { }
         }
 
-        try
-        {
-            var contactsTask = ContactService.GetContactsAsync();
-            var projectsTask = ProjectService.GetTopLevelProjectsAsync();
-            _contacts = await contactsTask;
-            _topLevelProjects = await projectsTask;
-        }
-        catch { }
+        try { _contacts = await ContactService.GetContactsAsync(); } catch { }
+        try { _topLevelProjects = await ProjectService.GetTopLevelProjectsAsync(); } catch { }
     }
 
     private async Task Submit()

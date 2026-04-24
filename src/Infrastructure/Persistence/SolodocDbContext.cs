@@ -109,6 +109,8 @@ public class SolodocDbContext : DbContext
     public DbSet<TemplateAssignment> TemplateAssignments => Set<TemplateAssignment>();
     public DbSet<ChecklistInstanceItem> ChecklistInstanceItems => Set<ChecklistInstanceItem>();
     public DbSet<ChecklistParticipant> ChecklistParticipants => Set<ChecklistParticipant>();
+    public DbSet<ChecklistObject> ChecklistObjects => Set<ChecklistObject>();
+    public DbSet<ChecklistObjectTemplate> ChecklistObjectTemplates => Set<ChecklistObjectTemplate>();
     public DbSet<MarketplaceTemplate> MarketplaceTemplates => Set<MarketplaceTemplate>();
     public DbSet<MarketplacePurchase> MarketplacePurchases => Set<MarketplacePurchase>();
 
@@ -140,6 +142,7 @@ public class SolodocDbContext : DbContext
 
     // Equipment
     public DbSet<Domain.Entities.Equipment.Equipment> Equipment => Set<Domain.Entities.Equipment.Equipment>();
+    public DbSet<EquipmentTypeCategory> EquipmentTypeCategories => Set<EquipmentTypeCategory>();
     public DbSet<EquipmentMaintenance> EquipmentMaintenanceRecords => Set<EquipmentMaintenance>();
     public DbSet<EquipmentInspection> EquipmentInspections => Set<EquipmentInspection>();
     public DbSet<EquipmentProjectAssignment> EquipmentProjectAssignments => Set<EquipmentProjectAssignment>();
@@ -189,6 +192,8 @@ public class SolodocDbContext : DbContext
     // Documents
     public DbSet<DocumentFolder> DocumentFolders => Set<DocumentFolder>();
     public DbSet<Document> Documents => Set<Document>();
+    public DbSet<BusinessDocument> BusinessDocuments => Set<BusinessDocument>();
+    public DbSet<WasteDisposalEntry> WasteDisposalEntries => Set<WasteDisposalEntry>();
 
     // Billing
     public DbSet<CouponCode> CouponCodes => Set<CouponCode>();

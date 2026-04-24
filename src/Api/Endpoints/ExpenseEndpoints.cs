@@ -23,6 +23,8 @@ public static class ExpenseEndpoints
         g.MapPatch("/{id:guid}/approve", ApproveExpense);
         g.MapPatch("/{id:guid}/reject", RejectExpense);
         g.MapPatch("/{id:guid}/mark-paid", MarkExpensePaid);
+        g.MapPatch("/{id:guid}/undo-paid", UndoPaid);
+        g.MapPatch("/{id:guid}/undo-approve", UndoApprove);
 
         return app;
     }
@@ -119,7 +121,7 @@ public static class ExpenseEndpoints
             e.Category?.ToString(), e.Description,
             projectName, e.ProjectId, jobDesc, e.JobId,
             e.ReceiptFileKey, e.Status.ToString(),
-            approvedBy, e.ApprovedAt, paidBy, e.PaidAt, e.RejectionReason));
+            approvedBy, e.ApprovedAt, paidBy, e.PaidAt, e.RejectionReason, e.UpdatedAt));
     }
 
     // ── Create ──
@@ -304,6 +306,48 @@ public static class ExpenseEndpoints
         e.Status = ExpenseStatus.Paid;
         e.PaidById = pid;
         e.PaidAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync(ct);
+        return Results.Ok();
+    }
+
+    private static async Task<IResult> UndoPaid(
+        Guid id, ClaimsPrincipal user, SolodocDbContext db, ITenantProvider tp, CancellationToken ct)
+    {
+        if (tp.TenantId is null) return Results.Unauthorized();
+        var (pid, valid) = GetPerson(user);
+        if (!valid) return Results.Unauthorized();
+        if (!await IsAdminOrAccountant(pid!.Value, tp.TenantId.Value, db, ct)) return Results.Forbid();
+
+        var e = await db.Expenses.FirstOrDefaultAsync(x => x.Id == id && x.TenantId == tp.TenantId.Value, ct);
+        if (e is null) return Results.NotFound();
+        if (e.Status != ExpenseStatus.Paid)
+            return Results.BadRequest(new { error = "Utlegget er ikke markert som betalt." });
+
+        e.Status = ExpenseStatus.Approved;
+        e.PaidById = null;
+        e.PaidAt = null;
+        e.UpdatedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync(ct);
+        return Results.Ok();
+    }
+
+    private static async Task<IResult> UndoApprove(
+        Guid id, ClaimsPrincipal user, SolodocDbContext db, ITenantProvider tp, CancellationToken ct)
+    {
+        if (tp.TenantId is null) return Results.Unauthorized();
+        var (pid, valid) = GetPerson(user);
+        if (!valid) return Results.Unauthorized();
+        if (!await IsAdminOrPL(pid!.Value, tp.TenantId.Value, db, ct)) return Results.Forbid();
+
+        var e = await db.Expenses.FirstOrDefaultAsync(x => x.Id == id && x.TenantId == tp.TenantId.Value, ct);
+        if (e is null) return Results.NotFound();
+        if (e.Status != ExpenseStatus.Approved)
+            return Results.BadRequest(new { error = "Utlegget er ikke godkjent." });
+
+        e.Status = ExpenseStatus.Submitted;
+        e.ApprovedById = null;
+        e.ApprovedAt = null;
+        e.UpdatedAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync(ct);
         return Results.Ok();
     }

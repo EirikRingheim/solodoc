@@ -1,0 +1,181 @@
+@page "/regnskap/lonnsexport"
+@attribute [Authorize]
+@inject ApiHttpClient Api
+@inject ISnackbar Snackbar
+@inject IJSRuntime JS
+
+<PageTitle>Solodoc - Lønnseksport</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4">Lønnseksport</MudText>
+
+<MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;" Class="pa-4 mb-4">
+    <PeriodPresetSelector @bind-FromDate="_from" @bind-ToDate="_to" />
+
+    <MudStack Row="true" Spacing="2" Class="mt-4">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="ExportExcel"
+                   StartIcon="@Icons.Material.Filled.TableChart" Disabled="_exporting"
+                   Style="text-transform:none;border-radius:8px;">
+            @(_exporting ? "Genererer..." : "Last ned Excel")
+        </MudButton>
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="ExportCsv"
+                   StartIcon="@Icons.Material.Filled.Download" Disabled="_exporting"
+                   Style="text-transform:none;border-radius:8px;">
+            Last ned CSV
+        </MudButton>
+    </MudStack>
+</MudPaper>
+
+@* Period stats *@
+@if (_rows.Count > 0)
+{
+    <MudGrid Spacing="2" Class="mb-4">
+        <MudItem xs="6" sm="3">
+            <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:10px;" Class="pa-3 text-center">
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Totalt timer</MudText>
+                <MudText Typo="Typo.h5" Style="font-weight:700;color:#4361EE;">@_rows.Sum(r => r.Hours).ToString("N1")</MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="6" sm="3">
+            <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:10px;" Class="pa-3 text-center">
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Overtid</MudText>
+                <MudText Typo="Typo.h5" Style="font-weight:700;color:#F59F00;">@_rows.Sum(r => r.OvertimeHours).ToString("N1")</MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="6" sm="3">
+            <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:10px;" Class="pa-3 text-center">
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Utlegg</MudText>
+                <MudText Typo="Typo.h5" Style="font-weight:700;">@_rows.Sum(r => r.ExpenseAmount).ToString("N0") kr</MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="6" sm="3">
+            <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:10px;" Class="pa-3 text-center">
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Ansatte</MudText>
+                <MudText Typo="Typo.h5" Style="font-weight:700;">@_rows.Count</MudText>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+}
+
+<MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;" Class="pa-4">
+    <MudText Typo="Typo.subtitle1" Style="font-weight:600;" Class="mb-3">Forhåndsvisning</MudText>
+
+    @if (_loading)
+    {
+        <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+    }
+    else if (_rows.Count == 0)
+    {
+        <MudText Typo="Typo.body2" Color="Color.Secondary">Ingen data for valgt periode</MudText>
+    }
+    else
+    {
+        <MudSimpleTable Dense="true" Hover="true" Style="overflow-x:auto;">
+            <thead>
+                <tr>
+                    <th>Ansatt</th>
+                    <th style="text-align:right;">Timer</th>
+                    <th style="text-align:right;">Overtid</th>
+                    <th style="text-align:right;">Utlegg</th>
+                    <th style="text-align:right;">Reise</th>
+                    <th style="text-align:right;">Ferie</th>
+                    <th style="text-align:right;">Sykdom</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var r in _rows)
+                {
+                    <tr>
+                        <td>@r.EmployeeName</td>
+                        <td style="text-align:right;">@r.Hours.ToString("N1")</td>
+                        <td style="text-align:right;">@r.OvertimeHours.ToString("N1")</td>
+                        <td style="text-align:right;">@r.ExpenseAmount.ToString("N0") kr</td>
+                        <td style="text-align:right;">@r.TravelExpenseAmount.ToString("N0") kr</td>
+                        <td style="text-align:right;">@r.VacationDays.ToString("N1") d</td>
+                        <td style="text-align:right;">@r.SickLeaveDays.ToString("N1") d</td>
+                    </tr>
+                }
+            </tbody>
+        </MudSimpleTable>
+    }
+</MudPaper>
+
+@code {
+    private DateTime? _from = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+    private DateTime? _to = DateTime.Today;
+    private bool _loading;
+    private bool _exporting;
+    private List<AccountingEmployeeRow> _rows = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadPreview();
+    }
+
+    private async Task LoadPreview()
+    {
+        _loading = true;
+        StateHasChanged();
+
+        var from = _from?.ToString("yyyy-MM-dd") ?? "";
+        var to = _to?.ToString("yyyy-MM-dd") ?? "";
+        var r = await Api.GetAsync($"api/reports/accounting?from={from}&to={to}");
+        if (r.IsSuccessStatusCode)
+        {
+            var data = await r.Content.ReadFromJsonAsync<AccountingResponse>();
+            _rows = data?.ByEmployee ?? [];
+        }
+
+        _loading = false;
+    }
+
+    private async Task ExportExcel()
+    {
+        _exporting = true;
+        StateHasChanged();
+
+        var from = _from?.ToString("yyyy-MM-dd") ?? "";
+        var to = _to?.ToString("yyyy-MM-dd") ?? "";
+        var r = await Api.GetAsync($"api/reports/payroll/export?from={from}&to={to}");
+        if (r.IsSuccessStatusCode)
+        {
+            var bytes = await r.Content.ReadAsByteArrayAsync();
+            var b64 = Convert.ToBase64String(bytes);
+            await JS.InvokeVoidAsync("eval",
+                $"{{ var a=document.createElement('a'); a.href='data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{b64}'; a.download='lonnseksport.xlsx'; a.click(); }}");
+            Snackbar.Add("Excel lastet ned", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add("Kunne ikke generere eksport", Severity.Error);
+        }
+
+        _exporting = false;
+    }
+
+    private async Task ExportCsv()
+    {
+        _exporting = true;
+        StateHasChanged();
+
+        var from = _from?.ToString("yyyy-MM-dd") ?? "";
+        var to = _to?.ToString("yyyy-MM-dd") ?? "";
+        var r = await Api.GetAsync($"api/reports/hours/export?from={from}&to={to}");
+        if (r.IsSuccessStatusCode)
+        {
+            var bytes = await r.Content.ReadAsByteArrayAsync();
+            var b64 = Convert.ToBase64String(bytes);
+            await JS.InvokeVoidAsync("eval",
+                $"{{ var a=document.createElement('a'); a.href='data:text/csv;base64,{b64}'; a.download='lonnseksport.csv'; a.click(); }}");
+            Snackbar.Add("CSV lastet ned", Severity.Success);
+        }
+
+        _exporting = false;
+    }
+
+    private record AccountingResponse(List<AccountingEmployeeRow> ByEmployee);
+    private record AccountingEmployeeRow(
+        string EmployeeName, decimal Hours, decimal OvertimeHours,
+        decimal ExpenseAmount, decimal TravelExpenseAmount,
+        decimal AllowanceAmount, decimal VacationDays, decimal SickLeaveDays,
+        decimal EmployeeTotal);
+}

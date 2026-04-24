@@ -1,0 +1,506 @@
+@page "/admin/access"
+@attribute [Authorize]
+@inject ApiHttpClient Api
+@inject RoleService RoleService
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
+@using Solodoc.Shared.Auth
+
+<PageTitle>Solodoc - Tilgangsstyring</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-4">
+    <BackButton />
+    <MudText Typo="Typo.h5">Tilgangsstyring</MudText>
+</MudStack>
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+}
+else
+{
+    <MudTabs Elevation="0" Rounded="true" PanelClass="pa-0 pt-4" Border="true"
+             Style="border:1px solid #E9ECEF;border-radius:12px;">
+
+        @* ─── Tab 1: Moduler (Feature toggles) ─── *@
+        <MudTabPanel Text="Moduler" Icon="@Icons.Material.Filled.ToggleOn">
+            <div class="pa-4">
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+                    Velg hvilke moduler som skal være tilgjengelige for alle brukere i bedriften.
+                    Deaktiverte moduler skjules fra menyen.
+                </MudText>
+
+                <MudGrid Spacing="3">
+                    @foreach (var module in _modules)
+                    {
+                        var m = module;
+                        <MudItem xs="12" sm="6" md="4">
+                            <MudPaper Elevation="0" Class="pa-3"
+                                      Style="@($"border:1px solid {(IsModuleEnabled(m.Key) ? "#4361EE" : "#e9ecef")};border-radius:12px;{(IsModuleEnabled(m.Key) ? "background:#F0F3FF;" : "")}")">
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                        <MudIcon Icon="@m.Icon" Size="Size.Small"
+                                                 Style="@($"color:{(IsModuleEnabled(m.Key) ? "#4361EE" : "#ADB5BD")}")" />
+                                        <div>
+                                            <MudText Typo="Typo.subtitle2" Style="font-weight:600;">@m.Name</MudText>
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary">@m.Description</MudText>
+                                        </div>
+                                    </MudStack>
+                                    <MudSwitch T="bool" Value="IsModuleEnabled(m.Key)"
+                                               ValueChanged="@(v => ToggleModule(m.Key, v))"
+                                               Color="Color.Primary" />
+                                </MudStack>
+                            </MudPaper>
+                        </MudItem>
+                    }
+                </MudGrid>
+
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveModules" Class="mt-4"
+                           Disabled="_savingModules" Style="text-transform:none;border-radius:8px;">
+                    @(_savingModules ? "Lagrer..." : "Lagre modulinnstillinger")
+                </MudButton>
+            </div>
+        </MudTabPanel>
+
+        @* ─── Tab 2: Innstillinger (Feature flags) ─── *@
+        <MudTabPanel Text="Innstillinger" Icon="@Icons.Material.Filled.Tune">
+            <div class="pa-4">
+                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
+                    Detaljerte innstillinger for hvordan hver modul fungerer.
+                </MudText>
+
+                @foreach (var group in _featureGroups)
+                {
+                    <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;" Class="pa-4 mb-3">
+                        <MudText Typo="Typo.subtitle1" Style="font-weight:600;" Class="mb-3">@group.Title</MudText>
+                        <MudStack Spacing="2">
+                            @foreach (var flag in group.Flags)
+                            {
+                                var f = flag;
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween"
+                                          Style="padding:8px 0;border-bottom:1px solid #f0f0f0;">
+                                    <div>
+                                        <MudText Typo="Typo.body2" Style="font-weight:500;">@f.Label</MudText>
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary">@f.Description</MudText>
+                                    </div>
+                                    <MudSwitch T="bool" Value="GetFlag(f.Key)"
+                                               ValueChanged="@(v => SetFlag(f.Key, v))"
+                                               Color="Color.Primary" />
+                                </MudStack>
+                            }
+                        </MudStack>
+                    </MudPaper>
+                }
+
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveFlags" Class="mt-2"
+                           Disabled="_savingFlags" Style="text-transform:none;border-radius:8px;">
+                    @(_savingFlags ? "Lagrer..." : "Lagre innstillinger")
+                </MudButton>
+            </div>
+        </MudTabPanel>
+
+        @* ─── Tab 3: Roller ─── *@
+        <MudTabPanel Text="Roller" Icon="@Icons.Material.Filled.Security">
+            <div class="pa-4">
+                @if (_editingRole is null)
+                {
+                    @* ── Role list ── *@
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-4">
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">
+                            Klikk på en rolle for å tilpasse tilganger, synlige moduler og innstillinger.
+                        </MudText>
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.Add" OnClick="StartCreateRole"
+                                   Style="text-transform:none;border-radius:8px;">
+                            Ny rolle
+                        </MudButton>
+                    </MudStack>
+
+                    <MudStack Spacing="2">
+                        @foreach (var role in _roles)
+                        {
+                            var r = role;
+                            <MudPaper Elevation="0" Class="pa-3" Style="border:1px solid #e9ecef;border-radius:12px;cursor:pointer;"
+                                      @onclick="@(() => EditRole(r))">
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                                        <div style="@($"width:12px;height:12px;border-radius:50%;background:{r.Color ?? "#4361EE"};")"></div>
+                                        <div>
+                                            <MudText Typo="Typo.subtitle2" Style="font-weight:600;">@r.Name</MudText>
+                                            <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                                @r.MemberCount medlem@(r.MemberCount != 1 ? "mer" : "") · @r.Permissions.Count tilganger
+                                                @if (r.VisibleModules is not null) { <span>· @r.VisibleModules.Count moduler</span> }
+                                            </MudText>
+                                        </div>
+                                    </MudStack>
+                                    <MudStack Row="true" Spacing="1">
+                                        @if (r.IsSystem)
+                                        {
+                                            <MudChip T="string" Size="Size.Small" Color="Color.Default" Style="height:20px;">System</MudChip>
+                                        }
+                                        <MudIcon Icon="@Icons.Material.Filled.ChevronRight" Color="Color.Secondary" />
+                                    </MudStack>
+                                </MudStack>
+                            </MudPaper>
+                        }
+                    </MudStack>
+                }
+                else
+                {
+                    @* ── Role editor ── *@
+                    <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.ArrowBack"
+                               OnClick="() => _editingRole = null" Style="text-transform:none;" Class="mb-3">
+                        Tilbake til roller
+                    </MudButton>
+
+                    <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;" Class="pa-4 mb-4">
+                        <MudGrid Spacing="3">
+                            <MudItem xs="12" sm="6">
+                                <MudTextField @bind-Value="_editRoleName" Label="Rollenavn" Variant="Variant.Outlined"
+                                              Margin="Margin.Dense" Required="true" />
+                            </MudItem>
+                            <MudItem xs="12" sm="6">
+                                <MudTextField @bind-Value="_editRoleDesc" Label="Beskrivelse" Variant="Variant.Outlined"
+                                              Margin="Margin.Dense" />
+                            </MudItem>
+                        </MudGrid>
+                    </MudPaper>
+
+                    @* Visible modules — card style like main Moduler tab *@
+                    <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;" Class="pa-4 mb-4">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
+                            <MudText Typo="Typo.subtitle1" Style="font-weight:600;">Synlige moduler</MudText>
+                            <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="ToggleAllModules"
+                                       Style="text-transform:none;">
+                                @(_editRoleModules.Count == _modules.Length ? "Fjern alle" : "Velg alle")
+                            </MudButton>
+                        </MudStack>
+                        <MudGrid Spacing="2">
+                            @foreach (var m in _modules)
+                            {
+                                var mod = m;
+                                var selected = _editRoleModules.Contains(mod.Key);
+                                <MudItem xs="6" sm="4" md="3">
+                                    <MudPaper Elevation="0" Class="pa-2"
+                                              Style="@($"border:1px solid {(selected ? "#4361EE" : "#e9ecef")};border-radius:10px;{(selected ? "background:#F0F3FF;" : "")}cursor:pointer;")"
+                                              @onclick="@(() => ToggleRoleModule(mod.Key))">
+                                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+                                            <MudIcon Icon="@mod.Icon" Size="Size.Small"
+                                                     Style="@($"color:{(selected ? "#4361EE" : "#ADB5BD")};font-size:1rem;")" />
+                                            <MudText Typo="Typo.caption" Style="@($"font-weight:{(selected ? "600" : "400")};")">
+                                                @mod.Name
+                                            </MudText>
+                                        </MudStack>
+                                    </MudPaper>
+                                </MudItem>
+                            }
+                        </MudGrid>
+                    </MudPaper>
+
+                    @* Permissions — grouped cards *@
+                    <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;" Class="pa-4 mb-4">
+                        <MudText Typo="Typo.subtitle1" Style="font-weight:600;" Class="mb-3">Tilganger</MudText>
+                        <MudGrid Spacing="3">
+                            @foreach (var group in PermissionDefinitions.AllGroups)
+                            {
+                                <MudItem xs="12" sm="6" md="4">
+                                    <MudPaper Elevation="0" Style="border:1px solid #f0f0f0;border-radius:10px;" Class="pa-3">
+                                        <MudText Typo="Typo.caption" Color="Color.Primary" Style="font-weight:700;" Class="mb-2">@group.Label</MudText>
+                                        @foreach (var perm in group.Permissions)
+                                        {
+                                            var p = perm;
+                                            <MudCheckBox T="bool" Value="_editRolePerms.Contains(p.Key)"
+                                                         ValueChanged="@(v => ToggleRolePerm(p.Key, v))"
+                                                         Label="@p.Label" Dense="true" Color="Color.Primary"
+                                                         Style="margin:0;" />
+                                        }
+                                    </MudPaper>
+                                </MudItem>
+                            }
+                        </MudGrid>
+                    </MudPaper>
+
+                    @* Save / Delete *@
+                    <MudStack Row="true" Spacing="2">
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveRole"
+                                   Disabled="_savingRole" Style="text-transform:none;border-radius:8px;">
+                            @(_savingRole ? "Lagrer..." : (_isNewRole ? "Opprett rolle" : "Lagre endringer"))
+                        </MudButton>
+                        @if (!_isNewRole && _editingRole is not null && !_editingRole.IsSystem)
+                        {
+                            <MudButton Variant="Variant.Outlined" Color="Color.Error" OnClick="DeleteRole"
+                                       Style="text-transform:none;border-radius:8px;">
+                                Slett rolle
+                            </MudButton>
+                        }
+                    </MudStack>
+                }
+            </div>
+        </MudTabPanel>
+    </MudTabs>
+}
+
+@code {
+    private bool _loading = true;
+    private bool _savingModules;
+    private bool _savingFlags;
+    private HashSet<string> _enabledModules = [];
+    private Dictionary<string, bool> _flags = [];
+    private List<CustomRoleDto> _roles = [];
+
+    // ── Module definitions ──
+    private static readonly ModuleDef[] _modules =
+    [
+        new("projects", "Prosjekter", "Prosjektstyring, underprosjekter, dokumentasjon", Icons.Material.Filled.Folder),
+        new("jobs", "Oppdrag", "Raske oppdrag, kundebesøk, reparasjoner", Icons.Material.Filled.Assignment),
+        new("hours", "Timeføring", "Stempling, timeregistrering, overtid", Icons.Material.Filled.Schedule),
+        new("deviations", "Avvik", "Avviksrapportering, korrigerende tiltak", Icons.Material.Filled.ReportProblem),
+        new("checklists", "Sjekklister", "Maler, utfylling, godkjenning", Icons.Material.Filled.Checklist),
+        new("hms", "HMS", "SJA, vernerunder, HMS-møter, hendelsesrapporter", Icons.Material.Filled.HealthAndSafety),
+        new("equipment", "Maskinpark", "Utstyr, vedlikehold, plassering", Icons.Material.Filled.Construction),
+        new("chemicals", "Kjemikalier", "Kjemikalieregister, sikkerhetsdatablad", Icons.Material.Filled.Science),
+        new("employees", "Ansatte", "Ansattoversikt, sertifikater, CV", Icons.Material.Filled.People),
+        new("contacts", "Kontakter", "Kunder, leverandører, underentreprenører", Icons.Material.Filled.Contacts),
+        new("locations", "Lokasjoner", "Arbeidssteder, innsjekking, QR", Icons.Material.Filled.LocationOn),
+        new("expenses", "Utlegg", "Kvitteringer, reiseregning, diett", Icons.Material.Filled.Receipt),
+        new("documents", "Dokumenter", "Dokumentarkiv, prosedyrer", Icons.Material.Filled.Description),
+        new("reports", "Rapporter", "Statistikk, eksport, analyser", Icons.Material.Filled.BarChart),
+        new("calendar", "Kalender", "Fravær, ferie, hendelser", Icons.Material.Filled.CalendarMonth),
+        new("announcements", "Kunngjøringer", "Meldingsvegg, bekreftelser", Icons.Material.Filled.Campaign)
+    ];
+
+    // ── Feature flag definitions ──
+    private static readonly FeatureGroup[] _featureGroups =
+    [
+        new("Timeføring", [
+            new("hours.requireApproval", "Krev godkjenning av timer", "Timer må godkjennes av leder før de regnes som endelige"),
+            new("hours.allowFieldWorkerRegistration", "Feltarbeidere kan registrere timer", "Lar feltarbeidere føre timer selv (ellers bare leder)"),
+            new("hours.allowSubcontractorHours", "Underentreprenører kan registrere timer", "Lar UE føre timer på prosjekter de er tilknyttet"),
+            new("hours.showOvertimeCalculation", "Vis overtidsberegning", "Beregn og vis overtid automatisk basert på turnus"),
+            new("hours.allowManualEntry", "Tillat manuell timeføring", "I tillegg til stempling inn/ut"),
+        ]),
+        new("Prosjekter", [
+            new("projects.allowFieldWorkerCreate", "Feltarbeidere kan opprette prosjekter", "Vanligvis kun admin og prosjektleder"),
+            new("projects.requireEndDate", "Krev planlagt sluttdato", "Påkrevd felt ved opprettelse av prosjekt"),
+            new("projects.allowSubcontractorView", "UE kan se prosjektdetaljer", "Lar underentreprenører se prosjektinfo utover sine oppgaver"),
+        ]),
+        new("Avvik", [
+            new("deviations.allowAnonymousReport", "Tillat anonym rapportering", "Rapportør kan velge å være anonym"),
+            new("deviations.requirePhoto", "Krev bilde ved rapportering", "Bilde er påkrevd for å sende avvik"),
+            new("deviations.requireCategory", "Krev kategori", "Avvikskategori må velges"),
+            new("deviations.autoAssignToProjectLeader", "Automatisk tildeling til prosjektleder", "Nye avvik tildeles automatisk prosjektleder"),
+            new("deviations.allowFieldWorkerClose", "Feltarbeidere kan lukke avvik", "Ellers bare leder eller admin"),
+        ]),
+        new("Sjekklister", [
+            new("checklists.requireSignature", "Krev signatur ved fullføring", "Digital signatur påkrevd"),
+            new("checklists.requireApproval", "Krev godkjenning", "Fullførte sjekklister må godkjennes av leder"),
+            new("checklists.allowFieldWorkerCreate", "Feltarbeidere kan opprette maler", "Vanligvis kun admin"),
+        ]),
+        new("HMS", [
+            new("hms.requireSjaBeforeWork", "Krev SJA før arbeid starter", "Vis påminnelse om SJA ved innsjekking"),
+            new("hms.autoScheduleSafetyRounds", "Automatisk planlegging av vernerunder", "Påminnelser for gjennomføring"),
+        ]),
+        new("Maskinpark", [
+            new("equipment.allowFieldWorkerMove", "Feltarbeidere kan flytte utstyr", "Ellers bare leder eller admin"),
+            new("equipment.requireMaintenanceLog", "Krev vedlikeholdslogg", "Påminnelse ved utløpt vedlikeholdsintervall"),
+        ]),
+        new("Utlegg", [
+            new("expenses.requireApproval", "Krev godkjenning av utlegg", "Utlegg må godkjennes før de behandles"),
+            new("expenses.approverAdminOnly", "Kun admin og regnskapsfører kan godkjenne", "Standard: kun admin og regnskapsfører. Slå av for å la prosjektleder godkjenne."),
+            new("expenses.paidAccountantOnly", "Kun regnskapsfører kan markere betalt", "Standard: kun regnskapsfører. Slå av for å la admin også markere betalt."),
+            new("expenses.allowFieldWorkerExpenses", "Feltarbeidere kan registrere utlegg", "Lar feltarbeidere legge inn kvitteringer"),
+            new("expenses.allowSubcontractorExpenses", "UE kan registrere utlegg", "Lar underentreprenører legge inn kvitteringer"),
+            new("expenses.requireReceipt", "Krev kvitteringsbilde", "Bilde av kvittering er påkrevd"),
+            new("expenses.requireProject", "Krev prosjekttilknytning", "Utlegg må knyttes til et prosjekt"),
+        ]),
+        new("Innsjekking", [
+            new("checkin.allowTimeAdjustment", "Tillat tidsjustering ved utsjekking", "Ansatte kan justere faktisk sluttid ved utsjekking"),
+            new("checkin.allowScheduledCheckout", "Tillat planlagt utsjekking", "Ansatte kan planlegge tidspunkt for automatisk utsjekking"),
+            new("checkin.autoStartClock", "Start timer automatisk ved innsjekking", "Timer starter når du sjekker inn, stopper ved utsjekking"),
+            new("checkin.defaultBreakMinutes", "Standard pause 30 min", "Foreslå 30 min pause ved utsjekking (kan endres)"),
+        ]),
+        new("Generelt", [
+            new("general.requireGpsOnCheckin", "Krev GPS ved innsjekking", "Innsjekking avvises uten GPS"),
+            new("general.showDashboardCalendar", "Vis kalender på dashbord", "Kalendervisning på forsiden"),
+            new("general.allowSelfEditProfile", "Ansatte kan redigere egen profil", "Ellers kun admin"),
+            new("general.showCompanyNewsFeed", "Vis kunngjøringer på forsiden", "Kunngjøringsveggen på dashbordet"),
+        ])
+    ];
+
+    protected override async Task OnInitializedAsync()
+    {
+        var modulesTask = LoadModulesAsync();
+        var flagsTask = LoadFlagsAsync();
+        var rolesTask = RoleService.GetRolesAsync();
+
+        await Task.WhenAll(modulesTask, flagsTask);
+        _roles = await rolesTask;
+        _loading = false;
+    }
+
+    // ── Module methods ──
+
+    private async Task LoadModulesAsync()
+    {
+        try
+        {
+            var r = await Api.GetAsync("api/tenant/modules");
+            if (r.IsSuccessStatusCode)
+            {
+                var list = await r.Content.ReadFromJsonAsync<List<string>>() ?? [];
+                _enabledModules = list.ToHashSet();
+            }
+        }
+        catch { }
+
+        // Default: all enabled if empty
+        if (_enabledModules.Count == 0)
+            _enabledModules = _modules.Select(m => m.Key).ToHashSet();
+    }
+
+    private bool IsModuleEnabled(string key) => _enabledModules.Contains(key);
+
+    private void ToggleModule(string key, bool enabled)
+    {
+        if (enabled) _enabledModules.Add(key);
+        else _enabledModules.Remove(key);
+    }
+
+    private async Task SaveModules()
+    {
+        _savingModules = true;
+        StateHasChanged();
+        var r = await Api.PostAsJsonAsync("api/tenant/modules", _enabledModules.ToList());
+        _savingModules = false;
+        Snackbar.Add(r.IsSuccessStatusCode ? "Moduler oppdatert" : "Kunne ikke lagre", r.IsSuccessStatusCode ? Severity.Success : Severity.Error);
+    }
+
+    // ── Feature flag methods ──
+
+    private async Task LoadFlagsAsync()
+    {
+        try
+        {
+            var r = await Api.GetAsync("api/tenant/feature-flags");
+            if (r.IsSuccessStatusCode)
+                _flags = await r.Content.ReadFromJsonAsync<Dictionary<string, bool>>() ?? [];
+        }
+        catch { }
+    }
+
+    private bool GetFlag(string key) => _flags.TryGetValue(key, out var v) && v;
+
+    private void SetFlag(string key, bool value) => _flags[key] = value;
+
+    private async Task SaveFlags()
+    {
+        _savingFlags = true;
+        StateHasChanged();
+        var r = await Api.PostAsJsonAsync("api/tenant/feature-flags", _flags);
+        _savingFlags = false;
+        Snackbar.Add(r.IsSuccessStatusCode ? "Innstillinger lagret" : "Kunne ikke lagre", r.IsSuccessStatusCode ? Severity.Success : Severity.Error);
+    }
+
+    // ── Role editing ──
+
+    private CustomRoleDto? _editingRole;
+    private bool _isNewRole;
+    private bool _savingRole;
+    private string _editRoleName = "";
+    private string? _editRoleDesc;
+    private HashSet<string> _editRoleModules = [];
+    private HashSet<string> _editRolePerms = [];
+
+    private void StartCreateRole()
+    {
+        _isNewRole = true;
+        _editingRole = new CustomRoleDto(Guid.Empty, "", null, "#4361EE", [], null, null, false, 0);
+        _editRoleName = "";
+        _editRoleDesc = null;
+        _editRoleModules = _modules.Select(m => m.Key).ToHashSet();
+        _editRolePerms = [];
+    }
+
+    private void EditRole(CustomRoleDto role)
+    {
+        _isNewRole = false;
+        _editingRole = role;
+        _editRoleName = role.Name;
+        _editRoleDesc = role.Description;
+        _editRoleModules = role.VisibleModules?.ToHashSet() ?? _modules.Select(m => m.Key).ToHashSet();
+        _editRolePerms = role.Permissions.ToHashSet();
+    }
+
+    private void ToggleRoleModule(string key)
+    {
+        if (!_editRoleModules.Remove(key)) _editRoleModules.Add(key);
+    }
+
+    private void ToggleAllModules()
+    {
+        if (_editRoleModules.Count == _modules.Length) _editRoleModules.Clear();
+        else _editRoleModules = _modules.Select(m => m.Key).ToHashSet();
+    }
+
+    private void ToggleRolePerm(string key, bool on)
+    {
+        if (on) _editRolePerms.Add(key);
+        else _editRolePerms.Remove(key);
+    }
+
+    private async Task SaveRole()
+    {
+        if (string.IsNullOrWhiteSpace(_editRoleName)) return;
+        _savingRole = true;
+        StateHasChanged();
+
+        var perms = _editRolePerms.ToList();
+        var modules = _editRoleModules.Count == _modules.Length ? null : _editRoleModules.ToList();
+
+        bool ok;
+        if (_isNewRole)
+        {
+            var id = await RoleService.CreateRoleAsync(
+                new CreateCustomRoleRequest(_editRoleName, _editRoleDesc, "#4361EE", perms, modules));
+            ok = id.HasValue;
+        }
+        else
+        {
+            ok = await RoleService.UpdateRoleAsync(_editingRole!.Id,
+                new UpdateCustomRoleRequest(_editRoleName, _editRoleDesc, _editingRole.Color, perms, modules));
+        }
+
+        if (ok)
+        {
+            _roles = await RoleService.GetRolesAsync();
+            _editingRole = null;
+            Snackbar.Add(_isNewRole ? "Rolle opprettet" : "Rolle oppdatert", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add("Kunne ikke lagre rolle", Severity.Error);
+        }
+        _savingRole = false;
+    }
+
+    private async Task DeleteRole()
+    {
+        if (_editingRole is null) return;
+        var ok = await RoleService.DeleteRoleAsync(_editingRole.Id);
+        if (ok)
+        {
+            _roles = await RoleService.GetRolesAsync();
+            _editingRole = null;
+            Snackbar.Add("Rolle slettet", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add("Kunne ikke slette (rollen har fortsatt medlemmer)", Severity.Error);
+        }
+    }
+
+    // ── Types ──
+    private record ModuleDef(string Key, string Name, string Description, string Icon);
+    private record FeatureFlag(string Key, string Label, string Description);
+    private record FeatureGroup(string Title, FeatureFlag[] Flags);
+}

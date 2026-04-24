@@ -110,7 +110,7 @@ public class AuthService(
         var refreshTokenValue = tokenService.GenerateRefreshToken();
 
         var refreshDays = int.Parse(configuration["Jwt:RefreshTokenDays"] ?? "7");
-        var expiresAt = DateTimeOffset.UtcNow.AddMinutes(15);
+        var expiresAt = DateTimeOffset.UtcNow.AddHours(48);
 
         // Store refresh token in DB
         var refreshToken = new RefreshToken

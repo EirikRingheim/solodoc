@@ -213,10 +213,10 @@ else
                            DateFormat="dd.MM.yyyy" />
             @if (!_newIsAllDay)
             {
-                <MudTimePicker @bind-Time="_newStartTime" Label="Starttid" Variant="Variant.Outlined" />
+                <TimeInput @bind-Time="_newStartTime" Label="Starttid" />
                 <MudDatePicker @bind-Date="_newEndDate" Label="Sluttdato" Variant="Variant.Outlined"
                                DateFormat="dd.MM.yyyy" />
-                <MudTimePicker @bind-Time="_newEndTime" Label="Sluttid" Variant="Variant.Outlined" />
+                <TimeInput @bind-Time="_newEndTime" Label="Sluttid" />
             }
             <MudTextField @bind-Value="_newLocation" Label="Sted" Variant="Variant.Outlined" />
             <MudSelect T="Guid?" @bind-Value="_newProjectId" Label="Prosjekt (valgfritt)"

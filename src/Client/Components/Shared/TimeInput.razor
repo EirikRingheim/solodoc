@@ -1,0 +1,66 @@
+@* Time input that accepts formats: 1530, 15:30, 15.30 *@
+
+<MudTextField T="string" Value="@FormatTime()" ValueChanged="OnTextChanged"
+              Label="@Label" Variant="Variant.Outlined" Margin="Margin.Dense"
+              Placeholder="f.eks. 1530 eller 15:30"
+              Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Schedule" />
+
+@code {
+    [Parameter] public TimeSpan? Time { get; set; }
+    [Parameter] public EventCallback<TimeSpan?> TimeChanged { get; set; }
+    [Parameter] public string Label { get; set; } = "Tid";
+
+    private string FormatTime()
+    {
+        if (Time is null) return "";
+        return $"{Time.Value.Hours:D2}:{Time.Value.Minutes:D2}";
+    }
+
+    private async Task OnTextChanged(string value)
+    {
+        var parsed = ParseTime(value);
+        Time = parsed;
+        await TimeChanged.InvokeAsync(parsed);
+    }
+
+    private static TimeSpan? ParseTime(string? input)
+    {
+        if (string.IsNullOrWhiteSpace(input)) return null;
+
+        input = input.Trim();
+
+        // Try "HH:mm" or "HH.mm"
+        if (input.Contains(':') || input.Contains('.'))
+        {
+            var parts = input.Split(':', '.');
+            if (parts.Length == 2
+                && int.TryParse(parts[0], out var h1) && int.TryParse(parts[1], out var m1)
+                && h1 >= 0 && h1 <= 23 && m1 >= 0 && m1 <= 59)
+                return new TimeSpan(h1, m1, 0);
+        }
+
+        // Try "HHmm" (e.g., "1530")
+        if (input.Length == 4 && int.TryParse(input, out var num))
+        {
+            var h = num / 100;
+            var m = num % 100;
+            if (h >= 0 && h <= 23 && m >= 0 && m <= 59)
+                return new TimeSpan(h, m, 0);
+        }
+
+        // Try "Hmm" (e.g., "830" = 08:30)
+        if (input.Length == 3 && int.TryParse(input, out var num3))
+        {
+            var h = num3 / 100;
+            var m = num3 % 100;
+            if (h >= 0 && h <= 9 && m >= 0 && m <= 59)
+                return new TimeSpan(h, m, 0);
+        }
+
+        // Try just hours "15" = 15:00
+        if (input.Length <= 2 && int.TryParse(input, out var hOnly) && hOnly >= 0 && hOnly <= 23)
+            return new TimeSpan(hOnly, 0, 0);
+
+        return null;
+    }
+}

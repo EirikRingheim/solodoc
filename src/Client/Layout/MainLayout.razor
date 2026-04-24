@@ -125,6 +125,8 @@
                 <div class="nav-group-label mt-4">DOKUMENTASJON</div>
                 <MudNavLink Href="/dokumenter" Match="NavLinkMatch.Prefix"
                             Icon="@Icons.Material.Filled.FolderOpen">Dokumenter</MudNavLink>
+                <MudNavLink Href="/bedriftsdokumenter" Match="NavLinkMatch.Prefix"
+                            Icon="@Icons.Material.Filled.Description">Bedriftsdok.</MudNavLink>
                 <MudNavLink Href="/locations" Match="NavLinkMatch.Prefix"
                             Icon="@Icons.Material.Filled.LocationOn">Lokasjoner</MudNavLink>
                 @if (ShowProjectLeaderSection)
@@ -163,12 +165,22 @@
                             Icon="@Icons.Material.Filled.Schedule">Skift og overtid</MudNavLink>
                 <MudNavLink Href="/admin/planner" Match="NavLinkMatch.Prefix"
                             Icon="@Icons.Material.Filled.CalendarViewMonth">Skiftplanlegger</MudNavLink>
-                <MudNavLink Href="/admin/roles" Match="NavLinkMatch.Prefix"
-                            Icon="@Icons.Material.Filled.ManageAccounts">Roller</MudNavLink>
                 <MudNavLink Href="/admin/subcontractors" Match="NavLinkMatch.Prefix"
                             Icon="@Icons.Material.Filled.GroupAdd">Underentreprenorer</MudNavLink>
+                <MudNavLink Href="/admin/access" Match="NavLinkMatch.Prefix"
+                            Icon="@Icons.Material.Filled.Security">Tilgangsstyring</MudNavLink>
                 <MudNavLink Href="/admin/settings" Match="NavLinkMatch.Prefix"
                             Icon="@Icons.Material.Filled.Settings">Innstillinger</MudNavLink>
+            }
+            @if (_viewAsRole is "admin" or "accountant")
+            {
+                <div class="nav-group-label mt-4">REGNSKAP</div>
+                <MudNavLink Href="/regnskap/utlegg" Match="NavLinkMatch.Prefix"
+                            Icon="@Icons.Material.Filled.Receipt">Utlegg</MudNavLink>
+                <MudNavLink Href="/regnskap/lonnsexport" Match="NavLinkMatch.Prefix"
+                            Icon="@Icons.Material.Filled.TableChart">Lønnseksport</MudNavLink>
+                <MudNavLink Href="/export" Match="NavLinkMatch.Prefix"
+                            Icon="@Icons.Material.Filled.FileDownload">Eksportsenter</MudNavLink>
             }
             @if (_isSuperAdmin)
             {
@@ -405,6 +417,7 @@
         ["admin"] = "Admin",
         ["project-leader"] = "Prosjektleder",
         ["field-worker"] = "Feltarbeider",
+        ["accountant"] = "Regnskapsfører",
         ["subcontractor"] = "Underentreprenør"
     };
 
@@ -605,7 +618,7 @@
     private static readonly NavItemModel[] _mobileNavItems =
     [
         new("/", Icons.Material.Filled.Dashboard, "Hjem"),
-        new("/hours", Icons.Material.Filled.Schedule, "Stemple"),
+        new("/hours", Icons.Material.Filled.Schedule, "Timer"),
         new("/jobs/new", Icons.Material.Filled.AddCircle, "Oppdrag"),
         new("/deviations", Icons.Material.Filled.ReportProblem, "Avvik"),
         new("/forefallende", Icons.Material.Filled.MoreHoriz, "Mer")

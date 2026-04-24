@@ -10,7 +10,7 @@
 <PageTitle>Solodoc - Kvittering</PageTitle>
 
 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-4">
-    <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Href="/utlegg" />
+    <BackButton />
     <MudText Typo="Typo.h5" Style="font-weight:700;">Kvittering</MudText>
 </MudStack>
 
@@ -110,6 +110,14 @@ else
                         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Style="color:#4361EE;">
                             <MudIcon Icon="@Icons.Material.Filled.Paid" Size="Size.Small" />
                             <MudText Typo="Typo.caption">Betalt av @_expense.PaidByName — @_expense.PaidAt?.ToLocalTime().ToString("dd.MM.yy HH:mm")</MudText>
+                        </MudStack>
+                    }
+                    @if (_expense.Status == "Approved" && _expense.PaidByName is null && _expense.ApprovedByName is not null
+                        && _expense.UpdatedAt > _expense.ApprovedAt?.AddMinutes(1))
+                    {
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Style="color:#F59F00;">
+                            <MudIcon Icon="@Icons.Material.Filled.History" Size="Size.Small" />
+                            <MudText Typo="Typo.caption">Status endret — utbetaling angret @_expense.UpdatedAt.ToLocalTime().ToString("dd.MM.yy HH:mm")</MudText>
                         </MudStack>
                     }
                     @if (_expense.RejectionReason is not null)

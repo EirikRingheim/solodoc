@@ -10,7 +10,7 @@
 <PageTitle>Solodoc - @(_template?.Name ?? "Mal")</PageTitle>
 
 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-4">
-    <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Href="/checklists" />
+    <BackButton />
     @if (_loading)
     {
         <MudText Typo="Typo.h5">Laster...</MudText>

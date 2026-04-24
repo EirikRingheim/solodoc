@@ -10,7 +10,7 @@
 <PageTitle>Solodoc - Ny reiseregning</PageTitle>
 
 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-4">
-    <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Href="/utlegg" />
+    <BackButton />
     <MudText Typo="Typo.h5" Style="font-weight:700;">Ny reiseregning</MudText>
 </MudStack>
 
@@ -38,10 +38,10 @@
                 <MudText Typo="Typo.subtitle1" Style="font-weight:600;">Reisedetaljer</MudText>
                 <MudGrid Spacing="2">
                     <MudItem xs="6">
-                        <MudDatePicker @bind-Date="_departureDate" Label="Avreise *" Variant="Variant.Outlined" DateFormat="dd.MM.yyyy" />
+                        <MudDatePicker @bind-Date="_departureDate" Label="Avreise *" Variant="Variant.Outlined" DateFormat="dd.MM.yyyy"  PickerVariant="PickerVariant.Dialog" />
                     </MudItem>
                     <MudItem xs="6">
-                        <MudDatePicker @bind-Date="_returnDate" Label="Retur *" Variant="Variant.Outlined" DateFormat="dd.MM.yyyy" />
+                        <MudDatePicker @bind-Date="_returnDate" Label="Retur *" Variant="Variant.Outlined" DateFormat="dd.MM.yyyy"  PickerVariant="PickerVariant.Dialog" />
                     </MudItem>
                 </MudGrid>
                 <MudTextField T="string" @bind-Value="_destination" Label="Reisemål *" Variant="Variant.Outlined" Placeholder="F.eks. Oslo, Trondheim" />

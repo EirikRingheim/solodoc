@@ -1,0 +1,267 @@
+@page "/export"
+@attribute [Authorize]
+@inject ApiHttpClient Api
+@inject ProjectService ProjectService
+@inject EmployeeService EmployeeService
+@inject ISnackbar Snackbar
+@inject IJSRuntime JS
+
+<PageTitle>Solodoc - Eksportsenter</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4">Eksportsenter</MudText>
+
+<MudStepper @bind-ActiveIndex="_step" NonLinear="false" Color="Color.Primary"
+            Style="border:1px solid #e9ecef;border-radius:12px;">
+
+    @* Step 1: Data type *@
+    <MudStep Title="Velg data">
+        <MudText Typo="Typo.subtitle1" Style="font-weight:600;" Class="mb-3">Hva vil du eksportere?</MudText>
+        <MudGrid Spacing="2">
+            @foreach (var dt in _dataTypes)
+            {
+                var d = dt;
+                var selected = _selectedType == d.Key;
+                <MudItem xs="6" sm="4" md="3">
+                    <MudPaper Elevation="0" Class="pa-3"
+                              Style="@($"border:2px solid {(selected ? "#4361EE" : "#e9ecef")};border-radius:12px;cursor:pointer;{(selected ? "background:#F0F3FF;" : "")}")"
+                              @onclick="@(() => _selectedType = d.Key)">
+                        <MudStack AlignItems="AlignItems.Center" Spacing="1">
+                            <MudIcon Icon="@d.Icon" Style="@($"color:{(selected ? "#4361EE" : "#ADB5BD")}")" />
+                            <MudText Typo="Typo.body2" Style="@($"font-weight:{(selected ? "600" : "400")};text-align:center;")">@d.Name</MudText>
+                        </MudStack>
+                    </MudPaper>
+                </MudItem>
+            }
+        </MudGrid>
+    </MudStep>
+
+    @* Step 2: Filters *@
+    <MudStep Title="Filtrer">
+        <MudStack Spacing="3">
+            <PeriodPresetSelector @bind-FromDate="_from" @bind-ToDate="_to" />
+
+            @* Employee multi-select *@
+            @if (_selectedType is not "kontakter")
+            {
+                <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:10px;" Class="pa-3">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-2">
+                        <MudText Typo="Typo.body2" Style="font-weight:600;">Ansatte</MudText>
+                        <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="ToggleAllEmployees"
+                                   Style="text-transform:none;">
+                            @(_selectedPersonIds.Count == _employees.Count ? "Fjern alle" : "Velg alle")
+                        </MudButton>
+                    </MudStack>
+                    <div style="max-height:200px;overflow-y:auto;">
+                        @foreach (var e in _employees)
+                        {
+                            var emp = e;
+                            <MudCheckBox T="bool" Value="_selectedPersonIds.Contains(emp.PersonId)"
+                                         ValueChanged="@(v => ToggleEmployee(emp.PersonId, v))"
+                                         Label="@emp.FullName" Dense="true" Color="Color.Primary" />
+                        }
+                    </div>
+                </MudPaper>
+            }
+
+            @* Project filter *@
+            @if (_selectedType is "timer" or "avvik" or "sjekklister" or "utlegg" or "innsjekking")
+            {
+                <MudSelect T="Guid?" @bind-Value="_projectFilter" Label="Prosjekt (valgfritt)" Clearable="true"
+                           Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:300px;">
+                    @foreach (var p in _projects)
+                    {
+                        <MudSelectItem T="Guid?" Value="@p.Id">@p.Name</MudSelectItem>
+                    }
+                </MudSelect>
+            }
+
+            @* Cert type filter *@
+            @if (_selectedType is "sertifikater")
+            {
+                <MudTextField T="string" @bind-Value="_certTypeFilter" Label="Sertifikattype (f.eks. HMS-kort)"
+                              Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:300px;" />
+            }
+        </MudStack>
+    </MudStep>
+
+    @* Step 3: Format + Export *@
+    <MudStep Title="Eksporter">
+        <MudText Typo="Typo.subtitle1" Style="font-weight:600;" Class="mb-3">Velg format og last ned</MudText>
+
+        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
+            @GetSummaryText()
+        </MudText>
+
+        <MudStack Row="true" Spacing="3" Class="mb-4">
+            @foreach (var fmt in _formats)
+            {
+                var f = fmt;
+                var selected = _selectedFormat == f.Key;
+                <MudPaper Elevation="0" Class="pa-4"
+                          Style="@($"border:2px solid {(selected ? "#4361EE" : "#e9ecef")};border-radius:12px;cursor:pointer;min-width:140px;{(selected ? "background:#F0F3FF;" : "")}")"
+                          @onclick="@(() => _selectedFormat = f.Key)">
+                    <MudStack AlignItems="AlignItems.Center" Spacing="1">
+                        <MudIcon Icon="@f.Icon" Size="Size.Large"
+                                 Style="@($"color:{(selected ? "#4361EE" : "#ADB5BD")}")" />
+                        <MudText Typo="Typo.subtitle2" Style="@($"font-weight:{(selected ? "600" : "400")};")">@f.Name</MudText>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">@f.Description</MudText>
+                    </MudStack>
+                </MudPaper>
+            }
+        </MudStack>
+
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="ExecuteExport"
+                   Disabled="_exporting || string.IsNullOrEmpty(_selectedFormat)"
+                   StartIcon="@Icons.Material.Filled.FileDownload"
+                   Style="text-transform:none;border-radius:8px;">
+            @(_exporting ? "Genererer..." : "Last ned eksport")
+        </MudButton>
+
+        @if (_exportDone)
+        {
+            <MudAlert Severity="Severity.Success" Class="mt-3">
+                Eksport fullført! Filen er lastet ned.
+            </MudAlert>
+        }
+    </MudStep>
+</MudStepper>
+
+@code {
+    private int _step;
+    private string? _selectedType;
+    private string _selectedFormat = "excel";
+    private DateTime? _from = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+    private DateTime? _to = DateTime.Today;
+    private HashSet<Guid> _selectedPersonIds = [];
+    private Guid? _projectFilter;
+    private string? _certTypeFilter;
+    private bool _exporting;
+    private bool _exportDone;
+
+    private List<Solodoc.Shared.Projects.ProjectListItemDto> _projects = [];
+    private List<Solodoc.Shared.Employees.EmployeeListItemDto> _employees = [];
+
+    private static readonly DataTypeDef[] _dataTypes =
+    [
+        new("timer", "Timer", Icons.Material.Filled.Schedule),
+        new("utlegg", "Utlegg", Icons.Material.Filled.Receipt),
+        new("avvik", "Avvik", Icons.Material.Filled.ReportProblem),
+        new("sertifikater", "Sertifikater", Icons.Material.Filled.CardMembership),
+        new("sjekklister", "Sjekklister", Icons.Material.Filled.Checklist),
+        new("hms", "HMS", Icons.Material.Filled.HealthAndSafety),
+        new("innsjekking", "Innsjekking", Icons.Material.Filled.Login),
+        new("kontakter", "Kontakter", Icons.Material.Filled.Contacts),
+        new("personell", "Ansatt (komplett)", Icons.Material.Filled.Person),
+    ];
+
+    private static readonly FormatDef[] _formats =
+    [
+        new("excel", "Excel", ".xlsx regneark", Icons.Material.Filled.TableChart),
+        new("csv", "CSV", ".csv kommaseparert", Icons.Material.Filled.TextSnippet),
+    ];
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var projTask = ProjectService.GetProjectsAsync(1, 100, null, null, false);
+            var empTask = EmployeeService.GetEmployeesAsync();
+            _projects = (await projTask).Items;
+            _employees = await empTask;
+            // Default: all employees selected
+            _selectedPersonIds = _employees.Select(e => e.PersonId).ToHashSet();
+        }
+        catch { }
+    }
+
+    private void ToggleEmployee(Guid id, bool selected)
+    {
+        if (selected) _selectedPersonIds.Add(id);
+        else _selectedPersonIds.Remove(id);
+    }
+
+    private void ToggleAllEmployees()
+    {
+        if (_selectedPersonIds.Count == _employees.Count)
+            _selectedPersonIds.Clear();
+        else
+            _selectedPersonIds = _employees.Select(e => e.PersonId).ToHashSet();
+    }
+
+    private string GetSummaryText()
+    {
+        var type = _dataTypes.FirstOrDefault(d => d.Key == _selectedType)?.Name ?? _selectedType;
+        var period = $"{_from:dd.MM.yyyy} – {_to:dd.MM.yyyy}";
+        var empCount = _selectedPersonIds.Count == _employees.Count
+            ? "alle ansatte"
+            : $"{_selectedPersonIds.Count} ansatte";
+        return $"{type} · {period} · {empCount}";
+    }
+
+    private async Task ExecuteExport()
+    {
+        _exporting = true;
+        _exportDone = false;
+        StateHasChanged();
+
+        var from = _from?.ToString("yyyy-MM-dd") ?? "";
+        var to = _to?.ToString("yyyy-MM-dd") ?? "";
+        var personParam = _selectedPersonIds.Count == 1
+            ? $"&personId={_selectedPersonIds.First()}" : "";
+        string url;
+        string filename;
+        string contentType;
+
+        if (_selectedFormat == "excel")
+        {
+            contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+            (url, filename) = _selectedType switch
+            {
+                "timer" => ($"api/reports/hours/export-excel?from={from}&to={to}{personParam}" +
+                    (_projectFilter.HasValue ? $"&projectId={_projectFilter}" : ""), "timer.xlsx"),
+                "avvik" => ($"api/reports/deviations/export-excel?from={from}&to={to}" +
+                    (_projectFilter.HasValue ? $"&projectId={_projectFilter}" : ""), "avvik.xlsx"),
+                "sertifikater" => ($"api/reports/certifications/export-excel?" +
+                    (!string.IsNullOrEmpty(_certTypeFilter) ? $"type={Uri.EscapeDataString(_certTypeFilter)}&" : "") +
+                    (_selectedPersonIds.Count == 1 ? $"personId={_selectedPersonIds.First()}" : ""), "sertifikater.xlsx"),
+                "personell" when _selectedPersonIds.Count == 1 =>
+                    ($"api/reports/employee/{_selectedPersonIds.First()}/export-excel", "ansatt.xlsx"),
+                "hms" => ($"api/reports/safety/export?from={from}&to={to}", "hms.csv"),
+                _ => ($"api/reports/payroll/export?from={from}&to={to}", "eksport.xlsx"),
+            };
+        }
+        else
+        {
+            contentType = "text/csv";
+            (url, filename) = _selectedType switch
+            {
+                "timer" => ($"api/reports/hours/export?from={from}&to={to}{personParam}" +
+                    (_projectFilter.HasValue ? $"&projectId={_projectFilter}" : ""), "timer.csv"),
+                "avvik" => ($"api/reports/deviations/export?from={from}&to={to}", "avvik.csv"),
+                "sertifikater" => ($"api/reports/certifications/export?" +
+                    (!string.IsNullOrEmpty(_certTypeFilter) ? $"type={Uri.EscapeDataString(_certTypeFilter)}&" : ""), "sertifikater.csv"),
+                "hms" => ($"api/reports/safety/export?from={from}&to={to}", "hms.csv"),
+                _ => ($"api/reports/hours/export?from={from}&to={to}", "eksport.csv"),
+            };
+        }
+
+        var r = await Api.GetAsync(url);
+        if (r.IsSuccessStatusCode)
+        {
+            var bytes = await r.Content.ReadAsByteArrayAsync();
+            var b64 = Convert.ToBase64String(bytes);
+            await JS.InvokeVoidAsync("eval",
+                $"{{ var a=document.createElement('a'); a.href='data:{contentType};base64,{b64}'; a.download='{filename}'; a.click(); }}");
+            _exportDone = true;
+        }
+        else
+        {
+            Snackbar.Add("Kunne ikke generere eksport", Severity.Error);
+        }
+
+        _exporting = false;
+    }
+
+    private record DataTypeDef(string Key, string Name, string Icon);
+    private record FormatDef(string Key, string Name, string Description, string Icon);
+}

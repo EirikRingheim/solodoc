@@ -215,7 +215,7 @@ public static class HmsEndpoints
         CancellationToken ct)
     {
         if (tenantProvider.TenantId is null) return Results.Unauthorized();
-        if (string.IsNullOrWhiteSpace(request.Name)) return Results.BadRequest(new { error = "Navn er pakrevd." });
+        if (string.IsNullOrWhiteSpace(request.Name)) return Results.BadRequest(new { error = "Navn er påkrevd." });
 
         var exists = await db.SjaForms.AnyAsync(f => f.Id == id && f.TenantId == tenantProvider.TenantId.Value, ct);
         if (!exists) return Results.NotFound();

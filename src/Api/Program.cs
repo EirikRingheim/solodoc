@@ -20,6 +20,7 @@ using Solodoc.Shared.Deviations;
 using Solodoc.Api.Endpoints;
 using System.Threading.RateLimiting;
 using Solodoc.Shared.Projects;
+using Solodoc.Shared.Admin;
 
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
@@ -69,6 +70,7 @@ builder.Services.AddScoped<IPdfReportService, PdfReportService>();
 
 // Export
 builder.Services.AddScoped<IExportService, ExportService>();
+builder.Services.AddScoped<IExcelExportService, ExcelExportService>();
 
 // Validators
 builder.Services.AddValidatorsFromAssemblyContaining<LoginRequestValidator>();
@@ -243,6 +245,89 @@ app.MapGet("/api/auth/tenants", async (
         .ToListAsync(ct);
 
     return Results.Ok(tenants);
+}).RequireAuthorization();
+
+// Pay periods
+app.MapGet("/api/pay-periods/current", (ITenantProvider tp, SolodocDbContext db) =>
+{
+    if (tp.TenantId is null) return Results.Unauthorized();
+    var tenant = db.Tenants.Find(tp.TenantId.Value);
+    if (tenant is null) return Results.NotFound();
+
+    var startDay = tenant.DefaultPayPeriodStartDay;
+    var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.Date);
+
+    DateOnly periodStart, periodEnd;
+    if (today.Day >= startDay)
+    {
+        periodStart = new DateOnly(today.Year, today.Month, startDay);
+        periodEnd = periodStart.AddMonths(1).AddDays(-1);
+    }
+    else
+    {
+        periodEnd = new DateOnly(today.Year, today.Month, startDay).AddDays(-1);
+        periodStart = periodEnd.AddMonths(-1).AddDays(1);
+        // Adjust if startDay > days in prev month
+        try { periodStart = new DateOnly(periodEnd.Year, periodEnd.Month, startDay); periodStart = periodStart.AddMonths(-1); }
+        catch { periodStart = periodEnd.AddMonths(-1).AddDays(1); }
+    }
+
+    return Results.Ok(new { startDay, periodStart = periodStart.ToString("yyyy-MM-dd"), periodEnd = periodEnd.ToString("yyyy-MM-dd") });
+}).RequireAuthorization();
+
+app.MapPost("/api/pay-periods", async (PayPeriodUpdateRequest request, SolodocDbContext db, ITenantProvider tp, CancellationToken ct) =>
+{
+    if (tp.TenantId is null) return Results.Unauthorized();
+    var tenant = await db.Tenants.FindAsync([tp.TenantId.Value], ct);
+    if (tenant is null) return Results.NotFound();
+    if (request.StartDay < 1 || request.StartDay > 28)
+        return Results.BadRequest(new { error = "Startdag må være mellom 1 og 28." });
+    tenant.DefaultPayPeriodStartDay = request.StartDay;
+    await db.SaveChangesAsync(ct);
+    return Results.Ok();
+}).RequireAuthorization();
+
+// Tenant modules & feature flags
+app.MapGet("/api/tenant/modules", async (SolodocDbContext db, ITenantProvider tp, CancellationToken ct) =>
+{
+    if (tp.TenantId is null) return Results.Unauthorized();
+    var tenant = await db.Tenants.FindAsync([tp.TenantId.Value], ct);
+    if (tenant is null) return Results.NotFound();
+    var modules = string.IsNullOrEmpty(tenant.EnabledModules)
+        ? new List<string>()
+        : System.Text.Json.JsonSerializer.Deserialize<List<string>>(tenant.EnabledModules) ?? [];
+    return Results.Ok(modules);
+}).RequireAuthorization();
+
+app.MapPost("/api/tenant/modules", async (List<string> modules, SolodocDbContext db, ITenantProvider tp, CancellationToken ct) =>
+{
+    if (tp.TenantId is null) return Results.Unauthorized();
+    var tenant = await db.Tenants.FindAsync([tp.TenantId.Value], ct);
+    if (tenant is null) return Results.NotFound();
+    tenant.EnabledModules = System.Text.Json.JsonSerializer.Serialize(modules);
+    await db.SaveChangesAsync(ct);
+    return Results.Ok();
+}).RequireAuthorization();
+
+app.MapGet("/api/tenant/feature-flags", async (SolodocDbContext db, ITenantProvider tp, CancellationToken ct) =>
+{
+    if (tp.TenantId is null) return Results.Unauthorized();
+    var tenant = await db.Tenants.FindAsync([tp.TenantId.Value], ct);
+    if (tenant is null) return Results.NotFound();
+    var flags = string.IsNullOrEmpty(tenant.FeatureFlags)
+        ? new Dictionary<string, bool>()
+        : System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, bool>>(tenant.FeatureFlags) ?? [];
+    return Results.Ok(flags);
+}).RequireAuthorization();
+
+app.MapPost("/api/tenant/feature-flags", async (Dictionary<string, bool> flags, SolodocDbContext db, ITenantProvider tp, CancellationToken ct) =>
+{
+    if (tp.TenantId is null) return Results.Unauthorized();
+    var tenant = await db.Tenants.FindAsync([tp.TenantId.Value], ct);
+    if (tenant is null) return Results.NotFound();
+    tenant.FeatureFlags = System.Text.Json.JsonSerializer.Serialize(flags);
+    await db.SaveChangesAsync(ct);
+    return Results.Ok();
 }).RequireAuthorization();
 
 // Dashboard
@@ -893,6 +978,7 @@ app.MapForefallendeEndpoints();
 app.MapRoleEndpoints();
 app.MapOnboardingEndpoints();
 app.MapChatbotEndpoints();
+app.MapBusinessDocumentEndpoints();
 app.MapMarketplaceEndpoints();
 app.MapSuperAdminEndpoints();
 app.MapExpenseEndpoints();

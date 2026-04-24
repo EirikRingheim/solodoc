@@ -26,6 +26,12 @@ public class Tenant : BaseEntity
     public string? CompanySize { get; set; } // 1-5, 6-15, 16-50, 50+
     public string? EnabledModules { get; set; } // JSON array of enabled module keys
 
+    // Pay period
+    public int DefaultPayPeriodStartDay { get; set; } = 15; // day of month (15 = 15th–14th, typical for payroll)
+
+    // Feature flags — granular control over what's enabled
+    public string? FeatureFlags { get; set; } // JSON: { "hours.requireApproval": true, ... }
+
     // Subscription
     public string SubscriptionTier { get; set; } = "trial"; // trial, basic, pro, enterprise
     public DateTimeOffset? TrialStartedAt { get; set; }

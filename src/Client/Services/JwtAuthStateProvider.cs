@@ -79,9 +79,11 @@ public class JwtAuthStateProvider(ILocalStorageService localStorage, HttpClient 
             var handler = new JwtSecurityTokenHandler();
             var token = handler.ReadJwtToken(jwt);
 
-            if (token.ValidTo < DateTime.UtcNow)
+            // Truly expired (with 2 min tolerance for clock skew)
+            if (token.ValidTo < DateTime.UtcNow.AddMinutes(-2))
                 return null;
 
+            // Still valid — return claims (refresh happens on API 401)
             return token.Claims;
         }
         catch

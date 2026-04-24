@@ -1,0 +1,213 @@
+@page "/regnskap/utlegg"
+@attribute [Authorize]
+@inject ExpenseService ExpenseService
+@inject ApiHttpClient Api
+@inject ISnackbar Snackbar
+
+<PageTitle>Solodoc - Utlegg (Regnskap)</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4">Utlegg og kvitteringer</MudText>
+
+<MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;" Class="pa-4 mb-4">
+    <PeriodPresetSelector @bind-FromDate="_from" @bind-ToDate="_to" />
+
+    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mt-3">
+        <MudSelect T="string" @bind-Value="_statusFilter" Label="Status" Clearable="true"
+                   Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:180px;">
+            <MudSelectItem T="string" Value="@("Approved")">Godkjent</MudSelectItem>
+            <MudSelectItem T="string" Value="@("Paid")">Utbetalt</MudSelectItem>
+            <MudSelectItem T="string" Value="@("Submitted")">Innsendt</MudSelectItem>
+        </MudSelect>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="LoadExpenses"
+                   StartIcon="@Icons.Material.Filled.Refresh" Style="text-transform:none;border-radius:8px;">
+            Oppdater
+        </MudButton>
+        @if (_selected.Count > 0)
+        {
+            <MudButton Variant="Variant.Filled" Color="Color.Success" OnClick="BatchMarkPaid"
+                       StartIcon="@Icons.Material.Filled.CheckCircle" Disabled="_batchProcessing"
+                       Style="text-transform:none;border-radius:8px;">
+                @(_batchProcessing ? "Behandler..." : $"Marker {_selected.Count} som utbetalt")
+            </MudButton>
+        }
+    </MudStack>
+</MudPaper>
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+}
+else if (_expenses.Count == 0)
+{
+    <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;" Class="pa-8">
+        <MudStack AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Filled.Receipt" Size="Size.Large" Color="Color.Secondary" />
+            <MudText Typo="Typo.body1" Color="Color.Secondary">Ingen utlegg for valgt periode</MudText>
+        </MudStack>
+    </MudPaper>
+}
+else
+{
+    <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;overflow:hidden;">
+        <MudSimpleTable Dense="true" Hover="true">
+            <thead>
+                <tr>
+                    <th style="width:40px;">
+                        <MudCheckBox T="bool" Value="_selectAll" ValueChanged="OnSelectAllChanged"
+                                     Dense="true" Color="Color.Primary" />
+                    </th>
+                    <th>Ansatt</th>
+                    <th>Dato</th>
+                    <th style="text-align:right;">Beløp</th>
+                    <th>Kategori</th>
+                    <th>Prosjekt</th>
+                    <th>Status</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var exp in _expenses)
+                {
+                    var e = exp;
+                    var isPaid = e.Status == "Paid";
+                    <tr style="@(isPaid ? "opacity:0.6;" : "")">
+                        <td>
+                            <MudCheckBox T="bool" Value="_selected.Contains(e.Id)"
+                                         ValueChanged="@(v => ToggleSelect(e.Id, v))"
+                                         Dense="true" Color="Color.Primary" Disabled="isPaid" />
+                        </td>
+                        <td>@e.PersonName</td>
+                        <td>@e.Date.ToString("dd.MM.yyyy")</td>
+                        <td style="text-align:right;font-weight:600;">@e.Amount.ToString("N0") kr</td>
+                        <td>@e.Category</td>
+                        <td>@(e.ProjectName ?? "—")</td>
+                        <td>
+                            @{
+                                var statusColor = e.Status switch
+                                {
+                                    "Paid" => Color.Success,
+                                    "Approved" => Color.Info,
+                                    _ => Color.Warning
+                                };
+                                var statusText = e.Status switch
+                                {
+                                    "Paid" => "Utbetalt",
+                                    "Approved" => "Godkjent",
+                                    "Submitted" => "Innsendt",
+                                    _ => e.Status
+                                };
+                            }
+                            <MudChip T="string" Size="Size.Small" Color="@statusColor" Variant="Variant.Outlined"
+                                     Style="height:22px;">@statusText</MudChip>
+                        </td>
+                        <td>
+                            @if (!isPaid && e.Status == "Approved")
+                            {
+                                <MudButton Variant="Variant.Text" Color="Color.Success" Size="Size.Small"
+                                           OnClick="@(async () => await MarkSinglePaid(e.Id))"
+                                           Style="text-transform:none;">
+                                    Utbetalt
+                                </MudButton>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </MudSimpleTable>
+    </MudPaper>
+
+    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mt-2">
+        Totalt: @_expenses.Sum(e => e.Amount).ToString("N0") kr
+        (@_expenses.Count(e => e.Status == "Approved") godkjent, @_expenses.Count(e => e.Status == "Paid") utbetalt)
+    </MudText>
+}
+
+@code {
+    private DateTime? _from = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+    private DateTime? _to = DateTime.Today;
+    private string? _statusFilter = "Approved";
+    private bool _loading;
+    private bool _batchProcessing;
+    private bool _selectAll;
+    private List<ExpenseRow> _expenses = [];
+    private HashSet<Guid> _selected = [];
+
+    protected override async Task OnInitializedAsync() => await LoadExpenses();
+
+    private async Task LoadExpenses()
+    {
+        _loading = true;
+        _selected.Clear();
+        StateHasChanged();
+
+        var fromStr = _from?.ToString("yyyy-MM-dd") ?? "";
+        var toStr = _to?.ToString("yyyy-MM-dd") ?? "";
+        var url = $"api/expenses?from={fromStr}&to={toStr}&pageSize=200";
+        if (!string.IsNullOrEmpty(_statusFilter)) url += $"&status={_statusFilter}";
+
+        var r = await Api.GetAsync(url);
+        if (r.IsSuccessStatusCode)
+        {
+            var wrapped = await r.Content.ReadFromJsonAsync<ExpenseListResponse>();
+            _expenses = wrapped?.Items?.Select(e => new ExpenseRow(
+                e.Id, e.EmployeeName, e.Date, e.Amount, e.Category ?? "", e.Status, e.ProjectName, e.Description
+            )).ToList() ?? [];
+        }
+        else
+            _expenses = [];
+
+        _loading = false;
+    }
+
+    private void ToggleSelect(Guid id, bool selected)
+    {
+        if (selected) _selected.Add(id);
+        else _selected.Remove(id);
+    }
+
+    private void OnSelectAllChanged(bool val)
+    {
+        _selectAll = val;
+        _selected = val
+            ? _expenses.Where(e => e.Status == "Approved").Select(e => e.Id).ToHashSet()
+            : [];
+    }
+
+    private async Task MarkSinglePaid(Guid id)
+    {
+        var ok = await ExpenseService.MarkExpensePaidAsync(id);
+        if (ok)
+        {
+            Snackbar.Add("Utlegg markert som utbetalt", Severity.Success);
+            await LoadExpenses();
+        }
+    }
+
+    private async Task BatchMarkPaid()
+    {
+        _batchProcessing = true;
+        StateHasChanged();
+
+        var count = 0;
+        foreach (var id in _selected)
+        {
+            if (await ExpenseService.MarkExpensePaidAsync(id))
+                count++;
+        }
+
+        Snackbar.Add($"{count} utlegg markert som utbetalt", Severity.Success);
+        _selected.Clear();
+        _batchProcessing = false;
+        await LoadExpenses();
+    }
+
+    private record ExpenseListResponse(List<ExpenseListItem> Items, int TotalCount);
+    private record ExpenseListItem(
+        Guid Id, string EmployeeName, Guid PersonId, DateOnly Date, decimal Amount,
+        string? Category, string? Description, string? ProjectName, Guid? ProjectId,
+        string ReceiptFileKey, string Status, bool IsApproved, bool IsPaid,
+        string? ApprovedByName, string? PaidByName, DateTimeOffset CreatedAt);
+    private record ExpenseRow(
+        Guid Id, string PersonName, DateOnly Date, decimal Amount,
+        string Category, string Status, string? ProjectName, string? Description);
+}

@@ -59,6 +59,8 @@ public static class RoleEndpoints
         var result = roles.Select(r => new CustomRoleDto(
             r.Id, r.Name, r.Description, r.Color,
             DeserializePermissions(r.Permissions),
+            DeserializeList(r.VisibleModules),
+            DeserializeFlags(r.FeatureFlagOverrides),
             r.IsSystem,
             countMap.GetValueOrDefault(r.Id, 0)
         )).ToList();
@@ -84,6 +86,8 @@ public static class RoleEndpoints
             Description = request.Description,
             Color = request.Color,
             Permissions = JsonSerializer.Serialize(request.Permissions ?? []),
+            VisibleModules = request.VisibleModules is not null ? JsonSerializer.Serialize(request.VisibleModules) : null,
+            FeatureFlagOverrides = request.FeatureFlagOverrides is not null ? JsonSerializer.Serialize(request.FeatureFlagOverrides) : null,
             IsSystem = false
         };
 
@@ -111,6 +115,8 @@ public static class RoleEndpoints
         role.Description = request.Description;
         role.Color = request.Color;
         role.Permissions = JsonSerializer.Serialize(request.Permissions ?? []);
+        role.VisibleModules = request.VisibleModules is not null ? JsonSerializer.Serialize(request.VisibleModules) : null;
+        role.FeatureFlagOverrides = request.FeatureFlagOverrides is not null ? JsonSerializer.Serialize(request.FeatureFlagOverrides) : null;
 
         await db.SaveChangesAsync(ct);
         return Results.Ok();
@@ -154,5 +160,19 @@ public static class RoleEndpoints
     {
         try { return JsonSerializer.Deserialize<List<string>>(json) ?? []; }
         catch { return []; }
+    }
+
+    private static List<string>? DeserializeList(string? json)
+    {
+        if (string.IsNullOrEmpty(json)) return null;
+        try { return JsonSerializer.Deserialize<List<string>>(json); }
+        catch { return null; }
+    }
+
+    private static Dictionary<string, bool>? DeserializeFlags(string? json)
+    {
+        if (string.IsNullOrEmpty(json)) return null;
+        try { return JsonSerializer.Deserialize<Dictionary<string, bool>>(json); }
+        catch { return null; }
     }
 }

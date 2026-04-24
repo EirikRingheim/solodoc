@@ -5,6 +5,7 @@
 @inject ISnackbar Snackbar
 @inject NavigationManager Navigation
 @inject AuthenticationStateProvider AuthStateProvider
+@inject Blazored.LocalStorage.ILocalStorageService LocalStorage
 @using Solodoc.Shared.Expenses
 @using System.Security.Claims
 
@@ -72,26 +73,38 @@
                                             <span style="@($"color:{statusColor};font-weight:600;font-size:0.75rem;")">@statusLabel</span>
                                         </td>
                                         <td style="text-align:center;">
-                                            @if (exp.IsApproved)
+                                            @if (exp.IsApproved && _isAdmin)
+                                            {
+                                                <MudTooltip Text="Godkjent — klikk for å angre">
+                                                    <MudIconButton Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small" Color="Color.Success"
+                                                                   OnClick="@(async () => await ConfirmAction($"Angre godkjenning av {exp.EmployeeName} ({exp.Amount:N0} kr)? Sendes tilbake til innsendt.", async () => { await ExpenseService.UndoApproveAsync(captured.Id); await LoadExpenses(); }))"
+                                                                   OnClick:stopPropagation="true" />
+                                                </MudTooltip>
+                                            }
+                                            else if (exp.IsApproved)
                                             {
                                                 <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small" Color="Color.Success" />
                                             }
                                             else if (_isAdmin && exp.Status == "Submitted")
                                             {
                                                 <MudIconButton Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small" Color="Color.Primary"
-                                                               OnClick="@(async () => { await ExpenseService.ApproveExpenseAsync(captured.Id); await LoadExpenses(); })"
+                                                               OnClick="@(async () => await ConfirmAction($"Godkjenn utlegg fra {exp.EmployeeName} på {exp.Amount:N0} kr?", async () => { await ExpenseService.ApproveExpenseAsync(captured.Id); await LoadExpenses(); }))"
                                                                OnClick:stopPropagation="true" />
                                             }
                                         </td>
                                         <td style="text-align:center;">
                                             @if (exp.IsPaid)
                                             {
-                                                <MudIcon Icon="@Icons.Material.Filled.Paid" Size="Size.Small" Color="Color.Success" />
+                                                <MudTooltip Text="Utbetalt — klikk for å angre">
+                                                    <MudIconButton Icon="@Icons.Material.Filled.Paid" Size="Size.Small" Color="Color.Success"
+                                                                   OnClick="@(async () => await ConfirmAction($"Angre utbetaling av {exp.EmployeeName} ({exp.Amount:N0} kr)? Statusen endres tilbake til godkjent.", async () => { await ExpenseService.UndoPaidAsync(captured.Id); await LoadExpenses(); }))"
+                                                                   OnClick:stopPropagation="true" />
+                                                </MudTooltip>
                                             }
                                             else if (_isAccountant && exp.Status == "Approved")
                                             {
                                                 <MudIconButton Icon="@Icons.Material.Filled.Paid" Size="Size.Small" Color="Color.Primary"
-                                                               OnClick="@(async () => { await ExpenseService.MarkExpensePaidAsync(captured.Id); await LoadExpenses(); })"
+                                                               OnClick="@(async () => await ConfirmAction($"Marker utlegg fra {exp.EmployeeName} ({exp.Amount:N0} kr) som utbetalt?", async () => { await ExpenseService.MarkExpensePaidAsync(captured.Id); await LoadExpenses(); }))"
                                                                OnClick:stopPropagation="true" />
                                             }
                                         </td>
@@ -164,8 +177,28 @@
     </MudTabPanel>
 </MudTabs>
 
+@* Confirmation dialog *@
+<MudDialog @bind-Visible="_showConfirm" Options="@(new DialogOptions { MaxWidth = MaxWidth.ExtraSmall, FullWidth = true })">
+    <TitleContent><MudText Typo="Typo.h6">Bekreft handling</MudText></TitleContent>
+    <DialogContent>
+        <MudText Typo="Typo.body1">@_confirmMessage</MudText>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => _showConfirm = false" Style="text-transform:none;">Avbryt</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="ExecuteConfirmedAction"
+                   Style="text-transform:none;border-radius:8px;">
+            Bekreft
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
 @code {
     private List<ExpenseListItemDto> _expenses = [];
+
+    // Confirmation dialog
+    private bool _showConfirm;
+    private string _confirmMessage = "";
+    private Func<Task>? _confirmedAction;
     private List<TravelExpenseListItemDto> _travelExpenses = [];
     private bool _loadingExpenses = true;
     private bool _loadingTravel = true;
@@ -174,13 +207,26 @@
 
     protected override async Task OnInitializedAsync()
     {
-        // Check role
+        // Check role — respect impersonation (VIS SOM)
         var auth = await AuthStateProvider.GetAuthenticationStateAsync();
+        var isSuperAdmin = auth.User.HasClaim("sa", "1");
         var roles = auth.User.Claims
             .Where(c => c.Type == "role" || c.Type.Contains("/role"))
             .Select(c => c.Value).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        _isAdmin = auth.User.HasClaim("sa", "1") || roles.Contains("tenant-admin") || roles.Contains("TenantAdmin");
-        _isAccountant = _isAdmin || roles.Contains("Regnskapsforer") || roles.Contains("regnskapsforer");
+
+        // If super admin is impersonating, use the impersonated role
+        if (isSuperAdmin)
+        {
+            var viewAs = await LocalStorage.GetItemAsStringAsync("viewAsRole");
+            viewAs = viewAs?.Trim('"');
+            _isAdmin = viewAs is "admin" or null;
+            _isAccountant = viewAs is "admin" or "accountant" or null;
+        }
+        else
+        {
+            _isAdmin = roles.Contains("tenant-admin") || roles.Contains("TenantAdmin");
+            _isAccountant = _isAdmin || roles.Contains("Regnskapsforer") || roles.Contains("regnskapsforer");
+        }
 
         await LoadExpenses();
         await LoadTravelExpenses();
@@ -202,5 +248,21 @@
         _travelExpenses = items;
         _loadingTravel = false;
         StateHasChanged();
+    }
+
+    private Task ConfirmAction(string message, Func<Task> action)
+    {
+        _confirmMessage = message;
+        _confirmedAction = action;
+        _showConfirm = true;
+        StateHasChanged();
+        return Task.CompletedTask;
+    }
+
+    private async Task ExecuteConfirmedAction()
+    {
+        _showConfirm = false;
+        if (_confirmedAction is not null)
+            await _confirmedAction();
     }
 }

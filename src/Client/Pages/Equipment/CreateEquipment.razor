@@ -6,11 +6,7 @@
 
 <PageTitle>Solodoc - Nytt utstyr</PageTitle>
 
-<MudButton Variant="Variant.Text" Color="Color.Default" Href="/machines"
-           StartIcon="@Icons.Material.Filled.ArrowBack" Class="mb-2"
-           Style="text-transform:none;">
-    Tilbake
-</MudButton>
+<BackButton />
 
 <MudText Typo="Typo.h5" Class="mb-4">Nytt utstyr</MudText>
 
@@ -22,8 +18,13 @@
                               Variant="Variant.Outlined" Margin="Margin.Dense" />
             </MudItem>
             <MudItem xs="12" sm="6">
-                <MudTextField @bind-Value="_model.Type" Label="Type"
-                              Variant="Variant.Outlined" Margin="Margin.Dense" />
+                <MudSelect T="string" @bind-Value="_model.Type" Label="Type"
+                           Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true">
+                    @foreach (var cat in _typeCategories)
+                    {
+                        <MudSelectItem T="string" Value="@cat.Name">@cat.Name</MudSelectItem>
+                    }
+                </MudSelect>
             </MudItem>
             <MudItem xs="12" sm="6">
                 <MudTextField @bind-Value="_model.RegistrationNumber" Label="Reg.nummer"
@@ -34,7 +35,7 @@
                               Variant="Variant.Outlined" Margin="Margin.Dense" />
             </MudItem>
             <MudItem xs="12" sm="4">
-                <MudNumericField @bind-Value="_model.Year" Label="Arsmodell"
+                <MudNumericField @bind-Value="_model.Year" Label="Årsmodell"
                                  Variant="Variant.Outlined" Margin="Margin.Dense" />
             </MudItem>
             <MudItem xs="12" sm="4">
@@ -62,7 +63,13 @@
 
 @code {
     private EquipmentFormModel _model = new();
+    private List<Solodoc.Shared.Equipment.EquipmentTypeCategoryDto> _typeCategories = [];
     private bool _saving;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { _typeCategories = await EquipmentService.GetTypeCategoriesAsync(); } catch { }
+    }
 
     private async Task HandleSubmit()
     {

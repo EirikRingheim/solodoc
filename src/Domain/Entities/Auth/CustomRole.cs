@@ -14,6 +14,16 @@ public class CustomRole : TenantScopedEntity
     public string Permissions { get; set; } = "[]";
 
     /// <summary>
+    /// JSON array of visible module keys. Null = all modules visible.
+    /// </summary>
+    public string? VisibleModules { get; set; }
+
+    /// <summary>
+    /// JSON object of feature flag overrides for this role. Null = use tenant defaults.
+    /// </summary>
+    public string? FeatureFlagOverrides { get; set; }
+
+    /// <summary>
     /// Whether this is a system-default role that can't be deleted (Admin, Prosjektleder, Feltarbeider)
     /// </summary>
     public bool IsSystem { get; set; }

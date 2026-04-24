@@ -113,7 +113,9 @@ public record ChecklistInstanceListItemDto(
     int CompletedItemCount,
     Guid? GroupId,
     string? GroupPrefix,
-    int? GroupIndex);
+    int? GroupIndex,
+    Guid? ChecklistObjectId = null,
+    string? ObjectDisplayName = null);
 
 // ─── Instance Detail ──────────────────────────────────
 public record ChecklistInstanceDetailDto(

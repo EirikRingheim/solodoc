@@ -231,4 +231,40 @@ public class ChecklistService(ApiHttpClient api, OfflineAwareApiClient offlineAp
         var r = await api.DeleteAsync($"api/checklists/instances/{instanceId}/participants/{participantId}");
         return r.IsSuccessStatusCode;
     }
+
+    // ── Objects ──
+
+    public async Task<List<ChecklistObjectDto>> GetObjectsAsync(Guid projectId)
+    {
+        var r = await api.GetAsync($"api/checklists/objects?projectId={projectId}");
+        if (r.IsSuccessStatusCode)
+            return await r.Content.ReadFromJsonAsync<List<ChecklistObjectDto>>() ?? [];
+        return [];
+    }
+
+    public async Task<Guid?> CreateObjectAsync(CreateChecklistObjectRequest request)
+    {
+        var r = await api.PostAsJsonAsync("api/checklists/objects", request);
+        if (r.IsSuccessStatusCode)
+        {
+            var result = await r.Content.ReadFromJsonAsync<IdResponse>();
+            return result?.Id;
+        }
+        return null;
+    }
+
+    public async Task<Guid?> CopyObjectAsync(Guid sourceObjectId, int? newNumber = null)
+    {
+        var r = await api.PostAsJsonAsync("api/checklists/objects/copy",
+            new CopyChecklistObjectRequest(sourceObjectId, newNumber));
+        if (r.IsSuccessStatusCode)
+        {
+            var result = await r.Content.ReadFromJsonAsync<IdResponse>();
+            return result?.Id;
+        }
+        return null;
+    }
+
+    public async Task<bool> DeleteObjectAsync(Guid id)
+        => (await api.DeleteAsync($"api/checklists/objects/{id}")).IsSuccessStatusCode;
 }

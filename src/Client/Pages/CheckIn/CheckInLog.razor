@@ -7,7 +7,7 @@
 <PageTitle>Solodoc - Innsjekkingslogg</PageTitle>
 
 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-4">
-    <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Href="/" />
+    <BackButton />
     <MudText Typo="Typo.h5" Style="font-weight:700;">Innsjekkingslogg</MudText>
     <MudSpacer />
     <MudSelect T="int" Value="_days" ValueChanged="OnDaysChanged" Variant="Variant.Outlined"
@@ -49,7 +49,7 @@ else
         </MudItem>
         <MudItem xs="6" sm="3">
             <div style="background:#FEF3C7;border-radius:10px;padding:14px;text-align:center;">
-                <div style="font-size:1.5rem;font-weight:700;color:#D97706;">@FormatDuration(_log.Where(l => l.CheckOutAt.HasValue).Sum(l => l.DurationMinutes))</div>
+                <div style="font-size:1.5rem;font-weight:700;color:#D97706;">@FormatDuration(_log.Sum(l => l.DurationMinutes))</div>
                 <div style="font-size:0.7rem;color:#6B7280;">Total tid</div>
             </div>
         </MudItem>

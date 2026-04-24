@@ -6,6 +6,8 @@ public record CustomRoleDto(
     string? Description,
     string? Color,
     List<string> Permissions,
+    List<string>? VisibleModules,
+    Dictionary<string, bool>? FeatureFlagOverrides,
     bool IsSystem,
     int MemberCount);
 
@@ -13,13 +15,17 @@ public record CreateCustomRoleRequest(
     string Name,
     string? Description,
     string? Color,
-    List<string> Permissions);
+    List<string> Permissions,
+    List<string>? VisibleModules = null,
+    Dictionary<string, bool>? FeatureFlagOverrides = null);
 
 public record UpdateCustomRoleRequest(
     string Name,
     string? Description,
     string? Color,
-    List<string> Permissions);
+    List<string> Permissions,
+    List<string>? VisibleModules = null,
+    Dictionary<string, bool>? FeatureFlagOverrides = null);
 
 /// <summary>
 /// All available permissions grouped by module.

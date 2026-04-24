@@ -48,15 +48,34 @@
                     </MudText>
                 </CellTemplate>
             </TemplateColumn>
-            <TemplateColumn Title="Aktiv" SortLabel="isactive">
+            <TemplateColumn Title="Plassering">
                 <CellTemplate>
-                    @if (context.Item.IsActive)
+                    @if (!string.IsNullOrWhiteSpace(context.Item.CurrentProjectName))
                     {
-                        <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Size="Size.Small" />
+                        <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined"
+                                 Style="height:22px;">@context.Item.CurrentProjectName</MudChip>
+                    }
+                    else if (!string.IsNullOrWhiteSpace(context.Item.LocationDescription))
+                    {
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">@context.Item.LocationDescription</MudText>
                     }
                     else
                     {
-                        <MudIcon Icon="@Icons.Material.Filled.Cancel" Color="Color.Error" Size="Size.Small" />
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">—</MudText>
+                    }
+                </CellTemplate>
+            </TemplateColumn>
+            <TemplateColumn Title="Status" SortLabel="isactive">
+                <CellTemplate>
+                    @if (context.Item.IsActive)
+                    {
+                        <MudChip T="string" Size="Size.Small" Color="Color.Success" Variant="Variant.Outlined"
+                                 Style="height:22px;">Aktiv</MudChip>
+                    }
+                    else
+                    {
+                        <MudChip T="string" Size="Size.Small" Color="Color.Error" Variant="Variant.Outlined"
+                                 Style="height:22px;">Inaktiv</MudChip>
                     }
                 </CellTemplate>
             </TemplateColumn>

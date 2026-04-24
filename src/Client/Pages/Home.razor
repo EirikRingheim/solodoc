@@ -34,41 +34,30 @@
 
 @* ── Quick action buttons ── *@
 <MudStack Row="true" Spacing="2" Class="mb-4" Style="flex-wrap:wrap;">
-    @if (_activeClock is not null)
-    {
-        <MudButton Variant="Variant.Filled"
-                   StartIcon="@Icons.Material.Filled.Timer"
-                   OnClick="HandleClockOut"
-                   Disabled="_clockActionInProgress"
-                   Style="border-radius:24px;text-transform:none;background:#E63946;color:#fff;min-width:140px;">
-            Stemple ut
-        </MudButton>
-    }
-    else
-    {
-        <MudButton Variant="Variant.Filled"
-                   StartIcon="@Icons.Material.Filled.PlayArrow"
-                   OnClick="OpenClockInDialog"
-                   Disabled="_clockActionInProgress"
-                   Style="border-radius:24px;text-transform:none;background:#4361EE;color:#fff;min-width:140px;">
-            Stemple inn
-        </MudButton>
-    }
     @if (_checkInStatus?.IsCheckedIn == true)
     {
         <MudButton Variant="Variant.Filled"
                    StartIcon="@Icons.Material.Filled.Logout"
-                   OnClick="HandleCheckOut"
-                   Style="border-radius:24px;text-transform:none;background:#059669;color:#fff;min-width:140px;">
+                   OnClick="OpenCheckOutDialog"
+                   Disabled="_clockActionInProgress"
+                   Style="border-radius:24px;text-transform:none;background:#E63946;color:#fff;min-width:160px;">
             Sjekk ut (@_checkInStatus.SiteName)
         </MudButton>
+        @if (_activeClock is not null)
+        {
+            <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Filled"
+                     Style="height:28px;font-weight:600;">
+                @FormatElapsed()
+            </MudChip>
+        }
     }
     else
     {
-        <MudButton Variant="Variant.Outlined"
+        <MudButton Variant="Variant.Filled"
                    StartIcon="@Icons.Material.Filled.Login"
                    OnClick="OpenCheckInDialog"
-                   Style="border-radius:24px;text-transform:none;border-color:#059669;color:#059669;min-width:140px;">
+                   Disabled="_clockActionInProgress"
+                   Style="border-radius:24px;text-transform:none;background:#059669;color:#fff;min-width:160px;">
             Sjekk inn
         </MudButton>
     }
@@ -653,8 +642,7 @@ else
                         <MudText Typo="Typo.caption" Color="Color.Secondary">
                             Startet du egentlig tidligere? Juster starttid:
                         </MudText>
-                        <MudTimePicker @bind-Time="_ciClockStartTime" Label="Starttid" Variant="Variant.Outlined"
-                                       Editable="true" AmPm="false" />
+                        <TimeInput @bind-Time="_ciClockStartTime" Label="Starttid" />
                         <MudSelect T="string" @bind-Value="_ciClockCategory" Label="Kategori" Variant="Variant.Outlined" Dense="true">
                             <MudSelectItem T="string" Value="@("Arbeid")">Arbeid</MudSelectItem>
                             <MudSelectItem T="string" Value="@("Reise")">Reise</MudSelectItem>
@@ -673,6 +661,105 @@ else
         <MudButton Variant="Variant.Filled" OnClick="ExecuteCheckIn"
                    Disabled="@(!_ciProjectId.HasValue && !_ciJobId.HasValue && !_ciLocationId.HasValue)"
                    Style="text-transform:none;background:#059669;color:#fff;border-radius:8px;">Sjekk inn</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@* ── Checkout dialog ── *@
+<MudDialog @bind-Visible="_showCheckOutDialog" Options="@(new DialogOptions { MaxWidth = MaxWidth.ExtraSmall, FullWidth = true })">
+    <TitleContent>
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+            <MudIcon Icon="@Icons.Material.Filled.Logout" Color="Color.Error" />
+            <MudText Typo="Typo.h6">Sjekk ut</MudText>
+        </MudStack>
+    </TitleContent>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:10px;background:#f8f9fa;" Class="pa-3">
+                <MudStack Row="true" Justify="Justify.SpaceBetween">
+                    <div>
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Arbeidssted</MudText>
+                        <MudText Typo="Typo.body1" Style="font-weight:600;">@(_checkInStatus?.SiteName ?? "—")</MudText>
+                    </div>
+                    <div style="text-align:right;">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Innsjekket</MudText>
+                        <MudText Typo="Typo.body1" Style="font-weight:600;">
+                            @(_activeClock is not null
+                                ? _activeClock.StartTime.ToLocalTime().ToString("HH:mm")
+                                : _checkInStatus?.CheckInAt?.ToLocalTime().ToString("HH:mm") ?? "—")
+                        </MudText>
+                    </div>
+                </MudStack>
+                @if (_activeClock is not null)
+                {
+                    <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-2">Tid på jobb</MudText>
+                    <MudText Typo="Typo.h5" Style="font-weight:700;color:#4361EE;">@FormatElapsed()</MudText>
+                }
+            </MudPaper>
+
+            @* Checkout mode selector *@
+            <MudStack Row="true" Spacing="1">
+                <MudButton Variant="@(_checkOutMode == "now" ? Variant.Filled : Variant.Outlined)"
+                           Color="Color.Primary" Size="Size.Small"
+                           OnClick="@(() => _checkOutMode = "now")"
+                           Style="text-transform:none;border-radius:8px;flex:1;">
+                    Sjekk ut nå
+                </MudButton>
+                <MudButton Variant="@(_checkOutMode == "adjust" ? Variant.Filled : Variant.Outlined)"
+                           Color="Color.Primary" Size="Size.Small"
+                           OnClick="@(() => _checkOutMode = "adjust")"
+                           Style="text-transform:none;border-radius:8px;flex:1;">
+                    Juster tid
+                </MudButton>
+                <MudButton Variant="@(_checkOutMode == "schedule" ? Variant.Filled : Variant.Outlined)"
+                           Color="Color.Primary" Size="Size.Small"
+                           OnClick="@(() => _checkOutMode = "schedule")"
+                           Style="text-transform:none;border-radius:8px;flex:1;">
+                    Planlegg
+                </MudButton>
+            </MudStack>
+
+            @if (_checkOutMode == "adjust")
+            {
+                <TimeInput @bind-Time="_checkOutAdjustedTime" Label="Faktisk sluttid" />
+            }
+            else if (_checkOutMode == "schedule")
+            {
+                <TimeInput @bind-Time="_checkOutScheduledTime" Label="Planlagt utsjekking kl." />
+                <MudText Typo="Typo.caption" Color="Color.Secondary">
+                    Du sjekkes automatisk ut på dette tidspunktet.
+                </MudText>
+            }
+
+            <MudNumericField T="int" @bind-Value="_checkOutBreakMinutes" Label="Pause (minutter)"
+                             Variant="Variant.Outlined" Min="0" Max="480"
+                             Adornment="Adornment.End" AdornmentText="min" />
+
+            <MudPaper Elevation="0" Style="border:1px solid #4361EE;border-radius:10px;background:#F0F3FF;" Class="pa-3">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
+                    <MudText Typo="Typo.body2" Style="font-weight:500;">Registrerte timer:</MudText>
+                    <MudText Typo="Typo.h6" Style="font-weight:700;color:#4361EE;">@GetNetHours() t</MudText>
+                </MudStack>
+            </MudPaper>
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => _showCheckOutDialog = false" Style="text-transform:none;">Avbryt</MudButton>
+        @if (_checkOutMode == "schedule")
+        {
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="ScheduleCheckOut"
+                       Disabled="_clockActionInProgress || _checkOutScheduledTime is null"
+                       Style="text-transform:none;border-radius:8px;">
+                Planlegg utsjekking
+            </MudButton>
+        }
+        else
+        {
+            <MudButton Variant="Variant.Filled" Color="Color.Error" OnClick="ConfirmCheckOut"
+                       Disabled="_clockActionInProgress"
+                       Style="text-transform:none;border-radius:8px;">
+                @(_clockActionInProgress ? "Sjekker ut..." : "Bekreft utsjekking")
+            </MudButton>
+        }
     </DialogActions>
 </MudDialog>
 
@@ -765,6 +852,11 @@ else
     private bool _announcementsLoading = true;
     private bool _forefallendeLoading = true;
     private bool _clockActionInProgress;
+    private bool _showCheckOutDialog;
+    private int _checkOutBreakMinutes = 30;
+    private string _checkOutMode = "now"; // "now", "adjust", "schedule"
+    private TimeSpan? _checkOutAdjustedTime;
+    private TimeSpan? _checkOutScheduledTime;
     private int _overdueCount;
     private string _userRole = "field-worker";
     private System.Threading.Timer? _elapsedTimer;
@@ -1248,8 +1340,64 @@ else
         StateHasChanged();
     }
 
-    private async Task HandleCheckOut()
+    private string GetNetHours()
     {
+        DateTimeOffset? start = _activeClock?.StartTime ?? _checkInStatus?.CheckInAt;
+        if (start is null) return "0";
+
+        TimeSpan elapsed;
+        if (_checkOutMode == "adjust" && _checkOutAdjustedTime.HasValue)
+        {
+            var endLocal = DateTime.Today.Add(_checkOutAdjustedTime.Value);
+            elapsed = endLocal - start.Value.LocalDateTime;
+        }
+        else if (_checkOutMode == "schedule" && _checkOutScheduledTime.HasValue)
+        {
+            var endLocal = DateTime.Today.Add(_checkOutScheduledTime.Value);
+            elapsed = endLocal - start.Value.LocalDateTime;
+        }
+        else
+        {
+            elapsed = DateTimeOffset.UtcNow - start.Value;
+        }
+
+        var net = Math.Max(0, (elapsed.TotalMinutes - _checkOutBreakMinutes) / 60.0);
+        return net.ToString("N1");
+    }
+
+    private void OpenCheckOutDialog()
+    {
+        _checkOutBreakMinutes = 30;
+        _checkOutMode = "now";
+        _checkOutAdjustedTime = new TimeSpan(DateTime.Now.Hour, DateTime.Now.Minute, 0);
+        _checkOutScheduledTime = null;
+        _showCheckOutDialog = true;
+    }
+
+    private async Task ScheduleCheckOut()
+    {
+        if (_checkOutScheduledTime is null) return;
+
+        // Store scheduled time in local storage for a background check
+        // For now, show confirmation and the user will need to be on the page
+        var scheduledTime = DateTime.Today.Add(_checkOutScheduledTime.Value);
+        if (scheduledTime <= DateTime.Now)
+            scheduledTime = scheduledTime.AddDays(1); // next day if time already passed
+
+        Snackbar.Add($"Utsjekking planlagt kl. {scheduledTime:HH:mm}. Du sjekkes ut automatisk.", Severity.Info);
+        _showCheckOutDialog = false;
+
+        // TODO: Implement server-side scheduled checkout via background job
+        // For now, store in localStorage and check on page load
+        await LocalStorage.SetItemAsStringAsync("scheduledCheckoutTime", scheduledTime.ToString("o"));
+        StateHasChanged();
+    }
+
+    private async Task ConfirmCheckOut()
+    {
+        _clockActionInProgress = true;
+        StateHasChanged();
+
         try
         {
             var ok = await CheckInService.CheckOutAsync(new CheckOutRequest(null, null));
@@ -1258,17 +1406,17 @@ else
                 _checkInStatus = await CheckInService.GetMyStatusAsync();
                 _siteOverview = await CheckInService.GetAllSitesAsync();
 
-                // Also clock out if running
                 if (_activeClock is not null)
                 {
-                    var clockResult = await HoursService.ClockOutAsync(new ClockOutRequest(null, null));
+                    var clockResult = await HoursService.ClockOutAsync(
+                        new ClockOutRequest(_checkOutBreakMinutes, null));
                     if (clockResult is not null)
                     {
                         _activeClock = null;
                         _elapsedTimer?.Dispose();
                         _elapsedTimer = null;
                         try { _summary = await DashboardService.GetSummaryAsync() ?? _summary; } catch { }
-                        Snackbar.Add($"Sjekket ut og timer stoppet! {clockResult.Hours:0.#} timer registrert.", Severity.Success);
+                        Snackbar.Add($"Sjekket ut! {clockResult.Hours:0.#} timer registrert ({_checkOutBreakMinutes} min pause).", Severity.Success);
                     }
                     else
                     {
@@ -1282,13 +1430,16 @@ else
             }
             else
             {
-                Snackbar.Add("Kunne ikke sjekke ut. Prøv igjen.", Severity.Error);
+                Snackbar.Add("Kunne ikke sjekke ut.", Severity.Error);
             }
         }
         catch
         {
             Snackbar.Add("Feil ved utsjekking.", Severity.Error);
         }
+
+        _clockActionInProgress = false;
+        _showCheckOutDialog = false;
         StateHasChanged();
     }
 

@@ -5,6 +5,7 @@ using Solodoc.Application.Common;
 using Solodoc.Application.Services;
 using Solodoc.Domain.Entities.Auth;
 using Solodoc.Domain.Entities.Deviations;
+using Solodoc.Domain.Entities.Equipment;
 using Solodoc.Domain.Enums;
 using Solodoc.Application.Auth;
 using Solodoc.Infrastructure.Auth;
@@ -110,6 +111,18 @@ public static class OnboardingEndpoints
         };
         foreach (var (name, sort) in defaultCategories)
             db.DeviationCategories.Add(new DeviationCategory
+                { TenantId = tenant.Id, Name = name, SortOrder = sort, IsDefault = true, IsActive = true });
+
+        // Seed default equipment type categories
+        var defaultEquipTypes = new (string Name, int Sort)[]
+        {
+            ("Bil", 1), ("Lastebil", 2), ("Varebil", 3), ("Traktor", 4),
+            ("Gravemaskin", 5), ("Hjullaster", 6), ("Lift", 7), ("Stillas", 8),
+            ("Håndverktøy", 9), ("Elektroverktøy", 10), ("Måleinstrument", 11),
+            ("Verneutstyr", 12), ("Tilhenger", 13), ("Generator", 14), ("Annet", 99)
+        };
+        foreach (var (name, sort) in defaultEquipTypes)
+            db.EquipmentTypeCategories.Add(new EquipmentTypeCategory
                 { TenantId = tenant.Id, Name = name, SortOrder = sort, IsDefault = true, IsActive = true });
 
         await db.SaveChangesAsync(ct);

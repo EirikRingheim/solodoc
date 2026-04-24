@@ -47,5 +47,62 @@ public class EquipmentService(ApiHttpClient api)
         return response.IsSuccessStatusCode;
     }
 
+    public async Task<List<EquipmentListItemDto>> GetEquipmentByProjectAsync(Guid projectId)
+    {
+        var response = await api.GetAsync($"api/equipment/by-project/{projectId}");
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<List<EquipmentListItemDto>>() ?? [];
+        return [];
+    }
+
+    public async Task<List<EquipmentListItemDto>> GetEquipmentByJobAsync(Guid jobId)
+    {
+        var response = await api.GetAsync($"api/equipment/by-job/{jobId}");
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<List<EquipmentListItemDto>>() ?? [];
+        return [];
+    }
+
+    public async Task<List<EquipmentListItemDto>> GetEquipmentByLocationAsync(Guid locationId)
+    {
+        var response = await api.GetAsync($"api/equipment/by-location/{locationId}");
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<List<EquipmentListItemDto>>() ?? [];
+        return [];
+    }
+
+    public async Task<bool> UpdateLocationAsync(Guid id, UpdateEquipmentLocationRequest request)
+    {
+        var r = await api.PostAsJsonAsync($"api/equipment/{id}/location", request);
+        return r.IsSuccessStatusCode;
+    }
+
+    public async Task<bool> AssignToProjectAsync(Guid equipmentId, AssignEquipmentToProjectRequest request)
+    {
+        var r = await api.PostAsJsonAsync($"api/equipment/{equipmentId}/assign", request);
+        return r.IsSuccessStatusCode;
+    }
+
+    public async Task<bool> RemoveAssignmentAsync(Guid equipmentId, Guid assignmentId)
+    {
+        var r = await api.DeleteAsync($"api/equipment/{equipmentId}/assign/{assignmentId}");
+        return r.IsSuccessStatusCode;
+    }
+
+    public async Task<List<EquipmentTypeCategoryDto>> GetTypeCategoriesAsync()
+    {
+        var response = await api.GetAsync("api/equipment/type-categories");
+        if (response.IsSuccessStatusCode)
+            return await response.Content.ReadFromJsonAsync<List<EquipmentTypeCategoryDto>>() ?? [];
+        return [];
+    }
+
+    public async Task<bool> CreateTypeCategoryAsync(string name)
+    {
+        var response = await api.PostAsJsonAsync("api/equipment/type-categories",
+            new CreateEquipmentTypeCategoryRequest(name));
+        return response.IsSuccessStatusCode;
+    }
+
     private record IdResponse(Guid Id);
 }

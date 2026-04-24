@@ -1,13 +1,14 @@
 @page "/jobs/{Id:guid}"
 @attribute [Authorize]
 @inject JobService JobService
+@inject EquipmentService EquipmentService
 @inject NavigationManager Navigation
 @inject ISnackbar Snackbar
 
 <PageTitle>Solodoc - @(_job?.Description ?? "Oppdrag")</PageTitle>
 
 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-4">
-    <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Href="/jobs" />
+    <BackButton />
     <MudText Typo="Typo.h5">Oppdrag</MudText>
     @if (_job is not null)
     {
@@ -152,6 +153,65 @@ else
             </MudPaper>
         </MudItem>
     </MudGrid>
+
+    @* Utstyr section *@
+    <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;" Class="pa-4 mt-4">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
+            <MudText Typo="Typo.subtitle1" Style="font-weight:600;">Utstyr på oppdraget</MudText>
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+                       StartIcon="@Icons.Material.Filled.Add" OnClick="OpenAssignEquipment"
+                       Style="text-transform:none;border-radius:8px;">
+                Legg til utstyr
+            </MudButton>
+        </MudStack>
+
+        @if (_jobEquipment.Count == 0)
+        {
+            <MudText Typo="Typo.body2" Color="Color.Secondary">Ingen utstyr tilknyttet</MudText>
+        }
+        else
+        {
+            <MudSimpleTable Dense="true" Hover="true">
+                <thead><tr><th>Navn</th><th>Type</th><th>Reg.nr</th><th></th></tr></thead>
+                <tbody>
+                    @foreach (var eq in _jobEquipment)
+                    {
+                        <tr style="cursor:pointer;" @onclick="@(() => Navigation.NavigateTo($"/machines/{eq.Id}"))">
+                            <td><strong>@eq.Name</strong></td>
+                            <td>@(eq.Type ?? "—")</td>
+                            <td>@(eq.RegistrationNumber ?? "—")</td>
+                            <td style="text-align:right;">
+                                <MudIconButton Icon="@Icons.Material.Filled.OpenInNew" Size="Size.Small"
+                                               Href="@($"/machines/{eq.Id}")" Color="Color.Primary" />
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </MudSimpleTable>
+        }
+    </MudPaper>
+
+    @* Assign equipment dialog *@
+    <MudDialog @bind-Visible="_showAssignEquip" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true })">
+        <TitleContent><MudText Typo="Typo.h6">Legg til utstyr</MudText></TitleContent>
+        <DialogContent>
+            <MudSelect T="Guid?" @bind-Value="_assignEquipId" Label="Velg utstyr"
+                       Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true">
+                @foreach (var eq in _allEquipment.Where(e => !_jobEquipment.Any(je => je.Id == e.Id)))
+                {
+                    <MudSelectItem T="Guid?" Value="@eq.Id">@eq.Name @(eq.Type is not null ? $"({eq.Type})" : "")</MudSelectItem>
+                }
+            </MudSelect>
+        </DialogContent>
+        <DialogActions>
+            <MudButton OnClick="() => _showAssignEquip = false" Style="text-transform:none;">Avbryt</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="AssignEquipToJob"
+                       Disabled="!_assignEquipId.HasValue || _assigningEquip"
+                       Style="text-transform:none;border-radius:8px;">
+                @(_assigningEquip ? "Legger til..." : "Legg til")
+            </MudButton>
+        </DialogActions>
+    </MudDialog>
 }
 
 @code {
@@ -164,10 +224,49 @@ else
     private bool _addingPart;
     private string? _newPartName;
 
+    // Equipment
+    private List<Solodoc.Shared.Equipment.EquipmentListItemDto> _jobEquipment = [];
+    private List<Solodoc.Shared.Equipment.EquipmentListItemDto> _allEquipment = [];
+    private bool _showAssignEquip;
+    private Guid? _assignEquipId;
+    private bool _assigningEquip;
+
     protected override async Task OnInitializedAsync()
     {
         _job = await JobService.GetJobByIdAsync(Id);
+        try { _jobEquipment = await EquipmentService.GetEquipmentByJobAsync(Id); } catch { }
         _loading = false;
+    }
+
+    private async Task OpenAssignEquipment()
+    {
+        if (_allEquipment.Count == 0)
+            _allEquipment = await EquipmentService.GetEquipmentAsync();
+        _assignEquipId = null;
+        _showAssignEquip = true;
+    }
+
+    private async Task AssignEquipToJob()
+    {
+        if (!_assignEquipId.HasValue || _job is null) return;
+        _assigningEquip = true;
+        StateHasChanged();
+
+        var desc = _job.Description;
+        var ok = await EquipmentService.UpdateLocationAsync(_assignEquipId.Value,
+            new Solodoc.Shared.Equipment.UpdateEquipmentLocationRequest(null, Id, null, null, null, $"Oppdrag: {desc}"));
+
+        if (ok)
+        {
+            _showAssignEquip = false;
+            _jobEquipment = await EquipmentService.GetEquipmentByJobAsync(Id);
+            Snackbar.Add("Utstyr lagt til oppdraget", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add("Kunne ikke legge til utstyr", Severity.Error);
+        }
+        _assigningEquip = false;
     }
 
     private async Task OnStatusChanged(string newStatus)

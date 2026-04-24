@@ -3,6 +3,7 @@
 @inject LocationService LocationService
 @inject ChecklistService ChecklistService
 @inject DeviationService DeviationService
+@inject EquipmentService EquipmentService
 @inject NavigationManager Navigation
 @inject ISnackbar Snackbar
 @inject IJSRuntime JS
@@ -11,7 +12,7 @@
 <PageTitle>Solodoc - @(_location?.Name ?? "Lokasjon")</PageTitle>
 
 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-4">
-    <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Href="/locations" />
+    <BackButton />
     <MudText Typo="Typo.h5">@(_location?.Name ?? "Laster...")</MudText>
     @if (_location is not null)
     {
@@ -187,7 +188,44 @@ else
             }
         </MudTabPanel>
 
-        @* Old avvik tab removed — now at top *@
+        @* Utstyr tab *@
+        <MudTabPanel Text="Utstyr" Icon="@Icons.Material.Filled.Construction">
+            <div class="pa-4">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
+                    <MudText Typo="Typo.subtitle1" Style="font-weight:600;">Utstyr på lokasjonen</MudText>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small"
+                               StartIcon="@Icons.Material.Filled.Add" OnClick="OpenAssignEquipment"
+                               Style="text-transform:none;border-radius:8px;">
+                        Legg til utstyr
+                    </MudButton>
+                </MudStack>
+
+                @if (_locEquipment.Count == 0)
+                {
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Ingen utstyr tilknyttet</MudText>
+                }
+                else
+                {
+                    <MudSimpleTable Dense="true" Hover="true">
+                        <thead><tr><th>Navn</th><th>Type</th><th>Reg.nr</th><th></th></tr></thead>
+                        <tbody>
+                            @foreach (var eq in _locEquipment)
+                            {
+                                <tr style="cursor:pointer;" @onclick="@(() => Navigation.NavigateTo($"/machines/{eq.Id}"))">
+                                    <td><strong>@eq.Name</strong></td>
+                                    <td>@(eq.Type ?? "—")</td>
+                                    <td>@(eq.RegistrationNumber ?? "—")</td>
+                                    <td style="text-align:right;">
+                                        <MudIconButton Icon="@Icons.Material.Filled.OpenInNew" Size="Size.Small"
+                                                       Href="@($"/machines/{eq.Id}")" Color="Color.Primary" />
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </MudSimpleTable>
+                }
+            </div>
+        </MudTabPanel>
     </MudTabs>
 }
 
@@ -234,6 +272,28 @@ else
     </DialogActions>
 </MudDialog>
 
+@* Assign equipment dialog *@
+<MudDialog @bind-Visible="_showAssignEquip" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true })">
+    <TitleContent><MudText Typo="Typo.h6">Legg til utstyr</MudText></TitleContent>
+    <DialogContent>
+        <MudSelect T="Guid?" @bind-Value="_assignEquipId" Label="Velg utstyr"
+                   Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true">
+            @foreach (var eq in _allEquipment.Where(e => !_locEquipment.Any(le => le.Id == e.Id)))
+            {
+                <MudSelectItem T="Guid?" Value="@eq.Id">@eq.Name @(eq.Type is not null ? $"({eq.Type})" : "")</MudSelectItem>
+            }
+        </MudSelect>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => _showAssignEquip = false" Style="text-transform:none;">Avbryt</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="AssignEquipToLocation"
+                   Disabled="!_assignEquipId.HasValue || _assigningEquip"
+                   Style="text-transform:none;border-radius:8px;">
+            @(_assigningEquip ? "Legger til..." : "Legg til")
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
 @code {
     [Parameter] public Guid Id { get; set; }
 
@@ -244,6 +304,13 @@ else
     private List<ChecklistInstanceListItemDto> _instances = [];
     private bool _loading = true;
     private bool _loadingDeviations;
+
+    // Equipment
+    private List<Solodoc.Shared.Equipment.EquipmentListItemDto> _locEquipment = [];
+    private List<Solodoc.Shared.Equipment.EquipmentListItemDto> _allEquipment = [];
+    private bool _showAssignEquip;
+    private Guid? _assignEquipId;
+    private bool _assigningEquip;
     private int _tabIndex;
     private readonly DialogOptions _dlgOpts = new() { MaxWidth = MaxWidth.Small, FullWidth = true };
 
@@ -261,6 +328,8 @@ else
         var templatesTask = LocationService.GetLocationTemplatesAsync(Id);
         _location = await locTask;
         _assignedTemplates = await templatesTask;
+
+        try { _locEquipment = await EquipmentService.GetEquipmentByLocationAsync(Id); } catch { }
 
         _loading = false;
         _hasMap = !string.IsNullOrEmpty(_location?.Address);
@@ -388,5 +457,37 @@ else
             StateHasChanged();
         }
         else Snackbar.Add("Feil", Severity.Error);
+    }
+
+    // ── Equipment ──
+
+    private async Task OpenAssignEquipment()
+    {
+        if (_allEquipment.Count == 0)
+            _allEquipment = await EquipmentService.GetEquipmentAsync();
+        _assignEquipId = null;
+        _showAssignEquip = true;
+    }
+
+    private async Task AssignEquipToLocation()
+    {
+        if (!_assignEquipId.HasValue || _location is null) return;
+        _assigningEquip = true;
+        StateHasChanged();
+
+        var ok = await EquipmentService.UpdateLocationAsync(_assignEquipId.Value,
+            new Solodoc.Shared.Equipment.UpdateEquipmentLocationRequest(null, null, Id, null, null, _location.Name));
+
+        if (ok)
+        {
+            _showAssignEquip = false;
+            _locEquipment = await EquipmentService.GetEquipmentByLocationAsync(Id);
+            Snackbar.Add("Utstyr lagt til lokasjonen", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add("Kunne ikke legge til utstyr", Severity.Error);
+        }
+        _assigningEquip = false;
     }
 }

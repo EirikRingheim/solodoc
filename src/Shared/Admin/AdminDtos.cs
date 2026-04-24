@@ -129,3 +129,12 @@ public record ReportErrorRequest(
     string? AdditionalInfo);
 
 public record UpdateInvoiceStatusRequest(string Status);
+
+// ── Pay period ────────────────────────────────────────
+
+public record PayPeriodUpdateRequest(int StartDay);
+
+public record PayPeriodCurrentDto(
+    int StartDay,
+    string PeriodStart,
+    string PeriodEnd);

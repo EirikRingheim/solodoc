@@ -1,0 +1,107 @@
+@inject ApiHttpClient Api
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="flex-wrap">
+    <MudSelect T="string" Value="_preset" ValueChanged="OnPresetChanged" Label="Periode"
+               Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:220px;">
+        <MudSelectItem T="string" Value="@("current")">Inneværende lønnsperiode</MudSelectItem>
+        <MudSelectItem T="string" Value="@("previous")">Forrige lønnsperiode</MudSelectItem>
+        <MudSelectItem T="string" Value="@("thisMonth")">Denne måneden</MudSelectItem>
+        <MudSelectItem T="string" Value="@("lastMonth")">Forrige måned</MudSelectItem>
+        <MudSelectItem T="string" Value="@("thisYear")">I år</MudSelectItem>
+        <MudSelectItem T="string" Value="@("custom")">Egendefinert</MudSelectItem>
+    </MudSelect>
+    <MudDatePicker @bind-Date="FromDate" Label="Fra" DateFormat="dd.MM.yyyy"
+                   Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:160px;"
+                   PickerVariant="PickerVariant.Dialog" Disabled="@(_preset != "custom")" />
+    <MudDatePicker @bind-Date="ToDate" Label="Til" DateFormat="dd.MM.yyyy"
+                   Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:160px;"
+                   PickerVariant="PickerVariant.Dialog" Disabled="@(_preset != "custom")" />
+</MudStack>
+
+@code {
+    [Parameter] public DateTime? FromDate { get; set; }
+    [Parameter] public EventCallback<DateTime?> FromDateChanged { get; set; }
+    [Parameter] public DateTime? ToDate { get; set; }
+    [Parameter] public EventCallback<DateTime?> ToDateChanged { get; set; }
+
+    private string _preset = "thisMonth";
+    private int _payPeriodStartDay = 1;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Load tenant pay period config
+        try
+        {
+            var r = await Api.GetAsync("api/pay-periods/current");
+            if (r.IsSuccessStatusCode)
+            {
+                var data = await r.Content.ReadFromJsonAsync<PayPeriodResponse>();
+                if (data is not null)
+                    _payPeriodStartDay = data.StartDay;
+            }
+        }
+        catch { }
+
+        await ApplyPreset("thisMonth");
+    }
+
+    private async Task OnPresetChanged(string preset)
+    {
+        _preset = preset;
+        if (preset != "custom")
+            await ApplyPreset(preset);
+    }
+
+    private async Task ApplyPreset(string preset)
+    {
+        var today = DateTime.Today;
+        DateTime from, to;
+
+        switch (preset)
+        {
+            case "current":
+                (from, to) = GetPayPeriod(today, _payPeriodStartDay);
+                break;
+            case "previous":
+                var (curStart, _) = GetPayPeriod(today, _payPeriodStartDay);
+                (from, to) = GetPayPeriod(curStart.AddDays(-1), _payPeriodStartDay);
+                break;
+            case "thisMonth":
+                from = new DateTime(today.Year, today.Month, 1);
+                to = from.AddMonths(1).AddDays(-1);
+                break;
+            case "lastMonth":
+                from = new DateTime(today.Year, today.Month, 1).AddMonths(-1);
+                to = from.AddMonths(1).AddDays(-1);
+                break;
+            case "thisYear":
+                from = new DateTime(today.Year, 1, 1);
+                to = new DateTime(today.Year, 12, 31);
+                break;
+            default:
+                return;
+        }
+
+        FromDate = from;
+        ToDate = to;
+        await FromDateChanged.InvokeAsync(from);
+        await ToDateChanged.InvokeAsync(to);
+    }
+
+    private static (DateTime Start, DateTime End) GetPayPeriod(DateTime date, int startDay)
+    {
+        DateTime start;
+        if (date.Day >= startDay)
+            start = new DateTime(date.Year, date.Month, startDay);
+        else
+            start = new DateTime(date.Year, date.Month, 1).AddMonths(-1);
+
+        try { start = new DateTime(start.Year, start.Month, startDay); }
+        catch { start = new DateTime(start.Year, start.Month, 1); }
+
+        var end = start.AddMonths(1).AddDays(-1);
+        return (start, end);
+    }
+
+    private record PayPeriodResponse(int StartDay, string PeriodStart, string PeriodEnd);
+}

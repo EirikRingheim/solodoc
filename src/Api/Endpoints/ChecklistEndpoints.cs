@@ -40,6 +40,12 @@ public static class ChecklistEndpoints
         app.MapPost("/api/checklists/instances/batch-duplicate", BatchDuplicate).RequireAuthorization();
         app.MapDelete("/api/checklists/instances/{id:guid}", DeleteInstance).RequireAuthorization();
 
+        // Objects
+        app.MapGet("/api/checklists/objects", ListObjects).RequireAuthorization();
+        app.MapPost("/api/checklists/objects", CreateObject).RequireAuthorization();
+        app.MapPost("/api/checklists/objects/copy", CopyObject).RequireAuthorization();
+        app.MapDelete("/api/checklists/objects/{id:guid}", DeleteObject).RequireAuthorization();
+
         // Participants
         app.MapGet("/api/checklists/instances/{id:guid}/participants", GetParticipants).RequireAuthorization();
         app.MapPost("/api/checklists/instances/{id:guid}/participants", AddParticipant).RequireAuthorization();
@@ -638,7 +644,11 @@ public static class ChecklistEndpoints
                     && (ii.CheckValue != null || ii.Value != null || ii.IsIrrelevant)),
                 i.GroupId,
                 i.GroupPrefix,
-                i.GroupIndex))
+                i.GroupIndex,
+                i.ChecklistObjectId,
+                i.ChecklistObjectId != null
+                    ? db.ChecklistObjects.Where(o => o.Id == i.ChecklistObjectId).Select(o => o.Name + " " + o.Number).FirstOrDefault()
+                    : null))
             .ToListAsync(ct);
 
         return Results.Ok(instances);
@@ -855,6 +865,41 @@ public static class ChecklistEndpoints
         instance.Status = ChecklistInstanceStatus.Submitted;
         instance.SubmittedAt = DateTimeOffset.UtcNow;
         instance.SubmittedById = personId.Value;
+
+        // Notify project leader if checklist is tied to a project
+        if (instance.ProjectId.HasValue)
+        {
+            var templateName = await db.ChecklistTemplateVersions
+                .Where(v => v.Id == instance.TemplateVersionId)
+                .Select(v => v.ChecklistTemplate.Name)
+                .FirstOrDefaultAsync(ct) ?? "Sjekkliste";
+
+            var submitterName = await db.Persons.Where(p => p.Id == personId.Value)
+                .Select(p => p.FullName).FirstOrDefaultAsync(ct) ?? "";
+
+            // Find project leader(s) for this project's tenant
+            var projectTenantId = await db.Projects.Where(p => p.Id == instance.ProjectId.Value)
+                .Select(p => p.TenantId).FirstOrDefaultAsync(ct);
+
+            var leaders = await db.TenantMemberships
+                .Where(m => m.TenantId == projectTenantId
+                    && m.State == Domain.Enums.TenantMembershipState.Active
+                    && (m.Role == Domain.Enums.TenantRole.TenantAdmin || m.Role == Domain.Enums.TenantRole.ProjectLeader))
+                .Select(m => m.PersonId)
+                .ToListAsync(ct);
+
+            foreach (var leaderId in leaders.Where(l => l != personId.Value))
+            {
+                db.Notifications.Add(new Domain.Entities.Notifications.Notification
+                {
+                    PersonId = leaderId,
+                    Title = $"Sjekkliste innsendt: {templateName}",
+                    Message = $"{submitterName} har sendt inn «{templateName}» til godkjenning.",
+                    LinkUrl = $"/checklists/{id}/fill",
+                    Type = "checklist_submitted"
+                });
+            }
+        }
 
         await db.SaveChangesAsync(ct);
         return Results.Ok();
@@ -1408,7 +1453,7 @@ public static class ChecklistEndpoints
         Guid id, AddExternalChecklistParticipantRequest request, SolodocDbContext db, ITenantProvider tp, CancellationToken ct)
     {
         if (tp.TenantId is null) return Results.Unauthorized();
-        if (string.IsNullOrWhiteSpace(request.Name)) return Results.BadRequest(new { error = "Navn er pakrevd." });
+        if (string.IsNullOrWhiteSpace(request.Name)) return Results.BadRequest(new { error = "Navn er påkrevd." });
         var exists = await db.ChecklistInstances.AnyAsync(i => i.Id == id && i.TenantId == tp.TenantId.Value, ct);
         if (!exists) return Results.NotFound();
 
@@ -1432,6 +1477,147 @@ public static class ChecklistEndpoints
         var participant = await db.ChecklistParticipants.FirstOrDefaultAsync(p => p.Id == participantId && p.ChecklistInstanceId == id, ct);
         if (participant is null) return Results.NotFound();
         db.ChecklistParticipants.Remove(participant);
+        await db.SaveChangesAsync(ct);
+        return Results.NoContent();
+    }
+
+    // ── Objects ──
+
+    private static async Task<IResult> ListObjects(
+        SolodocDbContext db, ITenantProvider tp, CancellationToken ct,
+        Guid? projectId = null)
+    {
+        if (tp.TenantId is null) return Results.Unauthorized();
+        var query = db.ChecklistObjects.Where(o => o.TenantId == tp.TenantId.Value);
+        if (projectId.HasValue) query = query.Where(o => o.ProjectId == projectId.Value);
+
+        var objects = await query
+            .OrderBy(o => o.Name).ThenBy(o => o.Number)
+            .Select(o => new ChecklistObjectDto(
+                o.Id, o.Name, o.Number, o.Name + " " + o.Number, o.ProjectId,
+                db.ChecklistInstances.Count(i => i.ChecklistObjectId == o.Id && !i.IsDeleted),
+                db.ChecklistInstances.Count(i => i.ChecklistObjectId == o.Id && !i.IsDeleted
+                    && (i.Status == ChecklistInstanceStatus.Submitted || i.Status == ChecklistInstanceStatus.Approved)),
+                db.ChecklistInstances
+                    .Where(i => i.ChecklistObjectId == o.Id && !i.IsDeleted)
+                    .OrderBy(i => i.CreatedAt)
+                    .Select(i => new ObjectChecklistStatusDto(
+                        i.Id,
+                        db.ChecklistTemplateVersions.Where(v => v.Id == i.TemplateVersionId)
+                            .Select(v => v.ChecklistTemplate.Name).FirstOrDefault() ?? "",
+                        i.Status == ChecklistInstanceStatus.Submitted ? "Fullført"
+                            : i.Status == ChecklistInstanceStatus.Approved ? "Godkjent"
+                            : i.Status == ChecklistInstanceStatus.Draft ? "Påbegynt"
+                            : "Gjenåpnet",
+                        i.SubmittedAt))
+                    .ToList()))
+            .ToListAsync(ct);
+
+        return Results.Ok(objects);
+    }
+
+    private static async Task<IResult> CreateObject(
+        CreateChecklistObjectRequest request,
+        ClaimsPrincipal user, SolodocDbContext db, ITenantProvider tp, CancellationToken ct)
+    {
+        if (tp.TenantId is null) return Results.Unauthorized();
+        var personId = GetPersonId(user);
+        if (personId is null) return Results.Unauthorized();
+
+        var obj = new ChecklistObject
+        {
+            TenantId = tp.TenantId.Value,
+            ProjectId = request.ProjectId,
+            Name = request.Name,
+            Number = request.Number
+        };
+        db.ChecklistObjects.Add(obj);
+
+        // Link templates and create instances
+        var sort = 0;
+        foreach (var templateId in request.TemplateIds)
+        {
+            db.ChecklistObjectTemplates.Add(new ChecklistObjectTemplate
+            {
+                ChecklistObjectId = obj.Id,
+                TemplateId = templateId,
+                SortOrder = sort++
+            });
+
+            // Get latest published version
+            var versionId = await db.ChecklistTemplateVersions
+                .Where(v => v.ChecklistTemplateId == templateId)
+                .OrderByDescending(v => v.VersionNumber)
+                .Select(v => v.Id)
+                .FirstOrDefaultAsync(ct);
+
+            if (versionId != Guid.Empty)
+            {
+                var instance = new ChecklistInstance
+                {
+                    TenantId = tp.TenantId.Value,
+                    TemplateVersionId = versionId,
+                    ProjectId = request.ProjectId,
+                    ChecklistObjectId = obj.Id,
+                    StartedById = personId.Value,
+                    Status = ChecklistInstanceStatus.Draft
+                };
+                db.ChecklistInstances.Add(instance);
+
+                // Copy template items to instance
+                var items = await db.ChecklistTemplateItems
+                    .Where(i => i.TemplateVersionId == versionId)
+                    .OrderBy(i => i.SortOrder)
+                    .ToListAsync(ct);
+
+                foreach (var item in items)
+                {
+                    db.ChecklistInstanceItems.Add(new ChecklistInstanceItem
+                    {
+                        InstanceId = instance.Id,
+                        TemplateItemId = item.Id
+                    });
+                }
+            }
+        }
+
+        await db.SaveChangesAsync(ct);
+        return Results.Created($"/api/checklists/objects/{obj.Id}", new { id = obj.Id });
+    }
+
+    private static async Task<IResult> CopyObject(
+        CopyChecklistObjectRequest request,
+        ClaimsPrincipal user, SolodocDbContext db, ITenantProvider tp, CancellationToken ct)
+    {
+        if (tp.TenantId is null) return Results.Unauthorized();
+        var personId = GetPersonId(user);
+        if (personId is null) return Results.Unauthorized();
+
+        var source = await db.ChecklistObjects
+            .Include(o => o.Templates)
+            .FirstOrDefaultAsync(o => o.Id == request.SourceObjectId && o.TenantId == tp.TenantId.Value, ct);
+        if (source is null) return Results.NotFound();
+
+        // Auto-increment number if not specified
+        var newNumber = request.NewNumber ?? (await db.ChecklistObjects
+            .Where(o => o.ProjectId == source.ProjectId && o.Name == source.Name)
+            .MaxAsync(o => (int?)o.Number, ct) ?? 0) + 1;
+
+        var templateIds = source.Templates.OrderBy(t => t.SortOrder).Select(t => t.TemplateId).ToList();
+
+        // Reuse CreateObject logic
+        var createRequest = new CreateChecklistObjectRequest(source.ProjectId, source.Name, newNumber, templateIds);
+        return await CreateObject(createRequest, user, db, tp, ct);
+    }
+
+    private static async Task<IResult> DeleteObject(
+        Guid id, SolodocDbContext db, ITenantProvider tp, CancellationToken ct)
+    {
+        if (tp.TenantId is null) return Results.Unauthorized();
+        var obj = await db.ChecklistObjects.FirstOrDefaultAsync(o => o.Id == id && o.TenantId == tp.TenantId.Value, ct);
+        if (obj is null) return Results.NotFound();
+        obj.IsDeleted = true;
+        obj.DeletedAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync(ct);
         return Results.NoContent();
     }

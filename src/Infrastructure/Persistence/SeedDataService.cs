@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using Solodoc.Application.Auth;
 using Solodoc.Domain.Entities.Auth;
 using Solodoc.Domain.Entities.Deviations;
+using Solodoc.Domain.Entities.Equipment;
 using Solodoc.Domain.Entities.Help;
 using Solodoc.Domain.Entities.Projects;
 using Solodoc.Domain.Enums;
@@ -65,6 +66,40 @@ public class SeedDataService(
                     });
                 }
             }
+            // Ensure default equipment type categories exist for all tenants
+            foreach (var tid in tenantIds)
+            {
+                if (!await db.EquipmentTypeCategories.IgnoreQueryFilters().AnyAsync(c => c.TenantId == tid, ct))
+                {
+                    var eqTypes = new (string Name, int Sort)[]
+                    {
+                        ("Bil", 1), ("Lastebil", 2), ("Varebil", 3), ("Traktor", 4),
+                        ("Gravemaskin", 5), ("Hjullaster", 6), ("Lift", 7), ("Stillas", 8),
+                        ("Håndverktøy", 9), ("Elektroverktøy", 10), ("Måleinstrument", 11),
+                        ("Verneutstyr", 12), ("Tilhenger", 13), ("Generator", 14), ("Annet", 99)
+                    };
+                    foreach (var (name, sort) in eqTypes)
+                        db.EquipmentTypeCategories.Add(new EquipmentTypeCategory
+                            { TenantId = tid, Name = name, SortOrder = sort, IsDefault = true, IsActive = true });
+                    logger.LogInformation("Seeded default equipment type categories for tenant {TenantId}", tid);
+                }
+
+                if (!await db.DeviationCategories.IgnoreQueryFilters().AnyAsync(c => c.TenantId == tid, ct))
+                {
+                    var devCats = new (string Name, int Sort)[]
+                    {
+                        ("Personskade", 1), ("Nestenulykke", 2), ("Materiell skade", 3),
+                        ("Farlig tilstand", 4), ("Kvalitetsavvik", 5), ("Miljøavvik", 6),
+                        ("Sikkerhet", 7), ("Brann/eksplosjon", 8), ("Kjemikalie/gass", 9),
+                        ("Ergonomi", 10), ("Annet", 99)
+                    };
+                    foreach (var (name, sort) in devCats)
+                        db.DeviationCategories.Add(new DeviationCategory
+                            { TenantId = tid, Name = name, SortOrder = sort, IsDefault = true, IsActive = true });
+                    logger.LogInformation("Seeded default deviation categories for tenant {TenantId}", tid);
+                }
+            }
+
             await db.SaveChangesAsync(ct);
 
             logger.LogInformation("Seed data already exists, skipping");
@@ -760,10 +795,33 @@ public class SeedDataService(
             }
         }
 
+        // ── Default equipment type categories ──
+        var defaultEquipTypes = new[]
+        {
+            ("Bil", 1), ("Lastebil", 2), ("Varebil", 3), ("Traktor", 4),
+            ("Gravemaskin", 5), ("Hjullaster", 6), ("Lift", 7), ("Stillas", 8),
+            ("Håndverktøy", 9), ("Elektroverktøy", 10), ("Måleinstrument", 11),
+            ("Verneutstyr", 12), ("Tilhenger", 13), ("Generator", 14), ("Annet", 99)
+        };
+        foreach (var tid in new[] { tenant.Id, tenant2.Id })
+        {
+            foreach (var (name, sort) in defaultEquipTypes)
+            {
+                db.EquipmentTypeCategories.Add(new EquipmentTypeCategory
+                {
+                    TenantId = tid,
+                    Name = name,
+                    SortOrder = sort,
+                    IsDefault = true,
+                    IsActive = true
+                });
+            }
+        }
+
         await db.SaveChangesAsync(ct);
 
         logger.LogInformation(
-            "Seeded: 2 tenants, 2 users, 3 projects, 5 deviations, {HelpCount} help content entries, {CatCount} deviation categories",
-            helpContents.Count, defaultCategories.Length * 2);
+            "Seeded: 2 tenants, 2 users, 3 projects, 5 deviations, {HelpCount} help content entries, {CatCount} deviation categories, {EquipCount} equipment types",
+            helpContents.Count, defaultCategories.Length * 2, defaultEquipTypes.Length * 2);
     }
 }

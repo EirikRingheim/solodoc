@@ -63,8 +63,8 @@ public static class HelpContent
                 Tips = ["AI leser dokumentet og trekker ut sjekkpunktene", "Sjekk og juster i malbyggeren etterpå"] },
         ],
         "hms" => [
-            new() { Title = "HMS", Description = "Sikker jobb-analyse (SJA), vernerunder og HMS-moter — alt samlet.", Icon = Icons.Material.Filled.HealthAndSafety,
-                Tips = ["Opprett SJA for hvert nytt arbeidsomrade", "Legg til farer, tiltak og deltakere", "HMS-moter med aksjonsplan og referat"] },
+            new() { Title = "HMS", Description = "Sikker jobb-analyse (SJA), vernerunder og HMS-møter — alt samlet.", Icon = Icons.Material.Filled.HealthAndSafety,
+                Tips = ["Opprett SJA for hvert nytt arbeidsområde", "Legg til farer, tiltak og deltakere", "HMS-møter med aksjonsplan og referat"] },
         ],
         "locations" => [
             new() { Title = "Lokasjoner", Description = "Faste steder som kontor, lager og verksted. Koble sjekklister og avvik til lokasjoner.", Icon = Icons.Material.Filled.LocationOn,

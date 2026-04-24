@@ -7,7 +7,7 @@
 <PageTitle>Solodoc - @(_procedure?.Name ?? "Prosedyre")</PageTitle>
 
 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-4">
-    <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Href="/procedures" />
+    <BackButton />
     <MudText Typo="Typo.h5" Style="font-weight:700;">@(_procedure?.Name ?? "Laster...")</MudText>
     @if (_procedure?.Category is not null)
     {

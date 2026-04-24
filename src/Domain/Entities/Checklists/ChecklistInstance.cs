@@ -23,9 +23,11 @@ public class ChecklistInstance : TenantScopedEntity
     public Guid? GroupId { get; set; }         // Links duplicates together
     public string? GroupPrefix { get; set; }    // e.g. "Fundament"
     public int? GroupIndex { get; set; }        // e.g. 1, 2, 3...
+    public Guid? ChecklistObjectId { get; set; } // Links to a named object
 
     // Navigation properties
     public ChecklistTemplateVersion TemplateVersion { get; set; } = null!;
+    public ChecklistObject? ChecklistObject { get; set; }
     public ICollection<ChecklistInstanceItem> Items { get; set; } = new List<ChecklistInstanceItem>();
     public ICollection<ChecklistParticipant> Participants { get; set; } = [];
 }

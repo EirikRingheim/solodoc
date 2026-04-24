@@ -63,49 +63,7 @@ else
                 }
                 @foreach (var folder in _rootFolders)
                 {
-                    var capturedFolder = folder;
-                    var isActive = _currentFolderId == folder.Id;
-                    var isExpanded = _expandedFolders.Contains(folder.Id);
-                    <div>
-                        <div @onclick="() => OnFolderClick(capturedFolder)"
-                             style="@($"padding:6px 10px;border-radius:6px;cursor:pointer;margin-bottom:1px;display:flex;align-items:center;gap:6px;background:{(isActive ? "#EBF0FF" : "transparent")};font-weight:{(isActive ? "600" : "400")};")">
-                            @if (folder.SubFolderCount > 0)
-                            {
-                                <MudIcon Icon="@(isExpanded ? Icons.Material.Filled.ExpandMore : Icons.Material.Filled.ChevronRight)"
-                                         Size="Size.Small" Style="color:#9CA3AF;font-size:0.9rem;" />
-                            }
-                            else
-                            {
-                                <span style="width:18px;"></span>
-                            }
-                            <MudIcon Icon="@(isActive ? Icons.Material.Filled.FolderOpen : Icons.Material.Filled.Folder)"
-                                     Size="Size.Small" Style="@($"color:{(isActive ? "#4361EE" : "#6B7280")};font-size:1rem;")" />
-                            <span style="font-size:0.85rem;flex:1;">@folder.Name</span>
-                            @if (folder.DocumentCount > 0)
-                            {
-                                <span style="font-size:0.6rem;color:#9CA3AF;">@folder.DocumentCount</span>
-                            }
-                        </div>
-                        @* Subfolders (expanded) *@
-                        @if (isExpanded && _subFolders.TryGetValue(folder.Id, out var subs))
-                        {
-                            @foreach (var sub in subs)
-                            {
-                                var capturedSub = sub;
-                                var isSubActive = _currentFolderId == sub.Id;
-                                <div @onclick="() => OnFolderClick(capturedSub)"
-                                     style="@($"padding:5px 10px 5px 36px;border-radius:6px;cursor:pointer;margin-bottom:1px;display:flex;align-items:center;gap:6px;background:{(isSubActive ? "#EBF0FF" : "transparent")};font-weight:{(isSubActive ? "600" : "400")};")">
-                                    <MudIcon Icon="@(isSubActive ? Icons.Material.Filled.FolderOpen : Icons.Material.Filled.Folder)"
-                                             Size="Size.Small" Style="@($"color:{(isSubActive ? "#4361EE" : "#9CA3AF")};font-size:0.9rem;")" />
-                                    <span style="font-size:0.8rem;">@sub.Name</span>
-                                    @if (sub.DocumentCount > 0)
-                                    {
-                                        <span style="font-size:0.6rem;color:#9CA3AF;margin-left:auto;">@sub.DocumentCount</span>
-                                    }
-                                </div>
-                            }
-                        }
-                    </div>
+                    @RenderFolderTree(folder, 0)
                 }
             </MudPaper>
         </MudItem>
@@ -256,6 +214,43 @@ else
         _rootFolders = await DocumentService.GetFoldersAsync(projectId: ProjectId);
         _loading = false;
     }
+
+    private RenderFragment RenderFolderTree(DocumentFolderDto folder, int depth) => __builder =>
+    {
+        var f = folder;
+        var isActive = _currentFolderId == f.Id;
+        var isExpanded = _expandedFolders.Contains(f.Id);
+        var indent = 10 + depth * 18;
+
+        <div>
+            <div @onclick="() => OnFolderClick(f)"
+                 style="@($"padding:5px 10px 5px {indent}px;border-radius:6px;cursor:pointer;margin-bottom:1px;display:flex;align-items:center;gap:5px;background:{(isActive ? "#EBF0FF" : "transparent")};font-weight:{(isActive ? "600" : "400")};")">
+                @if (f.SubFolderCount > 0)
+                {
+                    <MudIcon Icon="@(isExpanded ? Icons.Material.Filled.ExpandMore : Icons.Material.Filled.ChevronRight)"
+                             Size="Size.Small" Style="color:#9CA3AF;font-size:0.85rem;" />
+                }
+                else
+                {
+                    <span style="width:16px;"></span>
+                }
+                <MudIcon Icon="@(isActive ? Icons.Material.Filled.FolderOpen : Icons.Material.Filled.Folder)"
+                         Size="Size.Small" Style="@($"color:{(isActive ? "#4361EE" : "#6B7280")};font-size:0.9rem;")" />
+                <span style="font-size:0.82rem;flex:1;">@f.Name</span>
+                @if (f.DocumentCount > 0)
+                {
+                    <span style="font-size:0.6rem;color:#9CA3AF;">@f.DocumentCount</span>
+                }
+            </div>
+            @if (isExpanded && _subFolders.TryGetValue(f.Id, out var subs))
+            {
+                @foreach (var sub in subs)
+                {
+                    @RenderFolderTree(sub, depth + 1)
+                }
+            }
+        </div>
+    };
 
     private async Task OnFolderClick(DocumentFolderDto folder)
     {

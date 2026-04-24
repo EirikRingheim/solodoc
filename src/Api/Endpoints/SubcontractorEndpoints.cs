@@ -225,7 +225,7 @@ public static class SubcontractorEndpoints
         if (person is null)
         {
             if (string.IsNullOrWhiteSpace(request.FullName) || string.IsNullOrWhiteSpace(request.Password))
-                return Results.BadRequest(new { error = "Navn og passord er pakrevd for nye brukere." });
+                return Results.BadRequest(new { error = "Navn og passord er påkrevd for nye brukere." });
 
             person = new Person
             {

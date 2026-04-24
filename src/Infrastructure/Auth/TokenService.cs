@@ -42,7 +42,7 @@ public class TokenService(IConfiguration configuration) : ITokenService
             claims.Add(new Claim("sa", "1"));
         }
 
-        var accessMinutes = int.Parse(configuration["Jwt:AccessTokenMinutes"] ?? "15");
+        var accessMinutes = int.Parse(configuration["Jwt:AccessTokenMinutes"] ?? "2880"); // 48 hours
 
         var token = new JwtSecurityToken(
             issuer: configuration["Jwt:Issuer"],

@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
 using Solodoc.Application.Common;
+using Solodoc.Application.Services;
 using Solodoc.Domain.Enums;
 using Solodoc.Infrastructure.Persistence;
 using Solodoc.Shared.Reports;
@@ -24,6 +25,58 @@ public static class ReportEndpoints
         app.MapGet("/api/reports/certifications/export", ExportCertificationsCsv).RequireAuthorization();
         app.MapGet("/api/reports/safety/export", ExportSafetyCsv).RequireAuthorization();
         app.MapGet("/api/reports/project/{id:guid}/personnel/export", ExportProjectPersonnelCsv).RequireAuthorization();
+
+        // Payroll Excel export
+        app.MapGet("/api/reports/payroll/export", async (
+            IExcelExportService excelService, ITenantProvider tp, CancellationToken ct,
+            string? from = null, string? to = null) =>
+        {
+            if (tp.TenantId is null) return Results.Unauthorized();
+            var fromDate = DateOnly.TryParse(from, out var fd) ? fd : DateOnly.FromDateTime(DateTimeOffset.UtcNow.AddDays(-30).UtcDateTime);
+            var toDate = DateOnly.TryParse(to, out var td) ? td : DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime);
+            var bytes = await excelService.GeneratePayrollExportAsync(tp.TenantId.Value, fromDate, toDate, ct);
+            return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"lonnseksport-{fromDate:yyyy-MM-dd}.xlsx");
+        }).RequireAuthorization();
+
+        // Generic Excel exports
+        app.MapGet("/api/reports/hours/export-excel", async (
+            IExcelExportService excelService, ITenantProvider tp, CancellationToken ct,
+            string? from = null, string? to = null, Guid? projectId = null, Guid? personId = null) =>
+        {
+            if (tp.TenantId is null) return Results.Unauthorized();
+            var fromDate = DateOnly.TryParse(from, out var fd) ? fd : DateOnly.FromDateTime(DateTimeOffset.UtcNow.AddDays(-30).UtcDateTime);
+            var toDate = DateOnly.TryParse(to, out var td) ? td : DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime);
+            var bytes = await excelService.GenerateHoursExportAsync(tp.TenantId.Value, fromDate, toDate, projectId, personId, ct);
+            return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "timer.xlsx");
+        }).RequireAuthorization();
+
+        app.MapGet("/api/reports/deviations/export-excel", async (
+            IExcelExportService excelService, ITenantProvider tp, CancellationToken ct,
+            string? from = null, string? to = null, string? severity = null, string? status = null, Guid? projectId = null) =>
+        {
+            if (tp.TenantId is null) return Results.Unauthorized();
+            var fromDate = DateOnly.TryParse(from, out var fd) ? fd : DateOnly.FromDateTime(DateTimeOffset.UtcNow.AddDays(-90).UtcDateTime);
+            var toDate = DateOnly.TryParse(to, out var td) ? td : DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime);
+            var bytes = await excelService.GenerateDeviationExportAsync(tp.TenantId.Value, fromDate, toDate, severity, status, projectId, ct);
+            return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "avvik.xlsx");
+        }).RequireAuthorization();
+
+        app.MapGet("/api/reports/certifications/export-excel", async (
+            IExcelExportService excelService, ITenantProvider tp, CancellationToken ct,
+            string? type = null, Guid? personId = null, string? status = null) =>
+        {
+            if (tp.TenantId is null) return Results.Unauthorized();
+            var bytes = await excelService.GenerateCertificationExportAsync(tp.TenantId.Value, type, personId, status, ct);
+            return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "sertifikater.xlsx");
+        }).RequireAuthorization();
+
+        app.MapGet("/api/reports/employee/{personId:guid}/export-excel", async (
+            Guid personId, IExcelExportService excelService, ITenantProvider tp, CancellationToken ct) =>
+        {
+            if (tp.TenantId is null) return Results.Unauthorized();
+            var bytes = await excelService.GenerateEmployeeExportAsync(tp.TenantId.Value, personId, ct);
+            return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "ansatt.xlsx");
+        }).RequireAuthorization();
 
         return app;
     }

@@ -11,7 +11,7 @@
 <PageTitle>Solodoc - Ny kvittering</PageTitle>
 
 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-4">
-    <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Href="/utlegg" />
+    <BackButton />
     <MudText Typo="Typo.h5" Style="font-weight:700;">Ny kvittering</MudText>
 </MudStack>
 
@@ -75,7 +75,7 @@
                        Label="@($"Kategori{(_settings?.RequireCategory == true ? " *" : "")}")"
                        Variant="Variant.Outlined" Clearable="true">
                 <MudSelectItem T="string" Value="@("Materialer")">Materialer</MudSelectItem>
-                <MudSelectItem T="string" Value="@("Verktoy")">Verktøy</MudSelectItem>
+                <MudSelectItem T="string" Value="@("Verktøy")">Verktøy</MudSelectItem>
                 <MudSelectItem T="string" Value="@("Mat")">Mat</MudSelectItem>
                 <MudSelectItem T="string" Value="@("Drivstoff")">Drivstoff</MudSelectItem>
                 <MudSelectItem T="string" Value="@("Kontor")">Kontor</MudSelectItem>

@@ -48,6 +48,8 @@ public class ExpenseService(ApiHttpClient api)
     public async Task<bool> ApproveExpenseAsync(Guid id) => (await api.PatchAsync($"api/expenses/{id}/approve")).IsSuccessStatusCode;
     public async Task<bool> RejectExpenseAsync(Guid id, string reason) => (await api.PatchAsJsonAsync($"api/expenses/{id}/reject", new { reason })).IsSuccessStatusCode;
     public async Task<bool> MarkExpensePaidAsync(Guid id) => (await api.PatchAsync($"api/expenses/{id}/mark-paid")).IsSuccessStatusCode;
+    public async Task<bool> UndoPaidAsync(Guid id) => (await api.PatchAsync($"api/expenses/{id}/undo-paid")).IsSuccessStatusCode;
+    public async Task<bool> UndoApproveAsync(Guid id) => (await api.PatchAsync($"api/expenses/{id}/undo-approve")).IsSuccessStatusCode;
     public async Task<bool> DeleteExpenseAsync(Guid id) => (await api.DeleteAsync($"api/expenses/{id}")).IsSuccessStatusCode;
 
     // ── Travel expenses ──

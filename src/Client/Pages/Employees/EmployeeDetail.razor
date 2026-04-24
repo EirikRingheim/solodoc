@@ -11,7 +11,7 @@
 <PageTitle>Solodoc - @(_employee?.FullName ?? "Ansatt")</PageTitle>
 
 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-4">
-    <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Href="/employees" />
+    <BackButton />
     <MudText Typo="Typo.h5">@(_employee?.FullName ?? "Laster...")</MudText>
     @if (_employee is not null)
     {

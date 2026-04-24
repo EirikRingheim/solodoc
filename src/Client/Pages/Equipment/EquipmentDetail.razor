@@ -1,11 +1,15 @@
 @page "/machines/{Id:guid}"
 @attribute [Authorize]
 @inject EquipmentService EquipmentService
+@inject ProjectService ProjectService
+@inject JobService JobService
+@inject LocationService LocationService
 @inject NavigationManager Navigation
 @inject ISnackbar Snackbar
+@inject IJSRuntime JS
 @inject IDialogService DialogService
 
-<PageTitle>Solodoc - Utstyr</PageTitle>
+<PageTitle>Solodoc - @(_equipment?.Name ?? "Utstyr")</PageTitle>
 
 @if (_loading)
 {
@@ -16,15 +20,12 @@ else if (_equipment is null)
     <MudStack AlignItems="AlignItems.Center" Spacing="2" Class="pa-8">
         <MudIcon Icon="@Icons.Material.Filled.Construction" Size="Size.Large" Color="Color.Secondary" />
         <MudText Typo="Typo.body1" Color="Color.Secondary">Utstyret ble ikke funnet</MudText>
-        <MudButton Variant="Variant.Text" Color="Color.Primary" Href="/machines"
-                   StartIcon="@Icons.Material.Filled.ArrowBack" Style="text-transform:none;">
-            Tilbake til maskinpark
-        </MudButton>
+        <BackButton />
     </MudStack>
 }
 else
 {
-    <MudButton Variant="Variant.Text" Color="Color.Default" Href="/machines"
+    <MudButton Variant="Variant.Text" Color="Color.Default" OnClick="@(async () => await JS.InvokeVoidAsync("eval", "history.back()"))"
                StartIcon="@Icons.Material.Filled.ArrowBack" Class="mb-2"
                Style="text-transform:none;">
         Tilbake
@@ -38,58 +39,206 @@ else
                      Style="height:22px;">
                 @(_equipment.IsActive ? "Aktiv" : "Inaktiv")
             </MudChip>
+            @if (!string.IsNullOrWhiteSpace(_equipment.CurrentProjectName))
+            {
+                <MudChip T="string" Size="Size.Small" Color="Color.Primary" Variant="Variant.Outlined"
+                         Style="height:22px;">
+                    @_equipment.CurrentProjectName
+                </MudChip>
+            }
         </MudStack>
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.Edit" OnClick="ToggleEdit"
+                   Style="text-transform:none;border-radius:8px;" Size="Size.Small">
+            @(_editing ? "Avbryt" : "Rediger")
+        </MudButton>
     </MudStack>
 
+    @* ── Info card / Edit form ── *@
     <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;" Class="pa-4 mb-4">
-        <MudGrid Spacing="3">
-            @if (!string.IsNullOrWhiteSpace(_equipment.Type))
-            {
-                <MudItem xs="12" sm="6" md="4">
+        @if (_editing)
+        {
+            <MudGrid Spacing="3">
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="_editName" Label="Navn" Required="true"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudSelect T="string" @bind-Value="_editType" Label="Type"
+                               Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true">
+                        @foreach (var cat in _typeCategories)
+                        {
+                            <MudSelectItem T="string" Value="@cat.Name">@cat.Name</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="_editRegNum" Label="Reg.nummer"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense" />
+                </MudItem>
+                <MudItem xs="12" sm="6">
+                    <MudTextField @bind-Value="_editSerialNum" Label="Serienummer"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense" />
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudNumericField @bind-Value="_editYear" Label="Årsmodell"
+                                     Variant="Variant.Outlined" Margin="Margin.Dense" />
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudTextField @bind-Value="_editMake" Label="Merke"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense" />
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudTextField @bind-Value="_editModel" Label="Modell"
+                                  Variant="Variant.Outlined" Margin="Margin.Dense" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveEdit"
+                               Disabled="_saving" Style="text-transform:none;border-radius:8px;">
+                        @(_saving ? "Lagrer..." : "Lagre endringer")
+                    </MudButton>
+                </MudItem>
+            </MudGrid>
+        }
+        else
+        {
+            <MudGrid Spacing="3">
+                <MudItem xs="6" sm="4">
                     <MudText Typo="Typo.caption" Color="Color.Secondary">Type</MudText>
-                    <MudText Typo="Typo.body1">@_equipment.Type</MudText>
+                    <MudText Typo="Typo.body1">@(_equipment.Type ?? "—")</MudText>
                 </MudItem>
-            }
-            @if (!string.IsNullOrWhiteSpace(_equipment.RegistrationNumber))
-            {
-                <MudItem xs="12" sm="6" md="4">
+                <MudItem xs="6" sm="4">
                     <MudText Typo="Typo.caption" Color="Color.Secondary">Reg.nummer</MudText>
-                    <MudText Typo="Typo.body1">@_equipment.RegistrationNumber</MudText>
+                    <MudText Typo="Typo.body1">@(_equipment.RegistrationNumber ?? "—")</MudText>
                 </MudItem>
-            }
-            @if (!string.IsNullOrWhiteSpace(_equipment.SerialNumber))
-            {
-                <MudItem xs="12" sm="6" md="4">
+                <MudItem xs="6" sm="4">
                     <MudText Typo="Typo.caption" Color="Color.Secondary">Serienummer</MudText>
-                    <MudText Typo="Typo.body1">@_equipment.SerialNumber</MudText>
+                    <MudText Typo="Typo.body1">@(_equipment.SerialNumber ?? "—")</MudText>
                 </MudItem>
-            }
-            @if (_equipment.Year.HasValue)
-            {
-                <MudItem xs="12" sm="6" md="4">
-                    <MudText Typo="Typo.caption" Color="Color.Secondary">Arsmodell</MudText>
-                    <MudText Typo="Typo.body1">@_equipment.Year</MudText>
+                <MudItem xs="6" sm="4">
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">Årsmodell</MudText>
+                    <MudText Typo="Typo.body1">@(_equipment.Year?.ToString() ?? "—")</MudText>
                 </MudItem>
-            }
-            @if (!string.IsNullOrWhiteSpace(_equipment.Make))
-            {
-                <MudItem xs="12" sm="6" md="4">
+                <MudItem xs="6" sm="4">
                     <MudText Typo="Typo.caption" Color="Color.Secondary">Merke</MudText>
-                    <MudText Typo="Typo.body1">@_equipment.Make</MudText>
+                    <MudText Typo="Typo.body1">@(_equipment.Make ?? "—")</MudText>
                 </MudItem>
-            }
-            @if (!string.IsNullOrWhiteSpace(_equipment.Model))
-            {
-                <MudItem xs="12" sm="6" md="4">
+                <MudItem xs="6" sm="4">
                     <MudText Typo="Typo.caption" Color="Color.Secondary">Modell</MudText>
-                    <MudText Typo="Typo.body1">@_equipment.Model</MudText>
+                    <MudText Typo="Typo.body1">@(_equipment.Model ?? "—")</MudText>
                 </MudItem>
-            }
-        </MudGrid>
+            </MudGrid>
+        }
     </MudPaper>
 
+    @* ── Tabs ── *@
     <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;overflow:hidden;">
         <MudTabs Rounded="false" ApplyEffectsToContainer="true" PanelClass="pa-4">
+            @* Prosjekt / Plassering *@
+            <MudTabPanel Text="Plassering" Icon="@Icons.Material.Filled.Place">
+
+                @* Current location *@
+                @if (!string.IsNullOrWhiteSpace(_equipment.LocationDescription) || !string.IsNullOrWhiteSpace(_equipment.CurrentProjectName))
+                {
+                    <MudAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true" Class="mb-4">
+                        <strong>Nåværende plassering:</strong>
+                        @(_equipment.CurrentProjectName ?? _equipment.LocationDescription ?? "Ukjent")
+                        @if (!string.IsNullOrWhiteSpace(_equipment.LocationDescription) && !string.IsNullOrWhiteSpace(_equipment.CurrentProjectName))
+                        {
+                            <span> — @_equipment.LocationDescription</span>
+                        }
+                    </MudAlert>
+                }
+
+                @* Move to section *@
+                <MudText Typo="Typo.subtitle1" Style="font-weight:600;" Class="mb-3">Flytt utstyr</MudText>
+
+                <MudStack Spacing="3" Class="mb-4">
+                    <MudSelect T="string" @bind-Value="_moveTarget" Label="Flytt til" Variant="Variant.Outlined"
+                               Margin="Margin.Dense" Style="max-width:250px;">
+                        <MudSelectItem T="string" Value="@("project")">Prosjekt</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("job")">Oppdrag</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("location")">Lokasjon</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("custom")">Annet sted</MudSelectItem>
+                    </MudSelect>
+
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                        @if (_moveTarget == "project")
+                        {
+                            <MudSelect T="Guid?" @bind-Value="_moveToId" Label="Velg prosjekt"
+                                       Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true" Style="flex:1;max-width:350px;">
+                                @foreach (var p in _projects)
+                                {
+                                    <MudSelectItem T="Guid?" Value="@p.Id">@p.Name</MudSelectItem>
+                                }
+                            </MudSelect>
+                        }
+                        else if (_moveTarget == "job")
+                        {
+                            <MudSelect T="Guid?" @bind-Value="_moveToId" Label="Velg oppdrag"
+                                       Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true" Style="flex:1;max-width:350px;">
+                                @foreach (var j in _jobs)
+                                {
+                                    <MudSelectItem T="Guid?" Value="@j.Id">@j.Description</MudSelectItem>
+                                }
+                            </MudSelect>
+                        }
+                        else if (_moveTarget == "location")
+                        {
+                            <MudSelect T="Guid?" @bind-Value="_moveToId" Label="Velg lokasjon"
+                                       Variant="Variant.Outlined" Margin="Margin.Dense" Clearable="true" Style="flex:1;max-width:350px;">
+                                @foreach (var l in _locations)
+                                {
+                                    <MudSelectItem T="Guid?" Value="@l.Id">@l.Name</MudSelectItem>
+                                }
+                            </MudSelect>
+                        }
+                        else if (_moveTarget == "custom")
+                        {
+                            <MudTextField T="string" @bind-Value="_moveCustomLocation" Label="Beskriv sted"
+                                          Variant="Variant.Outlined" Margin="Margin.Dense" Style="flex:1;max-width:350px;"
+                                          Placeholder="F.eks. Firmaets verksted, Lageret" />
+                        }
+
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="MoveEquipment"
+                                   Disabled="@IsMoveDisabled()"
+                                   Style="text-transform:none;border-radius:8px;">
+                            @(_movingEquipment ? "Flytter..." : "Flytt hit")
+                        </MudButton>
+                    </MudStack>
+                </MudStack>
+
+                @* Assignment history *@
+                <MudText Typo="Typo.subtitle1" Style="font-weight:600;" Class="mb-2 mt-4">Historikk</MudText>
+                @if (_equipment.Assignments.Count == 0)
+                {
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">Ingen tildelinger registrert</MudText>
+                }
+                else
+                {
+                    <MudSimpleTable Dense="true" Hover="true">
+                        <thead>
+                            <tr>
+                                <th>Sted</th>
+                                <th>Fra</th>
+                                <th>Til</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var a in _equipment.Assignments)
+                            {
+                                <tr>
+                                    <td>@a.ProjectName</td>
+                                    <td>@a.AssignedFrom.ToString("dd.MM.yyyy")</td>
+                                    <td>@(a.AssignedTo?.ToString("dd.MM.yyyy") ?? "Pågående")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </MudSimpleTable>
+                }
+            </MudTabPanel>
+
+            @* Vedlikehold *@
             <MudTabPanel Text="Vedlikehold" Icon="@Icons.Material.Filled.Build">
                 <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
                     <MudText Typo="Typo.subtitle1" Style="font-weight:600;">Vedlikeholdslogg</MudText>
@@ -111,7 +260,7 @@ else
                 }
                 else
                 {
-                    <MudSimpleTable Dense="true" Hover="true" Bordered="false">
+                    <MudSimpleTable Dense="true" Hover="true">
                         <thead>
                             <tr>
                                 <th>Dato</th>
@@ -134,11 +283,6 @@ else
                     </MudSimpleTable>
                 }
             </MudTabPanel>
-            <MudTabPanel Text="Info" Icon="@Icons.Material.Filled.Info">
-                <MudText Typo="Typo.body2" Color="Color.Secondary">
-                    Detaljert informasjon om utstyret vises ovenfor. Bruk redigeringsfunksjonen for å oppdatere.
-                </MudText>
-            </MudTabPanel>
         </MudTabs>
     </MudPaper>
 }
@@ -147,12 +291,138 @@ else
     [Parameter] public Guid Id { get; set; }
 
     private EquipmentDetailDto? _equipment;
+    private List<Solodoc.Shared.Equipment.EquipmentTypeCategoryDto> _typeCategories = [];
+    private List<Solodoc.Shared.Projects.ProjectListItemDto> _projects = [];
+    private List<Solodoc.Shared.Projects.JobListItemDto> _jobs = [];
+    private List<Solodoc.Shared.Locations.LocationListItemDto> _locations = [];
     private bool _loading = true;
+
+    // Edit state
+    private bool _editing;
+    private bool _saving;
+    private string _editName = "";
+    private string? _editType;
+    private string? _editRegNum;
+    private string? _editSerialNum;
+    private int? _editYear;
+    private string? _editMake;
+    private string? _editModel;
+
+    // Move state
+    private string _moveTarget = "project";
+    private Guid? _moveToId;
+    private string? _moveCustomLocation;
+    private bool _movingEquipment;
 
     protected override async Task OnInitializedAsync()
     {
-        _equipment = await EquipmentService.GetEquipmentByIdAsync(Id);
+        var eqTask = EquipmentService.GetEquipmentByIdAsync(Id);
+        var projTask = ProjectService.GetProjectsAsync(1, 100, null, null, false);
+        var catTask = EquipmentService.GetTypeCategoriesAsync();
+        var jobTask = JobService.GetJobsAsync(1, 100, null, null, false);
+        var locTask = LocationService.GetLocationsAsync();
+
+        _equipment = await eqTask;
+        try { _projects = (await projTask).Items; } catch { }
+        try { _typeCategories = await catTask; } catch { }
+        try { _jobs = (await jobTask).Items; } catch { }
+        try { _locations = await locTask; } catch { }
+
         _loading = false;
+    }
+
+    private void ToggleEdit()
+    {
+        if (!_editing && _equipment is not null)
+        {
+            _editName = _equipment.Name;
+            _editType = _equipment.Type;
+            _editRegNum = _equipment.RegistrationNumber;
+            _editSerialNum = _equipment.SerialNumber;
+            _editYear = _equipment.Year;
+            _editMake = _equipment.Make;
+            _editModel = _equipment.Model;
+        }
+        _editing = !_editing;
+    }
+
+    private async Task SaveEdit()
+    {
+        if (string.IsNullOrWhiteSpace(_editName)) return;
+        _saving = true;
+
+        var request = new CreateEquipmentRequest(
+            _editName, _editType, _editRegNum, _editSerialNum, _editYear, _editMake, _editModel);
+        var ok = await EquipmentService.UpdateEquipmentAsync(Id, request);
+
+        if (ok)
+        {
+            _equipment = await EquipmentService.GetEquipmentByIdAsync(Id);
+            _editing = false;
+            Snackbar.Add("Utstyr oppdatert", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add("Kunne ikke lagre", Severity.Error);
+        }
+        _saving = false;
+    }
+
+    private bool IsMoveDisabled() =>
+        _movingEquipment || (_moveTarget == "custom"
+            ? string.IsNullOrWhiteSpace(_moveCustomLocation)
+            : !_moveToId.HasValue);
+
+    private async Task MoveEquipment()
+    {
+        _movingEquipment = true;
+        StateHasChanged();
+
+        bool ok;
+        string locationDesc;
+
+        if (_moveTarget == "custom")
+        {
+            locationDesc = _moveCustomLocation ?? "";
+            ok = await EquipmentService.UpdateLocationAsync(Id,
+                new UpdateEquipmentLocationRequest(null, null, null, null, null, locationDesc));
+        }
+        else if (_moveTarget == "project" && _moveToId.HasValue)
+        {
+            locationDesc = _projects.FirstOrDefault(p => p.Id == _moveToId.Value)?.Name ?? "";
+            ok = await EquipmentService.AssignToProjectAsync(Id,
+                new AssignEquipmentToProjectRequest(_moveToId.Value, DateOnly.FromDateTime(DateTime.Today), null));
+        }
+        else if (_moveTarget == "job" && _moveToId.HasValue)
+        {
+            locationDesc = _jobs.FirstOrDefault(j => j.Id == _moveToId.Value)?.Description ?? "";
+            ok = await EquipmentService.UpdateLocationAsync(Id,
+                new UpdateEquipmentLocationRequest(null, _moveToId.Value, null, null, null, $"Oppdrag: {locationDesc}"));
+        }
+        else if (_moveTarget == "location" && _moveToId.HasValue)
+        {
+            locationDesc = _locations.FirstOrDefault(l => l.Id == _moveToId.Value)?.Name ?? "";
+            ok = await EquipmentService.UpdateLocationAsync(Id,
+                new UpdateEquipmentLocationRequest(null, null, _moveToId.Value, null, null, locationDesc));
+        }
+        else
+        {
+            _movingEquipment = false;
+            return;
+        }
+
+        if (ok)
+        {
+            _equipment = await EquipmentService.GetEquipmentByIdAsync(Id);
+            _moveToId = null;
+            _moveCustomLocation = null;
+            Snackbar.Add("Utstyr flyttet", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add("Kunne ikke flytte utstyr", Severity.Error);
+        }
+        _movingEquipment = false;
     }
 
     private async Task OpenAddMaintenanceDialog()

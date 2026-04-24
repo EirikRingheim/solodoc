@@ -404,7 +404,7 @@ public static class CheckInEndpoints
         CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(request.Name))
-            return Results.BadRequest(new { error = "Navn er pakrevd." });
+            return Results.BadRequest(new { error = "Navn er påkrevd." });
 
         // Find the site by slug
         Guid? projectId = null, jobId = null, locationId = null;

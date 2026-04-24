@@ -19,7 +19,8 @@ public record ExpenseDetailDto(
     string ReceiptFileKey, string Status,
     string? ApprovedByName, DateTimeOffset? ApprovedAt,
     string? PaidByName, DateTimeOffset? PaidAt,
-    string? RejectionReason);
+    string? RejectionReason,
+    DateTimeOffset UpdatedAt = default);
 
 public record CreateExpenseRequest(
     DateOnly? Date, decimal Amount,

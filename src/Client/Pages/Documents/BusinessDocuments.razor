@@ -1,0 +1,366 @@
+@page "/bedriftsdokumenter"
+@attribute [Authorize]
+@inject ApiHttpClient Api
+@inject ProjectService ProjectService
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
+
+<PageTitle>Solodoc - Bedriftsdokumentasjon</PageTitle>
+
+<MudText Typo="Typo.h5" Class="mb-4">Bedriftsdokumentasjon</MudText>
+
+<MudTabs Elevation="0" Rounded="true" PanelClass="pa-0 pt-4" Border="true"
+         Style="border:1px solid #E9ECEF;border-radius:12px;">
+
+    @* Endringsmelding *@
+    <MudTabPanel Text="Endringsmelding" Icon="@Icons.Material.Filled.ChangeCircle">
+        <div class="pa-4">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
+                <MudText Typo="Typo.subtitle1" Style="font-weight:600;">Endringsmeldinger</MudText>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                           StartIcon="@Icons.Material.Filled.Add" OnClick="@(() => OpenCreateDialog("Endringsmelding"))"
+                           Style="text-transform:none;border-radius:8px;">
+                    Ny endringsmelding
+                </MudButton>
+            </MudStack>
+            @RenderDocumentList("Endringsmelding")
+        </div>
+    </MudTabPanel>
+
+    @* Avfallshåndtering *@
+    <MudTabPanel Text="Avfallshåndtering" Icon="@Icons.Material.Filled.DeleteSweep">
+        <div class="pa-4">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
+                <MudText Typo="Typo.subtitle1" Style="font-weight:600;">Avfallslogg</MudText>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                           StartIcon="@Icons.Material.Filled.Add" OnClick="@(() => OpenCreateDialog("Avfallshaandtering"))"
+                           Style="text-transform:none;border-radius:8px;">
+                    Ny avfallslogg
+                </MudButton>
+            </MudStack>
+            @RenderDocumentList("Avfallshaandtering")
+        </div>
+    </MudTabPanel>
+
+    @* HMS-håndbok *@
+    <MudTabPanel Text="HMS-håndbok" Icon="@Icons.Material.Filled.HealthAndSafety">
+        <div class="pa-4">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
+                <div>
+                    <MudText Typo="Typo.subtitle1" Style="font-weight:600;">HMS-håndbok</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                        Oppdateres automatisk med bedriftens HMS-data
+                    </MudText>
+                </div>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                           StartIcon="@Icons.Material.Filled.PictureAsPdf"
+                           OnClick="@(() => ExportHmsHandbook())"
+                           Style="text-transform:none;border-radius:8px;">
+                    Eksporter PDF
+                </MudButton>
+            </MudStack>
+
+            <MudGrid Spacing="2" Class="mb-4">
+                <MudItem xs="6" sm="3">
+                    <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:10px;" Class="pa-3 text-center">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">SJA-er utført</MudText>
+                        <MudText Typo="Typo.h5" Style="font-weight:700;color:#4361EE;">@_hmsStats.SjaCount</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="6" sm="3">
+                    <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:10px;" Class="pa-3 text-center">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Avvik behandlet</MudText>
+                        <MudText Typo="Typo.h5" Style="font-weight:700;">@_hmsStats.DeviationsClosed</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="6" sm="3">
+                    <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:10px;" Class="pa-3 text-center">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">Vernerunder</MudText>
+                        <MudText Typo="Typo.h5" Style="font-weight:700;">@_hmsStats.SafetyRounds</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="6" sm="3">
+                    <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:10px;" Class="pa-3 text-center">
+                        <MudText Typo="Typo.caption" Color="Color.Secondary">HMS-møter</MudText>
+                        <MudText Typo="Typo.h5" Style="font-weight:700;">@_hmsStats.HmsMeetings</MudText>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+
+            <MudText Typo="Typo.body2" Color="Color.Secondary">
+                Håndboken inneholder: sertifikatoversikt, gjennomførte SJA-er,
+                avviksstatistikk, vernerunder, HMS-møter og publiserte prosedyrer.
+                Eksporter som PDF for å dele med kunder eller myndigheter.
+            </MudText>
+        </div>
+    </MudTabPanel>
+
+    @* Referanseprosjekter *@
+    <MudTabPanel Text="Referanseprosjekter" Icon="@Icons.Material.Filled.WorkHistory">
+        <div class="pa-4">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
+                <div>
+                    <MudText Typo="Typo.subtitle1" Style="font-weight:600;">Referanseprosjekter</MudText>
+                    <MudText Typo="Typo.caption" Color="Color.Secondary">
+                        Portefølje av fullførte prosjekter
+                    </MudText>
+                </div>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                           StartIcon="@Icons.Material.Filled.PictureAsPdf"
+                           OnClick="@(() => ExportReferencePortfolio())"
+                           Style="text-transform:none;border-radius:8px;">
+                    Eksporter PDF
+                </MudButton>
+            </MudStack>
+
+            @if (_completedProjects.Count == 0)
+            {
+                <MudText Typo="Typo.body2" Color="Color.Secondary">Ingen fullførte prosjekter ennå</MudText>
+            }
+            else
+            {
+                <MudSimpleTable Dense="true" Hover="true">
+                    <thead><tr><th>Prosjekt</th><th>Kunde</th><th>Periode</th><th>Timer</th></tr></thead>
+                    <tbody>
+                        @foreach (var p in _completedProjects)
+                        {
+                            <tr>
+                                <td><strong>@p.Name</strong></td>
+                                <td>@(p.ClientName ?? "—")</td>
+                                <td>@(p.StartDate?.ToString("MM/yyyy") ?? "—")</td>
+                                <td>@p.TotalHours.ToString("N0")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </MudSimpleTable>
+            }
+        </div>
+    </MudTabPanel>
+
+    @* Rutiner *@
+    <MudTabPanel Text="Rutiner" Icon="@Icons.Material.Filled.MenuBook">
+        <div class="pa-4">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-3">
+                <MudText Typo="Typo.subtitle1" Style="font-weight:600;">Rutinedokumenter</MudText>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small"
+                           StartIcon="@Icons.Material.Filled.Add" OnClick="@(() => OpenCreateDialog("Rutiner"))"
+                           Style="text-transform:none;border-radius:8px;">
+                    Nytt rutinedokument
+                </MudButton>
+            </MudStack>
+            @RenderDocumentList("Rutiner")
+        </div>
+    </MudTabPanel>
+</MudTabs>
+
+@* Create dialog *@
+<MudDialog @bind-Visible="_showCreate" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true })">
+    <TitleContent>
+        <MudText Typo="Typo.h6">@GetCreateTitle()</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudStack Spacing="3">
+            <MudTextField @bind-Value="_newTitle" Label="Tittel" Variant="Variant.Outlined" Required="true" />
+            <MudSelect T="Guid?" @bind-Value="_newProjectId" Label="Prosjekt (valgfritt)" Clearable="true"
+                       Variant="Variant.Outlined">
+                @foreach (var p in _projects)
+                {
+                    <MudSelectItem T="Guid?" Value="@p.Id">@p.Name</MudSelectItem>
+                }
+            </MudSelect>
+
+            @if (_createType == "Endringsmelding")
+            {
+                <MudTextField @bind-Value="_changeDesc" Label="Beskrivelse av endring" Lines="3"
+                              Variant="Variant.Outlined" />
+                <MudTextField @bind-Value="_changeReason" Label="Årsak til endring" Lines="2"
+                              Variant="Variant.Outlined" />
+                <MudNumericField @bind-Value="_changeCost" Label="Kostnadspåvirkning (kr)"
+                                 Variant="Variant.Outlined" />
+                <MudNumericField @bind-Value="_changeScheduleDays" Label="Tidskonsekvens (dager)"
+                                 Variant="Variant.Outlined" />
+            }
+        </MudStack>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="() => _showCreate = false" Style="text-transform:none;">Avbryt</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="CreateDocument"
+                   Disabled="string.IsNullOrWhiteSpace(_newTitle) || _creating"
+                   Style="text-transform:none;border-radius:8px;">
+            @(_creating ? "Oppretter..." : "Opprett")
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    private List<DocItem> _documents = [];
+    private List<Solodoc.Shared.Projects.ProjectListItemDto> _projects = [];
+    private List<RefProject> _completedProjects = [];
+    private HmsStatsData _hmsStats = new(0, 0, 0, 0);
+    private bool _loading = true;
+
+    // Create dialog
+    private bool _showCreate;
+    private bool _creating;
+    private string? _createType;
+    private string _newTitle = "";
+    private Guid? _newProjectId;
+    private string? _changeDesc;
+    private string? _changeReason;
+    private decimal? _changeCost;
+    private int? _changeScheduleDays;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var docsTask = LoadDocuments();
+        try
+        {
+            var allProjects = (await ProjectService.GetProjectsAsync(1, 100, null, null, false)).Items;
+            _projects = allProjects;
+            _completedProjects = allProjects
+                .Where(p => p.Status is "Fullført" or "Ferdig")
+                .Select(p => new RefProject(p.Name, p.ClientName, p.StartDate, 0))
+                .ToList();
+        }
+        catch { }
+
+        // Load HMS stats
+        try
+        {
+            var r = await Api.GetAsync("api/reports/safety?from=2020-01-01&to=2030-12-31");
+            if (r.IsSuccessStatusCode)
+            {
+                var data = await r.Content.ReadFromJsonAsync<HmsStatsData>();
+                if (data is not null) _hmsStats = data;
+            }
+        }
+        catch { }
+
+        await docsTask;
+        _loading = false;
+    }
+
+    private Task ExportHmsHandbook()
+    {
+        Snackbar.Add("HMS-håndbok PDF-generering er under utvikling", Severity.Info);
+        return Task.CompletedTask;
+    }
+
+    private Task ExportReferencePortfolio()
+    {
+        Snackbar.Add("Referanseprosjekter PDF-generering er under utvikling", Severity.Info);
+        return Task.CompletedTask;
+    }
+
+    private async Task LoadDocuments()
+    {
+        var r = await Api.GetAsync("api/business-documents");
+        if (r.IsSuccessStatusCode)
+            _documents = await r.Content.ReadFromJsonAsync<List<DocItem>>() ?? [];
+    }
+
+    private RenderFragment RenderDocumentList(string type) => __builder =>
+    {
+        var filtered = _documents.Where(d => string.Equals(d.DocumentType, type, StringComparison.OrdinalIgnoreCase)).ToList();
+        if (filtered.Count == 0)
+        {
+            <MudText Typo="Typo.body2" Color="Color.Secondary">Ingen dokumenter opprettet ennå</MudText>
+            return;
+        }
+
+        <MudSimpleTable Dense="true" Hover="true">
+            <thead><tr><th>Tittel</th><th>Prosjekt</th><th>Status</th><th>Opprettet</th></tr></thead>
+            <tbody>
+                @foreach (var doc in filtered)
+                {
+                    <tr>
+                        <td><strong>@doc.Title</strong></td>
+                        <td>@(doc.ProjectName ?? "—")</td>
+                        <td>
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                                     Color="@(doc.Status == "Published" ? Color.Success : Color.Default)"
+                                     Style="height:22px;">
+                                @(doc.Status == "Published" ? "Publisert" : "Utkast")
+                            </MudChip>
+                        </td>
+                        <td>@doc.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy")</td>
+                    </tr>
+                }
+            </tbody>
+        </MudSimpleTable>
+    };
+
+    private void OpenCreateDialog(string type)
+    {
+        _createType = type;
+        _newTitle = type switch
+        {
+            "Endringsmelding" => "Endringsmelding",
+            "Avfallshaandtering" => "Avfallslogg",
+            "HmsHaandbok" => "HMS-håndbok " + DateTime.Today.Year,
+            "Referanseprosjekter" => "Referanseprosjekter " + DateTime.Today.Year,
+            "Rutiner" => "",
+            _ => ""
+        };
+        _newProjectId = null;
+        _changeDesc = null;
+        _changeReason = null;
+        _changeCost = null;
+        _changeScheduleDays = null;
+        _showCreate = true;
+    }
+
+    private string GetCreateTitle() => _createType switch
+    {
+        "Endringsmelding" => "Ny endringsmelding",
+        "Avfallshaandtering" => "Ny avfallslogg",
+        "HmsHaandbok" => "Generer HMS-håndbok",
+        "Referanseprosjekter" => "Generer referanseoversikt",
+        "Rutiner" => "Nytt rutinedokument",
+        _ => "Nytt dokument"
+    };
+
+    private async Task CreateDocument()
+    {
+        if (string.IsNullOrWhiteSpace(_newTitle)) return;
+        _creating = true;
+        StateHasChanged();
+
+        string? contentJson = null;
+        if (_createType == "Endringsmelding")
+        {
+            contentJson = System.Text.Json.JsonSerializer.Serialize(new
+            {
+                description = _changeDesc,
+                reason = _changeReason,
+                costImpact = _changeCost,
+                scheduleImpactDays = _changeScheduleDays
+            });
+        }
+
+        var r = await Api.PostAsJsonAsync("api/business-documents",
+            new { documentType = _createType, title = _newTitle, projectId = _newProjectId, contentJson });
+
+        if (r.IsSuccessStatusCode)
+        {
+            _showCreate = false;
+            await LoadDocuments();
+            Snackbar.Add("Dokument opprettet", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add("Kunne ikke opprette dokument", Severity.Error);
+        }
+        _creating = false;
+    }
+
+    private record DocItem(Guid Id, string DocumentType, string Title, Guid? ProjectId,
+        string? ProjectName, string Status, DateTimeOffset CreatedAt, string? GeneratedPdfKey);
+    private record HmsStatsData(int SjaCount, int SafetyRoundsCompleted, int HmsMeetingsHeld, int IncidentReports)
+    {
+        public int DeviationsClosed => IncidentReports;
+        public int SafetyRounds => SafetyRoundsCompleted;
+        public int HmsMeetings => HmsMeetingsHeld;
+    }
+    private record RefProject(string Name, string? ClientName, DateOnly? StartDate, decimal TotalHours);
+}

@@ -1006,7 +1006,7 @@ public class PdfReportService(SolodocDbContext db, ILogger<PdfReportService> log
                             if (equipment.Model is not null)
                                 left.Item().Text(t => { t.Span("Modell: ").SemiBold(); t.Span(equipment.Model); });
                             if (equipment.Year.HasValue)
-                                left.Item().Text(t => { t.Span("Arsmodell: ").SemiBold(); t.Span(equipment.Year.Value.ToString()); });
+                                left.Item().Text(t => { t.Span("Årsmodell: ").SemiBold(); t.Span(equipment.Year.Value.ToString()); });
                         });
                         row.RelativeItem().Column(right =>
                         {

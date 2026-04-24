@@ -258,6 +258,10 @@ namespace Solodoc.Infrastructure.Persistence.Migrations
                         .HasColumnType("text")
                         .HasColumnName("description");
 
+                    b.Property<string>("FeatureFlagOverrides")
+                        .HasColumnType("text")
+                        .HasColumnName("feature_flag_overrides");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean")
                         .HasColumnName("is_deleted");
@@ -283,6 +287,10 @@ namespace Solodoc.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("updated_at");
+
+                    b.Property<string>("VisibleModules")
+                        .HasColumnType("text")
+                        .HasColumnName("visible_modules");
 
                     b.HasKey("Id")
                         .HasName("pk_custom_roles");
@@ -693,6 +701,10 @@ namespace Solodoc.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
+                    b.Property<int>("DefaultPayPeriodStartDay")
+                        .HasColumnType("integer")
+                        .HasColumnName("default_pay_period_start_day");
+
                     b.Property<string>("DefaultTimeZoneId")
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)")
@@ -709,6 +721,10 @@ namespace Solodoc.Infrastructure.Persistence.Migrations
                     b.Property<string>("EnabledModules")
                         .HasColumnType("text")
                         .HasColumnName("enabled_modules");
+
+                    b.Property<string>("FeatureFlags")
+                        .HasColumnType("text")
+                        .HasColumnName("feature_flags");
 
                     b.Property<DateTimeOffset?>("FrozenAt")
                         .HasColumnType("timestamp with time zone")
@@ -1515,6 +1531,10 @@ namespace Solodoc.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("approved_by_id");
 
+                    b.Property<Guid?>("ChecklistObjectId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("checklist_object_id");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -1606,6 +1626,9 @@ namespace Solodoc.Infrastructure.Persistence.Migrations
                     b.HasKey("Id")
                         .HasName("pk_checklist_instances");
 
+                    b.HasIndex("ChecklistObjectId")
+                        .HasDatabaseName("ix_checklist_instances_checklist_object_id");
+
                     b.HasIndex("ProjectId")
                         .HasDatabaseName("ix_checklist_instances_project_id");
 
@@ -1695,6 +1718,114 @@ namespace Solodoc.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_checklist_instance_items_instance_id");
 
                     b.ToTable("checklist_instance_items", (string)null);
+                });
+
+            modelBuilder.Entity("Solodoc.Domain.Entities.Checklists.ChecklistObject", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("deleted_by");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_deleted");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("name");
+
+                    b.Property<int>("Number")
+                        .HasColumnType("integer")
+                        .HasColumnName("number");
+
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("project_id");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_checklist_objects");
+
+                    b.HasIndex("ProjectId")
+                        .HasDatabaseName("ix_checklist_objects_project_id");
+
+                    b.HasIndex("ProjectId", "Name", "Number")
+                        .HasDatabaseName("ix_checklist_objects_project_id_name_number");
+
+                    b.ToTable("checklist_objects", (string)null);
+                });
+
+            modelBuilder.Entity("Solodoc.Domain.Entities.Checklists.ChecklistObjectTemplate", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("ChecklistObjectId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("checklist_object_id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("deleted_by");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_deleted");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.Property<Guid>("TemplateId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("template_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_checklist_object_templates");
+
+                    b.HasIndex("ChecklistObjectId")
+                        .HasDatabaseName("ix_checklist_object_templates_checklist_object_id");
+
+                    b.HasIndex("TemplateId")
+                        .HasDatabaseName("ix_checklist_object_templates_template_id");
+
+                    b.ToTable("checklist_object_templates", (string)null);
                 });
 
             modelBuilder.Entity("Solodoc.Domain.Entities.Checklists.ChecklistParticipant", b =>
@@ -3020,6 +3151,85 @@ namespace Solodoc.Infrastructure.Persistence.Migrations
                     b.ToTable("related_deviations", (string)null);
                 });
 
+            modelBuilder.Entity("Solodoc.Domain.Entities.Documents.BusinessDocument", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("ContentJson")
+                        .HasColumnType("text")
+                        .HasColumnName("content_json");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid>("CreatedById")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by_id");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("deleted_by");
+
+                    b.Property<int>("DocumentType")
+                        .HasColumnType("integer")
+                        .HasColumnName("document_type");
+
+                    b.Property<DateTimeOffset?>("GeneratedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("generated_at");
+
+                    b.Property<string>("GeneratedPdfKey")
+                        .HasColumnType("text")
+                        .HasColumnName("generated_pdf_key");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_deleted");
+
+                    b.Property<Guid?>("ProjectId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("project_id");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("status");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("title");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_business_documents");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_business_documents_tenant_id");
+
+                    b.HasIndex("TenantId", "DocumentType")
+                        .HasDatabaseName("ix_business_documents_tenant_id_document_type");
+
+                    b.ToTable("business_documents", (string)null);
+                });
+
             modelBuilder.Entity("Solodoc.Domain.Entities.Documents.Document", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3171,6 +3381,70 @@ namespace Solodoc.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_document_folders_tenant_id_project_id");
 
                     b.ToTable("document_folders", (string)null);
+                });
+
+            modelBuilder.Entity("Solodoc.Domain.Entities.Documents.WasteDisposalEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid>("BusinessDocumentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("business_document_id");
+
+                    b.Property<int>("Category")
+                        .HasColumnType("integer")
+                        .HasColumnName("category");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("deleted_by");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text")
+                        .HasColumnName("description");
+
+                    b.Property<string>("DisposalMethod")
+                        .HasColumnType("text")
+                        .HasColumnName("disposal_method");
+
+                    b.Property<DateOnly>("DisposedAt")
+                        .HasColumnType("date")
+                        .HasColumnName("disposed_at");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_deleted");
+
+                    b.Property<string>("ReceiptFileKey")
+                        .HasColumnType("text")
+                        .HasColumnName("receipt_file_key");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<decimal?>("WeightKg")
+                        .HasColumnType("numeric")
+                        .HasColumnName("weight_kg");
+
+                    b.HasKey("Id")
+                        .HasName("pk_waste_disposal_entries");
+
+                    b.HasIndex("BusinessDocumentId")
+                        .HasDatabaseName("ix_waste_disposal_entries_business_document_id");
+
+                    b.ToTable("waste_disposal_entries", (string)null);
                 });
 
             modelBuilder.Entity("Solodoc.Domain.Entities.Employees.EmployeeCertification", b =>
@@ -3563,6 +3837,18 @@ namespace Solodoc.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
+                    b.Property<Guid?>("CurrentJobId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("current_job_id");
+
+                    b.Property<Guid?>("CurrentLocationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("current_location_id");
+
+                    b.Property<Guid?>("CurrentProjectId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("current_project_id");
+
                     b.Property<DateTimeOffset?>("DeletedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("deleted_at");
@@ -3578,6 +3864,18 @@ namespace Solodoc.Infrastructure.Persistence.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean")
                         .HasColumnName("is_deleted");
+
+                    b.Property<double?>("Latitude")
+                        .HasColumnType("double precision")
+                        .HasColumnName("latitude");
+
+                    b.Property<string>("LocationDescription")
+                        .HasColumnType("text")
+                        .HasColumnName("location_description");
+
+                    b.Property<double?>("Longitude")
+                        .HasColumnType("double precision")
+                        .HasColumnName("longitude");
 
                     b.Property<string>("Make")
                         .HasMaxLength(200)
@@ -3822,6 +4120,68 @@ namespace Solodoc.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_equipment_project_assignments_project_id");
 
                     b.ToTable("equipment_project_assignments", (string)null);
+                });
+
+            modelBuilder.Entity("Solodoc.Domain.Entities.Equipment.EquipmentTypeCategory", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("deleted_at");
+
+                    b.Property<Guid?>("DeletedBy")
+                        .HasColumnType("uuid")
+                        .HasColumnName("deleted_by");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
+                    b.Property<bool>("IsDefault")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_default");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_deleted");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("name");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tenant_id");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_equipment_type_categories");
+
+                    b.HasIndex("TenantId", "Name")
+                        .IsUnique()
+                        .HasDatabaseName("ix_equipment_type_categories_tenant_id_name");
+
+                    b.HasIndex("TenantId", "SortOrder")
+                        .HasDatabaseName("ix_equipment_type_categories_tenant_id_sort_order");
+
+                    b.ToTable("equipment_type_categories", (string)null);
                 });
 
             modelBuilder.Entity("Solodoc.Domain.Entities.Expenses.Expense", b =>
@@ -7720,12 +8080,19 @@ namespace Solodoc.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("Solodoc.Domain.Entities.Checklists.ChecklistInstance", b =>
                 {
+                    b.HasOne("Solodoc.Domain.Entities.Checklists.ChecklistObject", "ChecklistObject")
+                        .WithMany("Instances")
+                        .HasForeignKey("ChecklistObjectId")
+                        .HasConstraintName("fk_checklist_instances_checklist_objects_checklist_object_id");
+
                     b.HasOne("Solodoc.Domain.Entities.Checklists.ChecklistTemplateVersion", "TemplateVersion")
                         .WithMany()
                         .HasForeignKey("TemplateVersionId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_checklist_instances_checklist_template_versions_template_ve");
+
+                    b.Navigation("ChecklistObject");
 
                     b.Navigation("TemplateVersion");
                 });
@@ -7740,6 +8107,27 @@ namespace Solodoc.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_checklist_instance_items_checklist_instances_instance_id");
 
                     b.Navigation("Instance");
+                });
+
+            modelBuilder.Entity("Solodoc.Domain.Entities.Checklists.ChecklistObjectTemplate", b =>
+                {
+                    b.HasOne("Solodoc.Domain.Entities.Checklists.ChecklistObject", "Object")
+                        .WithMany("Templates")
+                        .HasForeignKey("ChecklistObjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_checklist_object_templates_checklist_objects_checklist_obje");
+
+                    b.HasOne("Solodoc.Domain.Entities.Checklists.ChecklistTemplate", "Template")
+                        .WithMany()
+                        .HasForeignKey("TemplateId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_checklist_object_templates_checklist_templates_template_id");
+
+                    b.Navigation("Object");
+
+                    b.Navigation("Template");
                 });
 
             modelBuilder.Entity("Solodoc.Domain.Entities.Checklists.ChecklistParticipant", b =>
@@ -7951,6 +8339,18 @@ namespace Solodoc.Infrastructure.Persistence.Migrations
                         .HasConstraintName("fk_document_folders_document_folders_parent_folder_id");
 
                     b.Navigation("ParentFolder");
+                });
+
+            modelBuilder.Entity("Solodoc.Domain.Entities.Documents.WasteDisposalEntry", b =>
+                {
+                    b.HasOne("Solodoc.Domain.Entities.Documents.BusinessDocument", "Document")
+                        .WithMany("WasteEntries")
+                        .HasForeignKey("BusinessDocumentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_waste_disposal_entries_business_documents_business_document");
+
+                    b.Navigation("Document");
                 });
 
             modelBuilder.Entity("Solodoc.Domain.Entities.Equipment.EquipmentInspection", b =>
@@ -8395,6 +8795,13 @@ namespace Solodoc.Infrastructure.Persistence.Migrations
                     b.Navigation("Participants");
                 });
 
+            modelBuilder.Entity("Solodoc.Domain.Entities.Checklists.ChecklistObject", b =>
+                {
+                    b.Navigation("Instances");
+
+                    b.Navigation("Templates");
+                });
+
             modelBuilder.Entity("Solodoc.Domain.Entities.Checklists.ChecklistTemplateVersion", b =>
                 {
                     b.Navigation("Items");
@@ -8423,6 +8830,11 @@ namespace Solodoc.Infrastructure.Persistence.Migrations
                     b.Navigation("RelatedDeviations");
 
                     b.Navigation("VisibleTo");
+                });
+
+            modelBuilder.Entity("Solodoc.Domain.Entities.Documents.BusinessDocument", b =>
+                {
+                    b.Navigation("WasteEntries");
                 });
 
             modelBuilder.Entity("Solodoc.Domain.Entities.Documents.DocumentFolder", b =>
