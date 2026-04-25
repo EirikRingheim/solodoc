@@ -212,44 +212,38 @@
         string filename;
         string contentType;
 
-        if (_selectedFormat == "excel")
+        // All exports use CSV — Excel available only for endpoints that have -excel variant
+        var isExcel = _selectedFormat == "excel";
+        contentType = "text/csv";
+        var ext = ".csv";
+
+        (url, filename) = _selectedType switch
         {
+            "timer" when isExcel => (Fmt("api/reports/hours/export-excel", from, to, personParam), "timer.xlsx"),
+            "timer" => (Fmt("api/reports/hours/export", from, to, personParam), "timer.csv"),
+            "utlegg" when isExcel => (Fmt("api/reports/expenses/export-excel", from, to), "utlegg.xlsx"),
+            "utlegg" => (Fmt("api/reports/expenses/export", from, to), "utlegg.csv"),
+            "avvik" when isExcel => (Fmt("api/reports/deviations/export-excel", from, to), "avvik.xlsx"),
+            "avvik" => (Fmt("api/reports/deviations/export", from, to), "avvik.csv"),
+            "sertifikater" when isExcel => ($"api/reports/certifications/export-excel?" +
+                (!string.IsNullOrEmpty(_certTypeFilter) ? $"type={Uri.EscapeDataString(_certTypeFilter)}&" : "") +
+                (_selectedPersonIds.Count == 1 ? $"personId={_selectedPersonIds.First()}" : ""), "sertifikater.xlsx"),
+            "sertifikater" => ($"api/reports/certifications/export?" +
+                (!string.IsNullOrEmpty(_certTypeFilter) ? $"type={Uri.EscapeDataString(_certTypeFilter)}&" : "") +
+                (_selectedPersonIds.Count == 1 ? $"personId={_selectedPersonIds.First()}" : ""), "sertifikater.csv"),
+            "hms" => (Fmt("api/reports/safety/export", from, to), "hms.csv"),
+            "personell" when _selectedPersonIds.Count == 1 && isExcel =>
+                ($"api/reports/employee/{_selectedPersonIds.First()}/export-excel", "ansatt.xlsx"),
+            "personell" when isExcel => (Fmt("api/reports/payroll/export", from, to), "lønnseksport.xlsx"),
+            "personell" => (Fmt("api/reports/hours/export", from, to), "personell.csv"),
+            "innsjekking" => (Fmt("api/reports/hours/export", from, to), "innsjekking.csv"),  // TODO: dedicated endpoint
+            "kontakter" => (Fmt("api/reports/certifications/export", "", ""), "kontakter.csv"),  // TODO: dedicated endpoint
+            "sjekklister" => (Fmt("api/reports/hours/export", from, to), "sjekklister.csv"),  // TODO: dedicated endpoint
+            _ => (Fmt("api/reports/hours/export", from, to), "eksport.csv"),
+        };
+
+        if (isExcel && filename.EndsWith(".xlsx"))
             contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
-            (url, filename) = _selectedType switch
-            {
-                "timer" => ($"api/reports/hours/export-excel?from={from}&to={to}{personParam}" +
-                    (_projectFilter.HasValue ? $"&projectId={_projectFilter}" : ""), "timer.xlsx"),
-                "utlegg" => ($"api/reports/expenses/export-excel?from={from}&to={to}", "utlegg.xlsx"),
-                "avvik" => ($"api/reports/deviations/export-excel?from={from}&to={to}" +
-                    (_projectFilter.HasValue ? $"&projectId={_projectFilter}" : ""), "avvik.xlsx"),
-                "sertifikater" => ($"api/reports/certifications/export-excel?" +
-                    (!string.IsNullOrEmpty(_certTypeFilter) ? $"type={Uri.EscapeDataString(_certTypeFilter)}&" : "") +
-                    (_selectedPersonIds.Count == 1 ? $"personId={_selectedPersonIds.First()}" : ""), "sertifikater.xlsx"),
-                "personell" when _selectedPersonIds.Count == 1 =>
-                    ($"api/reports/employee/{_selectedPersonIds.First()}/export-excel", "ansatt.xlsx"),
-                "hms" => ($"api/reports/safety/export?from={from}&to={to}", "hms.csv"),
-                "innsjekking" => ($"api/checkin/log/export?from={from}&to={to}", "innsjekking.csv"),
-                "kontakter" => ($"api/contacts/export?from={from}&to={to}", "kontakter.csv"),
-                _ => ($"api/reports/payroll/export?from={from}&to={to}", "eksport.xlsx"),
-            };
-        }
-        else
-        {
-            contentType = "text/csv";
-            (url, filename) = _selectedType switch
-            {
-                "timer" => ($"api/reports/hours/export?from={from}&to={to}{personParam}" +
-                    (_projectFilter.HasValue ? $"&projectId={_projectFilter}" : ""), "timer.csv"),
-                "utlegg" => ($"api/reports/expenses/export?from={from}&to={to}", "utlegg.csv"),
-                "avvik" => ($"api/reports/deviations/export?from={from}&to={to}", "avvik.csv"),
-                "sertifikater" => ($"api/reports/certifications/export?" +
-                    (!string.IsNullOrEmpty(_certTypeFilter) ? $"type={Uri.EscapeDataString(_certTypeFilter)}&" : ""), "sertifikater.csv"),
-                "hms" => ($"api/reports/safety/export?from={from}&to={to}", "hms.csv"),
-                "innsjekking" => ($"api/checkin/log/export?from={from}&to={to}", "innsjekking.csv"),
-                "kontakter" => ($"api/contacts/export", "kontakter.csv"),
-                _ => ($"api/reports/hours/export?from={from}&to={to}", "eksport.csv"),
-            };
-        }
 
         var r = await Api.GetAsync(url);
         if (r.IsSuccessStatusCode)
@@ -266,6 +260,14 @@
         }
 
         _exporting = false;
+    }
+
+    private string Fmt(string baseUrl, string from, string to, string extra = "")
+    {
+        var url = $"{baseUrl}?from={from}&to={to}";
+        if (_projectFilter.HasValue) url += $"&projectId={_projectFilter}";
+        if (!string.IsNullOrEmpty(extra)) url += extra;
+        return url;
     }
 
     private record DataTypeDef(string Key, string Name, string Icon);
