@@ -140,8 +140,10 @@ desktop.ini
 
 # EXCEPTIONS: allow specific checked-in assets
 !src/Client/wwwroot/favicon.ico
+!src/Client/wwwroot/favicon.png
 !src/Client/wwwroot/icon-*.png
 !src/Client/wwwroot/images/**
+!landing/*.png
 !docs/**/*.png
 !docs/**/*.svg
 
