@@ -219,6 +219,7 @@
             {
                 "timer" => ($"api/reports/hours/export-excel?from={from}&to={to}{personParam}" +
                     (_projectFilter.HasValue ? $"&projectId={_projectFilter}" : ""), "timer.xlsx"),
+                "utlegg" => ($"api/reports/expenses/export-excel?from={from}&to={to}", "utlegg.xlsx"),
                 "avvik" => ($"api/reports/deviations/export-excel?from={from}&to={to}" +
                     (_projectFilter.HasValue ? $"&projectId={_projectFilter}" : ""), "avvik.xlsx"),
                 "sertifikater" => ($"api/reports/certifications/export-excel?" +
@@ -227,6 +228,8 @@
                 "personell" when _selectedPersonIds.Count == 1 =>
                     ($"api/reports/employee/{_selectedPersonIds.First()}/export-excel", "ansatt.xlsx"),
                 "hms" => ($"api/reports/safety/export?from={from}&to={to}", "hms.csv"),
+                "innsjekking" => ($"api/checkin/log/export?from={from}&to={to}", "innsjekking.csv"),
+                "kontakter" => ($"api/contacts/export?from={from}&to={to}", "kontakter.csv"),
                 _ => ($"api/reports/payroll/export?from={from}&to={to}", "eksport.xlsx"),
             };
         }
@@ -237,10 +240,13 @@
             {
                 "timer" => ($"api/reports/hours/export?from={from}&to={to}{personParam}" +
                     (_projectFilter.HasValue ? $"&projectId={_projectFilter}" : ""), "timer.csv"),
+                "utlegg" => ($"api/reports/expenses/export?from={from}&to={to}", "utlegg.csv"),
                 "avvik" => ($"api/reports/deviations/export?from={from}&to={to}", "avvik.csv"),
                 "sertifikater" => ($"api/reports/certifications/export?" +
                     (!string.IsNullOrEmpty(_certTypeFilter) ? $"type={Uri.EscapeDataString(_certTypeFilter)}&" : ""), "sertifikater.csv"),
                 "hms" => ($"api/reports/safety/export?from={from}&to={to}", "hms.csv"),
+                "innsjekking" => ($"api/checkin/log/export?from={from}&to={to}", "innsjekking.csv"),
+                "kontakter" => ($"api/contacts/export", "kontakter.csv"),
                 _ => ($"api/reports/hours/export?from={from}&to={to}", "eksport.csv"),
             };
         }

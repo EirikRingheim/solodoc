@@ -26,6 +26,19 @@ public static class ReportEndpoints
         app.MapGet("/api/reports/safety/export", ExportSafetyCsv).RequireAuthorization();
         app.MapGet("/api/reports/project/{id:guid}/personnel/export", ExportProjectPersonnelCsv).RequireAuthorization();
 
+        // Expense exports
+        app.MapGet("/api/reports/expenses/export", ExportExpensesCsv).RequireAuthorization();
+        app.MapGet("/api/reports/expenses/export-excel", async (
+            IExcelExportService excelService, ITenantProvider tp, CancellationToken ct,
+            string? from = null, string? to = null, string? status = null) =>
+        {
+            if (tp.TenantId is null) return Results.Unauthorized();
+            var fromDate = DateOnly.TryParse(from, out var fd) ? fd : DateOnly.FromDateTime(DateTimeOffset.UtcNow.AddDays(-30).UtcDateTime);
+            var toDate = DateOnly.TryParse(to, out var td) ? td : DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime);
+            var bytes = await excelService.GenerateExpenseExportAsync(tp.TenantId.Value, fromDate, toDate, status, ct);
+            return Results.File(bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "utlegg.xlsx");
+        }).RequireAuthorization();
+
         // Payroll Excel export
         app.MapGet("/api/reports/payroll/export", async (
             IExcelExportService excelService, ITenantProvider tp, CancellationToken ct,
@@ -702,6 +715,39 @@ public static class ReportEndpoints
                 csv.AppendLine($"HMS-mote,\"{m.Title}\",{m.Date:dd.MM.yyyy},\"{m.Location ?? ""}\",,,");
 
         return Results.File(ToCsvBytes(csv), "text/csv; charset=utf-8", $"hms-eksport.csv");
+    }
+
+    private static async Task<IResult> ExportExpensesCsv(
+        SolodocDbContext db, ITenantProvider tp, CancellationToken ct,
+        string? from = null, string? to = null, string? status = null)
+    {
+        if (tp.TenantId is null) return Results.Unauthorized();
+        var tenantId = tp.TenantId.Value;
+        var fromDate = DateOnly.TryParse(from, out var fd) ? fd : DateOnly.FromDateTime(DateTimeOffset.UtcNow.AddDays(-30).UtcDateTime);
+        var toDate = DateOnly.TryParse(to, out var td) ? td : DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime);
+
+        var query = db.Expenses.Where(e => e.TenantId == tenantId && e.Date >= fromDate && e.Date <= toDate);
+        if (!string.IsNullOrEmpty(status) && Enum.TryParse<Domain.Enums.ExpenseStatus>(status, true, out var s))
+            query = query.Where(e => e.Status == s);
+
+        var items = await query.OrderBy(e => e.Date)
+            .Select(e => new { e.PersonId, e.Date, e.Amount, e.Category, e.Status, e.Description, e.ProjectId })
+            .ToListAsync(ct);
+
+        var pIds = items.Select(e => e.PersonId).Distinct().ToList();
+        var persons = await db.Persons.Where(p => pIds.Contains(p.Id)).ToDictionaryAsync(p => p.Id, p => p.FullName, ct);
+        var projIds = items.Where(e => e.ProjectId.HasValue).Select(e => e.ProjectId!.Value).Distinct().ToList();
+        var projects = projIds.Count > 0 ? await db.Projects.Where(p => projIds.Contains(p.Id)).ToDictionaryAsync(p => p.Id, p => p.Name, ct) : new();
+
+        var csv = new System.Text.StringBuilder();
+        csv.AppendLine("Ansatt,Dato,Beløp,Kategori,Status,Beskrivelse,Prosjekt");
+        foreach (var e in items)
+        {
+            persons.TryGetValue(e.PersonId, out var name);
+            var proj = e.ProjectId.HasValue && projects.TryGetValue(e.ProjectId.Value, out var pn) ? pn : "";
+            csv.AppendLine($"\"{name}\",{e.Date:dd.MM.yyyy},{e.Amount:N2},{e.Category},{e.Status},\"{e.Description ?? ""}\",\"{proj}\"");
+        }
+        return Results.File(ToCsvBytes(csv), "text/csv; charset=utf-8", "utlegg-eksport.csv");
     }
 
     private static async Task<IResult> ExportProjectPersonnelCsv(
