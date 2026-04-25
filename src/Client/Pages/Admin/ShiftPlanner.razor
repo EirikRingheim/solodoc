@@ -131,7 +131,7 @@ else
                     {
                         var isWe = date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday;
                         var isTd = date == DateOnly.FromDateTime(DateTime.Today);
-                        <th style="padding:3px;text-align:center;font-size:0.65rem;font-weight:@(isWe ? "400" : "500");color:@(isWe ? "#9CA3AF" : "#374151");@(isTd ? "background:#EBF0FF;border-radius:4px;" : "")">
+                        <th style="padding:3px;text-align:center;font-size:0.65rem;font-weight:@(isWe ? "400" : "500");color:@(isWe ? "#9CA3AF" : "#374151");@(isTd ? "background:#E6FAF8;border-radius:4px;" : "")">
                             @date.Day<br/>@date.ToString("ddd", System.Globalization.CultureInfo.GetCultureInfo("nb-NO")).Substring(0, 2)
                         </th>
                     }
@@ -145,7 +145,7 @@ else
                     var rowBg = rowIdx % 2 == 1 ? "#FAFBFC" : "#FFF";
                     rowIdx++;
                     <tr style="background:@rowBg;">
-                        <td style="padding:6px 8px;font-size:0.8rem;font-weight:500;white-space:nowrap;position:sticky;left:0;background:@rowBg;z-index:1;cursor:pointer;color:#4361EE;"
+                        <td style="padding:6px 8px;font-size:0.8rem;font-weight:500;white-space:nowrap;position:sticky;left:0;background:@rowBg;z-index:1;cursor:pointer;color:#00B5A6;"
                             @onclick="async () => await OpenEmployeeCalendar(capturedRow.PersonId, capturedRow.EmployeeName)">
                             @row.EmployeeName
                         </td>

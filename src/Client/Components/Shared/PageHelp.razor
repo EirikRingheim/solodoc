@@ -3,7 +3,7 @@
 
 @* Floating help button *@
 <div @onclick="OpenHelp" title="Hjelp"
-     style="position:fixed;bottom:80px;right:20px;width:44px;height:44px;border-radius:50%;background:#4361EE;color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 4px 12px rgba(67,97,238,0.3);z-index:90;transition:transform 0.15s;"
+     style="position:fixed;bottom:80px;right:20px;width:44px;height:44px;border-radius:50%;background:#00B5A6;color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 4px 12px rgba(67,97,238,0.3);z-index:90;transition:transform 0.15s;"
      onmouseenter="this.style.transform='scale(1.1)'" onmouseleave="this.style.transform='scale(1)'">
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5">
         <circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>
@@ -28,7 +28,7 @@
                     <div style="display:flex;justify-content:center;gap:6px;margin-bottom:20px;">
                         @for (var i = 0; i < Slides.Count; i++)
                         {
-                            var bg = i == _currentSlide ? "#4361EE" : "#E5E7EB";
+                            var bg = i == _currentSlide ? "#00B5A6" : "#E5E7EB";
                             <div style="@($"width:{(i == _currentSlide ? "20px" : "8px")};height:8px;border-radius:4px;background:{bg};transition:all 0.3s;")"></div>
                         }
                     </div>
@@ -36,8 +36,8 @@
                     @* Icon *@
                     @if (!string.IsNullOrEmpty(slide.Icon))
                     {
-                        <div style="width:48px;height:48px;border-radius:12px;background:#EBF0FF;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
-                            <MudIcon Icon="@slide.Icon" Style="color:#4361EE;" />
+                        <div style="width:48px;height:48px;border-radius:12px;background:#E6FAF8;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+                            <MudIcon Icon="@slide.Icon" Style="color:#00B5A6;" />
                         </div>
                     }
 
@@ -50,7 +50,7 @@
                             @foreach (var tip in slide.Tips)
                             {
                                 <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:8px;">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="#4361EE" style="flex-shrink:0;margin-top:2px;"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="#00B5A6" style="flex-shrink:0;margin-top:2px;"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
                                     <span style="font-size:0.8rem;color:#374151;">@tip</span>
                                 </div>
                             }

@@ -81,7 +81,7 @@
                     @if (context.Item.SubProjectCount > 0)
                     {
                         var pct = context.Item.SubProjectCount > 0 ? context.Item.SubProjectsCompleted * 100 / context.Item.SubProjectCount : 0;
-                        var col = pct == 100 ? "#059669" : pct > 0 ? "#4361EE" : "#6B7280";
+                        var col = pct == 100 ? "#059669" : pct > 0 ? "#00B5A6" : "#6B7280";
                         <span style="@($"color:{col};font-weight:600;font-size:0.8rem;")">@context.Item.SubProjectsCompleted / @context.Item.SubProjectCount</span>
                     }
                 </CellTemplate>

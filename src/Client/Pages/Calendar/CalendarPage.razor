@@ -83,14 +83,14 @@ else
                     var isCurrentMonth = day.Date.Month == _currentDate.Month && day.Date.Year == _currentDate.Year;
                     var dayEvents = GetEventsForDate(day.Date);
                     <div style="min-height:60px;padding:4px;border:1px solid #F3F4F6;@(isCurrentMonth ? "" : "opacity:0.4;")">
-                        <div style="font-size:0.75rem;font-weight:@(isToday ? "700" : "400");color:@(isToday ? "#4361EE" : "#374151");text-align:right;padding:2px 4px;@(isToday ? "background:#EEF2FF;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;margin-left:auto;" : "")">
+                        <div style="font-size:0.75rem;font-weight:@(isToday ? "700" : "400");color:@(isToday ? "#00B5A6" : "#374151");text-align:right;padding:2px 4px;@(isToday ? "background:#EEF2FF;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;margin-left:auto;" : "")">
                             @day.Date.Day
                         </div>
                         <div style="display:flex;flex-direction:column;gap:1px;margin-top:2px;">
                             @foreach (var evt in dayEvents.Take(3))
                             {
                                 var evtBg = evt.IsAllDay ? "#DDD6FE" : "#EEF2FF";
-                                var evtColor = evt.IsAllDay ? "#5B21B6" : "#4361EE";
+                                var evtColor = evt.IsAllDay ? "#5B21B6" : "#00B5A6";
                                 <div style="background:@evtBg;border-radius:3px;padding:1px 3px;font-size:0.55rem;color:@evtColor;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500;">
                                     @evt.Title
                                 </div>
@@ -121,7 +121,7 @@ else
                         <div style="padding:4px;">
                             @foreach (var evt in dayEvents)
                             {
-                                <div style="background:#EEF2FF;border-left:3px solid #4361EE;border-radius:4px;padding:4px 6px;margin-bottom:4px;font-size:0.7rem;">
+                                <div style="background:#EEF2FF;border-left:3px solid #00B5A6;border-radius:4px;padding:4px 6px;margin-bottom:4px;font-size:0.7rem;">
                                     <div style="font-weight:600;color:#1E293B;">@evt.Title</div>
                                     @if (!evt.IsAllDay && evt.StartAt != default)
                                     {
@@ -154,7 +154,7 @@ else
             {
                 var isToday = group.Key == DateOnly.FromDateTime(DateTime.Today);
                 <div>
-                    <MudText Typo="Typo.subtitle2" Style="@(isToday ? "color:#4361EE;font-weight:700;" : "color:#6C757D;")" Class="mb-1">
+                    <MudText Typo="Typo.subtitle2" Style="@(isToday ? "color:#00B5A6;font-weight:700;" : "color:#6C757D;")" Class="mb-1">
                         @(isToday ? "I dag" : group.Key.ToString("dddd dd. MMMM", System.Globalization.CultureInfo.GetCultureInfo("nb-NO")))
                     </MudText>
                     @foreach (var evt in group.Value)

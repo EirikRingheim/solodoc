@@ -47,7 +47,7 @@ h1:focus { outline: none; }
     min-height: 48px;
     justify-content: center;
 }
-.bottom-nav-item:hover { color: #4361EE; }
+.bottom-nav-item:hover { color: #00B5A6; }
 
 /* ─── Main content ────────────────────── */
 .main-content {
@@ -129,8 +129,8 @@ h1:focus { outline: none; }
     border-bottom: 1px solid #E9ECEF;
 }
 .week-day-header--today {
-    color: #4361EE;
-    border-bottom: 2px solid #4361EE;
+    color: #00B5A6;
+    border-bottom: 2px solid #00B5A6;
 }
 
 /* ─── Status badges ───────────────────── */
@@ -209,7 +209,7 @@ h1:focus { outline: none; }
     font-size: 0.85rem;
     color: #6C757D;
 }
-.wizard-step--active { color: #4361EE; font-weight: 600; background: #EEF2FF; }
+.wizard-step--active { color: #00B5A6; font-weight: 600; background: #EEF2FF; }
 .wizard-step--completed { color: #059669; }
 
 /* ─── Shepherd Tour ──────────────────── */
@@ -237,7 +237,7 @@ h1:focus { outline: none; }
     padding: 0 16px 16px !important;
 }
 .shepherd-button-primary {
-    background: #4361EE !important;
+    background: #00B5A6 !important;
     border-radius: 8px !important;
     font-weight: 600 !important;
     text-transform: none !important;

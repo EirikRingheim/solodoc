@@ -74,7 +74,7 @@ public class ExcelExportService(SolodocDbContext db) : IExcelExportService
         {
             ws.Cell(6, i + 1).Value = headers[i];
             ws.Cell(6, i + 1).Style.Font.Bold = true;
-            ws.Cell(6, i + 1).Style.Fill.BackgroundColor = XLColor.FromHtml("#4361EE");
+            ws.Cell(6, i + 1).Style.Fill.BackgroundColor = XLColor.FromHtml("#00B5A6");
             ws.Cell(6, i + 1).Style.Font.FontColor = XLColor.White;
             ws.Cell(6, i + 1).Style.Border.BottomBorder = XLBorderStyleValues.Thin;
         }
@@ -160,7 +160,7 @@ public class ExcelExportService(SolodocDbContext db) : IExcelExportService
         {
             ws.Cell(headerRow, i + 1).Value = headers[i];
             ws.Cell(headerRow, i + 1).Style.Font.Bold = true;
-            ws.Cell(headerRow, i + 1).Style.Fill.BackgroundColor = XLColor.FromHtml("#4361EE");
+            ws.Cell(headerRow, i + 1).Style.Fill.BackgroundColor = XLColor.FromHtml("#00B5A6");
             ws.Cell(headerRow, i + 1).Style.Font.FontColor = XLColor.White;
         }
 

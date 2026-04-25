@@ -15,10 +15,10 @@
 
 @if (_parentProject is not null)
 {
-    <MudPaper Elevation="0" Style="border:1px solid #4361EE;border-radius:10px;background:#EBF0FF;" Class="pa-3 mb-3">
+    <MudPaper Elevation="0" Style="border:1px solid #00B5A6;border-radius:10px;background:#E6FAF8;" Class="pa-3 mb-3">
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-            <MudIcon Icon="@Icons.Material.Filled.AccountTree" Style="color:#4361EE;" Size="Size.Small" />
-            <MudText Typo="Typo.body2" Style="font-weight:500;color:#4361EE;">
+            <MudIcon Icon="@Icons.Material.Filled.AccountTree" Style="color:#00B5A6;" Size="Size.Small" />
+            <MudText Typo="Typo.body2" Style="font-weight:500;color:#00B5A6;">
                 Underprosjekt av: @_parentProject.Name
             </MudText>
         </MudStack>
@@ -73,9 +73,9 @@
             @* Inline new customer form *@
             @if (_showNewCustomer)
             {
-                <MudPaper Elevation="0" Style="border:1px solid #4361EE;border-radius:10px;background:#F8FAFF;" Class="pa-4">
+                <MudPaper Elevation="0" Style="border:1px solid #00B5A6;border-radius:10px;background:#F8FAFF;" Class="pa-4">
                     <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-2">
-                        <MudText Typo="Typo.subtitle2" Style="font-weight:600;color:#4361EE;">Ny kunde</MudText>
+                        <MudText Typo="Typo.subtitle2" Style="font-weight:600;color:#00B5A6;">Ny kunde</MudText>
                         <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
                                        OnClick="() => _showNewCustomer = false" />
                     </MudStack>

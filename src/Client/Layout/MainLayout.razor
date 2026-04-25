@@ -20,7 +20,7 @@
         @* ── Company Card (clickable to switch) ── *@
         @{
             var currentTenant = _tenants.FirstOrDefault(t => t.Id.ToString() == _selectedTenantId);
-            var accent = currentTenant?.AccentColor ?? "#4361EE";
+            var accent = currentTenant?.AccentColor ?? "#00B5A6";
         }
         <div @onclick="ToggleCompanySwitcher"
              style="padding:16px;cursor:pointer;display:flex;align-items:center;gap:10px;user-select:none;">
@@ -57,10 +57,10 @@
             @foreach (var t in _tenants)
             {
                 var isActive = t.Id.ToString() == _selectedTenantId;
-                var tAccent = t.AccentColor ?? "#4361EE";
+                var tAccent = t.AccentColor ?? "#00B5A6";
                 var capturedT = t;
                 <div @onclick="() => SwitchToTenant(capturedT)" @onclick:stopPropagation="true"
-                     style="@($"margin:0 12px;padding:8px 12px;cursor:pointer;display:flex;align-items:center;gap:10px;border-radius:8px;margin-bottom:4px;background:{(isActive ? "#EBF0FF" : "#F9FAFB")};border:1px solid {(isActive ? "#4361EE" : "#e9ecef")};")">
+                     style="@($"margin:0 12px;padding:8px 12px;cursor:pointer;display:flex;align-items:center;gap:10px;border-radius:8px;margin-bottom:4px;background:{(isActive ? "#E6FAF8" : "#F9FAFB")};border:1px solid {(isActive ? "#00B5A6" : "#e9ecef")};")">
                     <div style="@($"width:28px;height:28px;border-radius:7px;background:{tAccent};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.75rem;flex-shrink:0;")">
                         @t.Name[0].ToString().ToUpper()
                     </div>
@@ -279,7 +279,7 @@
                     {
                         var isActive = _viewAsRole == role.Key;
                         var capturedRole = role;
-                        <button style="@($"background:{(isActive ? "#4361EE" : "transparent")};color:{(isActive ? "#fff" : "#9CA3AF")};border:1px solid {(isActive ? "#4361EE" : "#4B5563")};border-radius:6px;padding:3px 10px;font-size:0.7rem;cursor:pointer;font-weight:{(isActive ? "600" : "400")};transition:all 0.15s;")"
+                        <button style="@($"background:{(isActive ? "#00B5A6" : "transparent")};color:{(isActive ? "#fff" : "#9CA3AF")};border:1px solid {(isActive ? "#00B5A6" : "#4B5563")};border-radius:6px;padding:3px 10px;font-size:0.7rem;cursor:pointer;font-weight:{(isActive ? "600" : "400")};transition:all 0.15s;")"
                                 @onclick="() => SetImpersonationRole(capturedRole.Key)">
                             @role.Value
                         </button>

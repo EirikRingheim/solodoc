@@ -18,7 +18,7 @@
     <div style="display:flex;gap:4px;margin-bottom:32px;">
         @for (var i = 0; i < _totalSteps; i++)
         {
-            var bg = i < _step ? "#4361EE" : i == _step ? "#4361EE" : "#E5E7EB";
+            var bg = i < _step ? "#00B5A6" : i == _step ? "#00B5A6" : "#E5E7EB";
             <div style="@($"flex:1;height:4px;border-radius:2px;background:{bg};transition:background 0.3s;")"></div>
         }
     </div>
@@ -28,7 +28,7 @@
         case 0:
             @* ── Step 1: Welcome + Company Profile ── *@
             <div style="text-align:center;margin-bottom:32px;">
-                <div style="width:64px;height:64px;border-radius:16px;background:#4361EE;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:1.5rem;margin:0 auto 16px;">S</div>
+                <div style="width:64px;height:64px;border-radius:16px;background:#00B5A6;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:1.5rem;margin:0 auto 16px;">S</div>
                 <h1 style="font-size:1.8rem;font-weight:800;color:#1B2A4A;margin:0 0 8px;">Velkommen til Solodoc!</h1>
                 <p style="color:#6B7280;font-size:1rem;">La oss sette opp bedriften din. Det tar under 2 minutter.</p>
             </div>
@@ -49,7 +49,7 @@
                             var isSelected = _industry == ind.Key;
                             var capturedInd = ind;
                             <div @onclick="() => _industry = capturedInd.Key"
-                                 style="@($"padding:12px;border-radius:10px;cursor:pointer;border:2px solid {(isSelected ? "#4361EE" : "#e9ecef")};background:{(isSelected ? "#EBF0FF" : "#fff")};transition:all 0.15s;")">
+                                 style="@($"padding:12px;border-radius:10px;cursor:pointer;border:2px solid {(isSelected ? "#00B5A6" : "#e9ecef")};background:{(isSelected ? "#E6FAF8" : "#fff")};transition:all 0.15s;")">
                                 <div style="font-weight:600;font-size:0.85rem;">@ind.Label</div>
                                 <div style="font-size:0.7rem;color:#9CA3AF;">@ind.Description</div>
                             </div>
@@ -65,7 +65,7 @@
                             var isSelected = _companySize == size;
                             var capturedSize = size;
                             <div @onclick="() => _companySize = capturedSize"
-                                 style="@($"flex:1;padding:10px;text-align:center;border-radius:10px;cursor:pointer;border:2px solid {(isSelected ? "#4361EE" : "#e9ecef")};background:{(isSelected ? "#EBF0FF" : "#fff")};font-weight:{(isSelected ? "600" : "400")};font-size:0.9rem;transition:all 0.15s;")">
+                                 style="@($"flex:1;padding:10px;text-align:center;border-radius:10px;cursor:pointer;border:2px solid {(isSelected ? "#00B5A6" : "#e9ecef")};background:{(isSelected ? "#E6FAF8" : "#fff")};font-weight:{(isSelected ? "600" : "400")};font-size:0.9rem;transition:all 0.15s;")">
                                 @size
                             </div>
                         }
@@ -87,8 +87,8 @@
                     var isEnabled = _enabledModules.Contains(mod.Key);
                     var capturedMod = mod;
                     <div @onclick="() => ToggleModule(capturedMod.Key)"
-                         style="@($"padding:14px;border-radius:10px;cursor:pointer;border:2px solid {(isEnabled ? "#4361EE" : "#e9ecef")};background:{(isEnabled ? "#EBF0FF" : "#fff")};transition:all 0.15s;display:flex;align-items:center;gap:10px;")">
-                        <div style="@($"width:36px;height:36px;border-radius:8px;background:{(isEnabled ? "#4361EE" : "#F3F4F6")};color:{(isEnabled ? "#fff" : "#9CA3AF")};display:flex;align-items:center;justify-content:center;flex-shrink:0;")">
+                         style="@($"padding:14px;border-radius:10px;cursor:pointer;border:2px solid {(isEnabled ? "#00B5A6" : "#e9ecef")};background:{(isEnabled ? "#E6FAF8" : "#fff")};transition:all 0.15s;display:flex;align-items:center;gap:10px;")">
+                        <div style="@($"width:36px;height:36px;border-radius:8px;background:{(isEnabled ? "#00B5A6" : "#F3F4F6")};color:{(isEnabled ? "#fff" : "#9CA3AF")};display:flex;align-items:center;justify-content:center;flex-shrink:0;")">
                             <MudIcon Icon="@GetModuleIcon(mod.Icon)" Size="Size.Small" />
                         </div>
                         <div>
@@ -100,7 +100,7 @@
             </div>
 
             @* Pricing summary *@
-            <div style="margin-top:20px;padding:16px;border-radius:12px;background:linear-gradient(135deg,#EBF0FF,#F8FAFF);border:1px solid #C7D2FE;">
+            <div style="margin-top:20px;padding:16px;border-radius:12px;background:linear-gradient(135deg,#E6FAF8,#F8FAFF);border:1px solid #C7D2FE;">
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
                     <span style="font-weight:600;color:#1B2A4A;">Din plan</span>
                     <span style="padding:3px 10px;background:#D1FAE5;color:#059669;border-radius:12px;font-size:0.7rem;font-weight:600;">30 DAGER GRATIS</span>
@@ -110,15 +110,15 @@
                 </div>
                 <div style="display:flex;gap:12px;flex-wrap:wrap;">
                     <div style="flex:1;min-width:120px;padding:10px;background:#fff;border-radius:8px;text-align:center;">
-                        <div style="font-size:1.2rem;font-weight:700;color:#4361EE;">kr 990</div>
+                        <div style="font-size:1.2rem;font-weight:700;color:#00B5A6;">kr 990</div>
                         <div style="font-size:0.65rem;color:#9CA3AF;">/mnd for 1-5 brukere</div>
                     </div>
                     <div style="flex:1;min-width:120px;padding:10px;background:#fff;border-radius:8px;text-align:center;">
-                        <div style="font-size:1.2rem;font-weight:700;color:#4361EE;">kr 150</div>
+                        <div style="font-size:1.2rem;font-weight:700;color:#00B5A6;">kr 150</div>
                         <div style="font-size:0.65rem;color:#9CA3AF;">/mnd per ekstra bruker</div>
                     </div>
                     <div style="flex:1;min-width:120px;padding:10px;background:#fff;border-radius:8px;text-align:center;">
-                        <div style="font-size:1.2rem;font-weight:700;color:#4361EE;">kr 49</div>
+                        <div style="font-size:1.2rem;font-weight:700;color:#00B5A6;">kr 49</div>
                         <div style="font-size:0.65rem;color:#9CA3AF;">/mnd per underentreprenør</div>
                     </div>
                 </div>
@@ -180,9 +180,9 @@
                 <p style="color:#6B7280;">Har du sjekklister eller skjemaer fra for? Last dem opp sa konverterer vi.</p>
             </div>
 
-            <MudPaper Elevation="0" Style="border:2px dashed #4361EE40;border-radius:12px;background:#F8FAFF;" Class="pa-8">
+            <MudPaper Elevation="0" Style="border:2px dashed #00B5A640;border-radius:12px;background:#F8FAFF;" Class="pa-8">
                 <MudStack AlignItems="AlignItems.Center" Spacing="3">
-                    <MudIcon Icon="@Icons.Material.Filled.UploadFile" Size="Size.Large" Style="color:#4361EE;" />
+                    <MudIcon Icon="@Icons.Material.Filled.UploadFile" Size="Size.Large" Style="color:#00B5A6;" />
                     <MudText Typo="Typo.body1" Style="font-weight:500;">Last opp PDF, Excel eller Word</MudText>
                     <MudText Typo="Typo.body2" Color="Color.Secondary">Vi leser filen og konverterer til Solodoc-format.</MudText>
                     <MudFileUpload T="IReadOnlyList<IBrowserFile>" Accept=".pdf,.xlsx,.xls,.docx,.doc"
@@ -225,8 +225,8 @@
                 </p>
 
                 <div style="display:flex;gap:12px;justify-content:center;margin-top:24px;flex-wrap:wrap;">
-                    <div style="padding:12px 20px;border-radius:10px;background:#EBF0FF;text-align:center;">
-                        <div style="font-size:1.2rem;font-weight:700;color:#4361EE;">@_enabledModules.Count</div>
+                    <div style="padding:12px 20px;border-radius:10px;background:#E6FAF8;text-align:center;">
+                        <div style="font-size:1.2rem;font-weight:700;color:#00B5A6;">@_enabledModules.Count</div>
                         <div style="font-size:0.75rem;color:#6B7280;">moduler aktive</div>
                     </div>
                     <div style="padding:12px 20px;border-radius:10px;background:#ECFDF5;text-align:center;">

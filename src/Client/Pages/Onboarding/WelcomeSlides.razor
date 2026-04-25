@@ -12,7 +12,7 @@
     <div style="display:flex;justify-content:center;gap:6px;margin-bottom:24px;">
         @for (var i = 0; i < _slides.Count; i++)
         {
-            var bg = i == _current ? "#4361EE" : "#E5E7EB";
+            var bg = i == _current ? "#00B5A6" : "#E5E7EB";
             <div style="@($"width:{(i == _current ? "24px" : "8px")};height:8px;border-radius:4px;background:{bg};transition:all 0.3s;")"></div>
         }
     </div>
@@ -93,10 +93,10 @@
 
     private static List<SlideData> GetConstructionSlides() =>
     [
-        new("Ditt dashboard", "Oversikt over alt — timer, prosjekter, avvik og hvem som er på jobb. Alt på ett sted.", "#EBF0FF",
+        new("Ditt dashboard", "Oversikt over alt — timer, prosjekter, avvik og hvem som er på jobb. Alt på ett sted.", "#E6FAF8",
             @"<div style='font-weight:700;font-size:0.9rem;margin-bottom:8px;'>Dashboard</div>
               <div style='display:flex;gap:6px;margin-bottom:10px;'>
-                <div style='padding:4px 10px;background:#4361EE;color:#fff;border-radius:14px;font-size:0.65rem;font-weight:600;'>Stemple inn</div>
+                <div style='padding:4px 10px;background:#00B5A6;color:#fff;border-radius:14px;font-size:0.65rem;font-weight:600;'>Stemple inn</div>
                 <div style='padding:4px 10px;border:1px solid #059669;color:#059669;border-radius:14px;font-size:0.65rem;font-weight:600;'>Sjekk inn</div>
               </div>
               <div style='padding:8px;background:#D8F3DC;border-radius:8px;border:1px solid #2D6A4F;margin-bottom:8px;'>
@@ -104,8 +104,8 @@
                 <div style='font-size:1.2rem;font-weight:700;color:#1B4332;'>03:42:15</div>
               </div>
               <div style='display:flex;gap:6px;margin-bottom:10px;'>
-                <div style='flex:1;padding:6px;border:1px solid #e9ecef;border-radius:6px;text-align:center;'><div style='font-weight:700;color:#4361EE;'>3</div><div style='font-size:0.55rem;color:#9CA3AF;'>Prosjekter</div></div>
-                <div style='flex:1;padding:6px;border:1px solid #e9ecef;border-radius:6px;text-align:center;'><div style='font-weight:700;color:#4361EE;'>127t</div><div style='font-size:0.55rem;color:#9CA3AF;'>Timer</div></div>
+                <div style='flex:1;padding:6px;border:1px solid #e9ecef;border-radius:6px;text-align:center;'><div style='font-weight:700;color:#00B5A6;'>3</div><div style='font-size:0.55rem;color:#9CA3AF;'>Prosjekter</div></div>
+                <div style='flex:1;padding:6px;border:1px solid #e9ecef;border-radius:6px;text-align:center;'><div style='font-weight:700;color:#00B5A6;'>127t</div><div style='font-size:0.55rem;color:#9CA3AF;'>Timer</div></div>
                 <div style='flex:1;padding:6px;border:1px solid #e9ecef;border-radius:6px;text-align:center;'><div style='font-weight:700;color:#E63946;'>2</div><div style='font-size:0.55rem;color:#9CA3AF;'>Avvik</div></div>
               </div>"),
 
@@ -158,9 +158,9 @@
                 <div style='font-size:0.65rem;color:#9CA3AF;'>Prosjekt</div>
                 <div style='font-size:0.8rem;'>Bryggen Terrasse</div>
               </div>
-              <div style='padding:10px;background:#4361EE;color:#fff;border-radius:8px;text-align:center;font-weight:600;font-size:0.8rem;margin-top:8px;'>Send inn</div>"),
+              <div style='padding:10px;background:#00B5A6;color:#fff;border-radius:8px;text-align:center;font-weight:600;font-size:0.8rem;margin-top:8px;'>Send inn</div>"),
 
-        new("Fungerer offline", "Ingen nettdekning? Ingen problem. Sjekklister, timer og avvik lagres lokalt og synkroniseres automatisk.", "#EBF0FF",
+        new("Fungerer offline", "Ingen nettdekning? Ingen problem. Sjekklister, timer og avvik lagres lokalt og synkroniseres automatisk.", "#E6FAF8",
             @"<div style='text-align:center;padding:20px 0;'>
                 <div style='width:60px;height:60px;border-radius:50%;background:#FEF2F2;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;'>
                   <svg width='28' height='28' viewBox='0 0 24 24' fill='none' stroke='#E63946' stroke-width='2'><line x1='1' y1='1' x2='23' y2='23'/><path d='M16.72 11.06A10.94 10.94 0 0 1 19 12.55'/><path d='M5 12.55a10.94 10.94 0 0 1 5.17-2.39'/><path d='M10.71 5.05A16 16 0 0 1 22.56 9'/><path d='M1.42 9a15.91 15.91 0 0 1 4.7-2.88'/><path d='M8.53 16.11a6 6 0 0 1 6.95 0'/><line x1='12' y1='20' x2='12.01' y2='20'/></svg>
@@ -178,14 +178,14 @@
 
     private static List<SlideData> GetTradesSlides() =>
     [
-        new("Opprett oppdrag på under 2 min", "Servicebesøk, reparasjoner, kundebesøk. Beskriv, legg til deler, ferdig.", "#EBF0FF",
+        new("Opprett oppdrag på under 2 min", "Servicebesøk, reparasjoner, kundebesøk. Beskriv, legg til deler, ferdig.", "#E6FAF8",
             @"<div style='font-weight:700;font-size:0.9rem;margin-bottom:8px;'>Nytt oppdrag</div>
               <div style='padding:6px 8px;border:1px solid #e9ecef;border-radius:6px;margin-bottom:6px;'><span style='font-size:0.6rem;color:#9CA3AF;'>Beskrivelse</span><br><span style='font-size:0.75rem;'>Skifte vannrør kjøkken</span></div>
               <div style='padding:6px 8px;border:1px solid #e9ecef;border-radius:6px;margin-bottom:6px;'><span style='font-size:0.6rem;color:#9CA3AF;'>Kunde</span><br><span style='font-size:0.75rem;'>Familien Olsen</span></div>
               <div style='font-weight:600;font-size:0.7rem;margin:8px 0 4px;'>Deler</div>
               <div style='font-size:0.7rem;padding:4px 0;border-bottom:1px solid #f3f4f6;'>Kobberrør 22mm x 3m — 2 stk</div>
               <div style='font-size:0.7rem;padding:4px 0;'>Vinkelkobling 22mm — 4 stk</div>
-              <div style='padding:8px;background:#4361EE;color:#fff;border-radius:8px;text-align:center;font-weight:600;font-size:0.8rem;margin-top:10px;'>Opprett oppdrag</div>"),
+              <div style='padding:8px;background:#00B5A6;color:#fff;border-radius:8px;text-align:center;font-weight:600;font-size:0.8rem;margin-top:10px;'>Opprett oppdrag</div>"),
 
         new("Timer rett fra mobilen", "Stemple inn med ett trykk. Timer fordeles på oppdrag. Eksporter til lonn.", "#ECFDF5",
             @"<div style='font-weight:700;font-size:0.9rem;margin-bottom:12px;'>Timeliste — Uke 15</div>
@@ -210,7 +210,7 @@
         new("Maskinparken din", "Oversikt over alt utstyr, vedlikeholdslogg og dokumentasjon på ett sted.", "#ECFDF5",
             @"<div style='font-weight:700;font-size:0.9rem;margin-bottom:8px;'>Maskinpark</div>
               <div style='padding:8px;border:1px solid #e9ecef;border-radius:8px;margin-bottom:6px;display:flex;align-items:center;gap:8px;'>
-                <div style='width:28px;height:28px;border-radius:6px;background:#4361EE;color:#fff;display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:700;'>JD</div>
+                <div style='width:28px;height:28px;border-radius:6px;background:#00B5A6;color:#fff;display:flex;align-items:center;justify-content:center;font-size:0.7rem;font-weight:700;'>JD</div>
                 <div><div style='font-size:0.8rem;font-weight:500;'>John Deere 6120M</div><div style='font-size:0.6rem;color:#9CA3AF;'>Traktor — 2340 timer</div></div>
               </div>
               <div style='padding:8px;border:1px solid #e9ecef;border-radius:8px;margin-bottom:6px;display:flex;align-items:center;gap:8px;'>

@@ -78,7 +78,7 @@ else
                                     {
                                         var isWe = date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday;
                                         var isToday = date == DateOnly.FromDateTime(DateTime.Today);
-                                        <th style="padding:3px 1px;text-align:center;font-size:0.65rem;font-weight:@(isWe ? "400" : "500");color:@(isWe ? "#9CA3AF" : "#374151");min-width:32px;@(isToday ? "background:#EBF0FF;" : "")">
+                                        <th style="padding:3px 1px;text-align:center;font-size:0.65rem;font-weight:@(isWe ? "400" : "500");color:@(isWe ? "#9CA3AF" : "#374151");min-width:32px;@(isToday ? "background:#E6FAF8;" : "")">
                                             @date.Day<br/>@date.ToString("ddd", System.Globalization.CultureInfo.GetCultureInfo("nb-NO")).Substring(0, 2)
                                         </th>
                                     }
@@ -105,13 +105,13 @@ else
                                             var fg = GetStatusFg(cell.Status);
                                             var confirmingThis = _confirmRow == capturedRi && _confirmCol == capturedCi;
 
-                                            <td style="padding:2px;text-align:center;font-size:0.7rem;font-weight:500;background:@bg;color:@fg;border-radius:4px;cursor:pointer;height:30px;border:1px solid #E5E7EB;@(isSelected ? "outline:2px solid #4361EE;outline-offset:-1px;" : "")"
+                                            <td style="padding:2px;text-align:center;font-size:0.7rem;font-weight:500;background:@bg;color:@fg;border-radius:4px;cursor:pointer;height:30px;border:1px solid #E5E7EB;@(isSelected ? "outline:2px solid #00B5A6;outline-offset:-1px;" : "")"
                                                 title="@($"{cell.Date:dd.MM} — {cell.Hours:0.#}t — {cell.Status}")"
                                                 @onclick="async () => await SelectCell(capturedRi, capturedCi)"
                                                 @ondblclick="async () => await OpenAdminEdit(capturedRi, capturedCi)">
                                                 @if (confirmingThis)
                                                 {
-                                                    <span style="font-size:0.6rem;color:#4361EE;">Godkjenn?</span>
+                                                    <span style="font-size:0.6rem;color:#00B5A6;">Godkjenn?</span>
                                                 }
                                                 else if (cell.Status == "Godkjent" && cell.Hours > 0)
                                                 {
@@ -674,8 +674,8 @@ else
 
     private static string GetCategoryColor(string c) => c switch
     {
-        "Arbeid" => "#4361EE", "Reise" => "#7C3AED", "Kontorarbeid" => "#0891B2",
-        "Lagerarbeid" => "#CA8A04", "Kurs" => "#059669", "Annet" => "#6B7280", _ => "#4361EE"
+        "Arbeid" => "#00B5A6", "Reise" => "#7C3AED", "Kontorarbeid" => "#0891B2",
+        "Lagerarbeid" => "#CA8A04", "Kurs" => "#059669", "Annet" => "#6B7280", _ => "#00B5A6"
     };
 
     private static string AutoColon(string v)

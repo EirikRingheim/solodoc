@@ -93,7 +93,7 @@ else
                     {
                         var k = key;
                         <MudChip T="string" Size="Size.Small" OnClick="() => SortBy(k)"
-                                 Style="@($"height:24px;cursor:pointer;{(_sortBy == k ? "background:#4361EE;color:#fff;" : "")}")">
+                                 Style="@($"height:24px;cursor:pointer;{(_sortBy == k ? "background:#00B5A6;color:#fff;" : "")}")">
                             @label
                         </MudChip>
                     }
@@ -140,7 +140,7 @@ else
                                         var t when t.StartsWith("image/") => "#059669",
                                         "application/pdf" => "#DC2626",
                                         var t when t.Contains("spreadsheet") || t.Contains("excel") => "#059669",
-                                        var t when t.Contains("word") || t.Contains("document") => "#4361EE",
+                                        var t when t.Contains("word") || t.Contains("document") => "#00B5A6",
                                         _ => "#6B7280"
                                     };
                                     <tr style="cursor:pointer;" @onclick="@(() => OpenDoc(capturedDoc))">
@@ -224,7 +224,7 @@ else
 
         <div>
             <div @onclick="() => OnFolderClick(f)"
-                 style="@($"padding:5px 10px 5px {indent}px;border-radius:6px;cursor:pointer;margin-bottom:1px;display:flex;align-items:center;gap:5px;background:{(isActive ? "#EBF0FF" : "transparent")};font-weight:{(isActive ? "600" : "400")};")">
+                 style="@($"padding:5px 10px 5px {indent}px;border-radius:6px;cursor:pointer;margin-bottom:1px;display:flex;align-items:center;gap:5px;background:{(isActive ? "#E6FAF8" : "transparent")};font-weight:{(isActive ? "600" : "400")};")">
                 @if (f.SubFolderCount > 0)
                 {
                     <MudIcon Icon="@(isExpanded ? Icons.Material.Filled.ExpandMore : Icons.Material.Filled.ChevronRight)"
@@ -235,7 +235,7 @@ else
                     <span style="width:16px;"></span>
                 }
                 <MudIcon Icon="@(isActive ? Icons.Material.Filled.FolderOpen : Icons.Material.Filled.Folder)"
-                         Size="Size.Small" Style="@($"color:{(isActive ? "#4361EE" : "#6B7280")};font-size:0.9rem;")" />
+                         Size="Size.Small" Style="@($"color:{(isActive ? "#00B5A6" : "#6B7280")};font-size:0.9rem;")" />
                 <span style="font-size:0.82rem;flex:1;">@f.Name</span>
                 @if (f.DocumentCount > 0)
                 {

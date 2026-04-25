@@ -18,10 +18,10 @@
 @* ── Setup Progress (disappears when complete) ── *@
 @if (_onboarding is not null && !_onboarding.IsCompleted)
 {
-    <MudPaper Elevation="0" Style="border:2px solid #4361EE;border-radius:12px;background:#F8FAFF;" Class="pa-4 mb-4">
+    <MudPaper Elevation="0" Style="border:2px solid #00B5A6;border-radius:12px;background:#F8FAFF;" Class="pa-4 mb-4">
         <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-2">
             <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                <MudIcon Icon="@Icons.Material.Filled.RocketLaunch" Style="color:#4361EE;" />
+                <MudIcon Icon="@Icons.Material.Filled.RocketLaunch" Style="color:#00B5A6;" />
                 <MudText Typo="Typo.subtitle1" Style="font-weight:600;">Fullfør oppsettet</MudText>
             </MudStack>
             <MudButton Variant="Variant.Filled" Color="Color.Primary" Href="/onboarding"
@@ -51,7 +51,7 @@
         <MudItem xs="12" sm="4">
             <div style="padding:16px;border:1px solid #e9ecef;border-radius:10px;text-align:center;">
                 <div style="font-size:0.7rem;color:#9CA3AF;">Grunnpakke</div>
-                <div style="font-size:1.5rem;font-weight:700;color:#4361EE;">kr @(PricingConfig.BasePriceMonthly)</div>
+                <div style="font-size:1.5rem;font-weight:700;color:#00B5A6;">kr @(PricingConfig.BasePriceMonthly)</div>
                 <div style="font-size:0.7rem;color:#9CA3AF;">/mnd · inkl. @(PricingConfig.BaseIncludedUsers) brukere</div>
             </div>
         </MudItem>
@@ -605,10 +605,10 @@
         </TitleContent>
         <ChildContent>
             <MudStack Spacing="3" Class="pa-2">
-                <MudPaper Elevation="0" Style="border:1px solid #4361EE;border-radius:8px;background:#f0f3ff;" Class="pa-4">
+                <MudPaper Elevation="0" Style="border:1px solid #00B5A6;border-radius:8px;background:#f0f3ff;" Class="pa-4">
                     <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
                         <MudStack Spacing="1">
-                            <MudText Typo="Typo.subtitle1" Style="font-weight:600;color:#4361EE;">Profesjonell plan</MudText>
+                            <MudText Typo="Typo.subtitle1" Style="font-weight:600;color:#00B5A6;">Profesjonell plan</MudText>
                             <MudText Typo="Typo.body2" Color="Color.Secondary">
                                 Full tilgang til alle moduler
                             </MudText>
@@ -632,7 +632,7 @@
                         {
                             <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
                                 <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small"
-                                         Style="color:#4361EE;" />
+                                         Style="color:#00B5A6;" />
                                 <MudText Typo="Typo.body2">@module</MudText>
                             </MudStack>
                         }
@@ -786,7 +786,7 @@
             <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;" Class="pa-4 mb-3">
                 <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
                     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                        <MudIcon Icon="@Icons.Material.Filled.AccountBalance" Style="color:#4361EE;" />
+                        <MudIcon Icon="@Icons.Material.Filled.AccountBalance" Style="color:#00B5A6;" />
                         <div>
                             <MudText Typo="Typo.subtitle2" Style="font-weight:600;">Power Office Go</MudText>
                             <MudText Typo="Typo.caption" Color="Color.Secondary">Regnskap, lonn, fakturering</MudText>
@@ -915,7 +915,7 @@
     private string _city = string.Empty;
     private string _companyPhone = string.Empty;
     private string _companyEmail = string.Empty;
-    private string _accentColor = "#4361EE";
+    private string _accentColor = "#00B5A6";
 
     // GPS
     private bool _gpsEnabled;

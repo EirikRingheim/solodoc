@@ -42,8 +42,8 @@ else
             </div>
         </MudItem>
         <MudItem xs="6" sm="3">
-            <div style="background:#EBF0FF;border-radius:10px;padding:14px;text-align:center;">
-                <div style="font-size:1.5rem;font-weight:700;color:#4361EE;">@_log.Select(l => l.SiteName).Distinct().Count()</div>
+            <div style="background:#E6FAF8;border-radius:10px;padding:14px;text-align:center;">
+                <div style="font-size:1.5rem;font-weight:700;color:#00B5A6;">@_log.Select(l => l.SiteName).Distinct().Count()</div>
                 <div style="font-size:0.7rem;color:#6B7280;">Ulike steder</div>
             </div>
         </MudItem>
@@ -78,7 +78,7 @@ else
                 @foreach (var entry in _log)
                 {
                     var isActive = !entry.CheckOutAt.HasValue;
-                    var typeColor = entry.SiteType switch { "Prosjekt" => "#4361EE", "Oppdrag" => "#D97706", "Lokasjon" => "#059669", _ => "#6B7280" };
+                    var typeColor = entry.SiteType switch { "Prosjekt" => "#00B5A6", "Oppdrag" => "#D97706", "Lokasjon" => "#059669", _ => "#6B7280" };
                     <tr style="@(isActive ? "background:#F0FDF4;" : "")">
                         <td style="font-weight:500;">@entry.SiteName</td>
                         <td>

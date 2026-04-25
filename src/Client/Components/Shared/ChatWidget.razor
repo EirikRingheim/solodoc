@@ -4,7 +4,7 @@
 @if (!_open)
 {
     <div @onclick="Open"
-         style="position:fixed;bottom:24px;right:24px;width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,#4361EE,#3451D1);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 4px 16px rgba(67,97,238,0.35);z-index:100;transition:transform 0.15s;"
+         style="position:fixed;bottom:24px;right:24px;width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,#00B5A6,#3451D1);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 4px 16px rgba(67,97,238,0.35);z-index:100;transition:transform 0.15s;"
          onmouseenter="this.style.transform='scale(1.1)'" onmouseleave="this.style.transform='scale(1)'">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2">
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
@@ -17,7 +17,7 @@
 {
     <div style="position:fixed;bottom:24px;right:24px;width:380px;max-height:520px;background:#fff;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.15);z-index:200;display:flex;flex-direction:column;overflow:hidden;border:1px solid #e9ecef;">
         @* Header *@
-        <div style="padding:14px 16px;background:linear-gradient(135deg,#4361EE,#3451D1);color:#fff;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
+        <div style="padding:14px 16px;background:linear-gradient(135deg,#00B5A6,#3451D1);color:#fff;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
             <div style="display:flex;align-items:center;gap:8px;">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                 <div>
@@ -46,7 +46,7 @@
                     {
                         var captured = q;
                         <div @onclick="() => SendSuggestion(captured)"
-                             style="padding:8px 12px;border:1px solid #e9ecef;border-radius:8px;font-size:0.8rem;cursor:pointer;color:#4361EE;transition:background 0.15s;"
+                             style="padding:8px 12px;border:1px solid #e9ecef;border-radius:8px;font-size:0.8rem;cursor:pointer;color:#00B5A6;transition:background 0.15s;"
                              onmouseenter="this.style.background='#F8FAFF'" onmouseleave="this.style.background='#fff'">
                             @q
                         </div>
@@ -58,7 +58,7 @@
             {
                 var isUser = msg.Role == "user";
                 <div style="@($"display:flex;justify-content:{(isUser ? "flex-end" : "flex-start")};")">
-                    <div style="@($"max-width:85%;padding:10px 14px;border-radius:{(isUser ? "12px 12px 4px 12px" : "12px 12px 12px 4px")};background:{(isUser ? "#4361EE" : "#F3F4F6")};color:{(isUser ? "#fff" : "#1B2A4A")};font-size:0.85rem;line-height:1.5;white-space:pre-wrap;")">
+                    <div style="@($"max-width:85%;padding:10px 14px;border-radius:{(isUser ? "12px 12px 4px 12px" : "12px 12px 12px 4px")};background:{(isUser ? "#00B5A6" : "#F3F4F6")};color:{(isUser ? "#fff" : "#1B2A4A")};font-size:0.85rem;line-height:1.5;white-space:pre-wrap;")">
                         @msg.Content
                     </div>
                 </div>
@@ -88,7 +88,7 @@
                    placeholder="Skriv et spørsmål..."
                    style="flex:1;padding:8px 12px;border:1px solid #e9ecef;border-radius:8px;font-size:0.85rem;outline:none;font-family:inherit;" />
             <button @onclick="Send" disabled="@(_thinking || string.IsNullOrWhiteSpace(_input))"
-                    style="@($"width:36px;height:36px;border-radius:8px;border:none;background:{(string.IsNullOrWhiteSpace(_input) ? "#E5E7EB" : "#4361EE")};color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;")">
+                    style="@($"width:36px;height:36px;border-radius:8px;border:none;background:{(string.IsNullOrWhiteSpace(_input) ? "#E5E7EB" : "#00B5A6")};color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;")">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
             </button>
         </div>

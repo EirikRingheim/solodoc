@@ -61,7 +61,7 @@
                                 @foreach (var exp in _expenses)
                                 {
                                     var captured = exp;
-                                    var statusColor = exp.Status switch { "Approved" or "Paid" => "#059669", "Submitted" => "#4361EE", "Rejected" => "#DC2626", _ => "#6B7280" };
+                                    var statusColor = exp.Status switch { "Approved" or "Paid" => "#059669", "Submitted" => "#00B5A6", "Rejected" => "#DC2626", _ => "#6B7280" };
                                     var statusLabel = exp.Status switch { "Draft" => "Utkast", "Submitted" => "Innsendt", "Approved" => "Godkjent", "Rejected" => "Avvist", "Paid" => "Betalt", _ => exp.Status };
                                     <tr style="cursor:pointer;" @onclick="@(() => Navigation.NavigateTo($"/utlegg/{captured.Id}"))">
                                         <td style="font-weight:500;">@exp.EmployeeName</td>
@@ -119,7 +119,7 @@
                 <MudStack Row="true" Spacing="4" Style="padding:12px;background:#F8F9FA;border-radius:8px;margin-top:12px;">
                     <div><span style="font-size:0.75rem;color:#6B7280;">Totalt:</span> <b>kr @_expenses.Sum(e => e.Amount).ToString("N0")</b></div>
                     <div><span style="font-size:0.75rem;color:#6B7280;">Godkjent:</span> <b style="color:#059669;">kr @_expenses.Where(e => e.IsApproved).Sum(e => e.Amount).ToString("N0")</b></div>
-                    <div><span style="font-size:0.75rem;color:#6B7280;">Betalt:</span> <b style="color:#4361EE;">kr @_expenses.Where(e => e.IsPaid).Sum(e => e.Amount).ToString("N0")</b></div>
+                    <div><span style="font-size:0.75rem;color:#6B7280;">Betalt:</span> <b style="color:#00B5A6;">kr @_expenses.Where(e => e.IsPaid).Sum(e => e.Amount).ToString("N0")</b></div>
                 </MudStack>
             }
         </div>
@@ -157,7 +157,7 @@
                         <tbody>
                             @foreach (var te in _travelExpenses)
                             {
-                                var statusColor = te.Status switch { "Approved" or "Paid" => "#059669", "Submitted" => "#4361EE", "Rejected" => "#DC2626", _ => "#6B7280" };
+                                var statusColor = te.Status switch { "Approved" or "Paid" => "#059669", "Submitted" => "#00B5A6", "Rejected" => "#DC2626", _ => "#6B7280" };
                                 var statusLabel = te.Status switch { "Draft" => "Utkast", "Submitted" => "Innsendt", "Approved" => "Godkjent", "Rejected" => "Avvist", "Paid" => "Betalt", _ => te.Status };
                                 <tr>
                                     <td style="font-weight:500;">@te.EmployeeName</td>

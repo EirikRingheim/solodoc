@@ -233,7 +233,7 @@ else
                                     {
                                         var isWe = date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday;
                                         var isTd = date == DateOnly.FromDateTime(DateTime.Today);
-                                        <th style="padding:2px;text-align:center;font-size:0.6rem;color:@(isWe ? "#9CA3AF" : "#374151");@(isTd ? "background:#EBF0FF;border-radius:3px;" : "")">
+                                        <th style="padding:2px;text-align:center;font-size:0.6rem;color:@(isWe ? "#9CA3AF" : "#374151");@(isTd ? "background:#E6FAF8;border-radius:3px;" : "")">
                                             @date.Day
                                         </th>
                                     }
@@ -395,7 +395,7 @@ else
                 var isSelected = _newRole == role.Key;
                 var capturedKey = role.Key;
                 <MudPaper Elevation="0" Class="pa-3"
-                          Style="@($"border:2px solid {(isSelected ? "#4361EE" : "#e9ecef")};border-radius:10px;cursor:pointer;{(isSelected ? "background:#EBF0FF;" : "")}")"
+                          Style="@($"border:2px solid {(isSelected ? "#00B5A6" : "#e9ecef")};border-radius:10px;cursor:pointer;{(isSelected ? "background:#E6FAF8;" : "")}")"
                           @onclick="() => _newRole = capturedKey">
                     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
                         @if (isSelected)
@@ -422,7 +422,7 @@ else
                     var isSelected = _newRole == $"custom:{cr.Id}";
                     var capturedCr = cr;
                     <MudPaper Elevation="0" Class="pa-3"
-                              Style="@($"border:2px solid {(isSelected ? "#4361EE" : "#e9ecef")};border-radius:10px;cursor:pointer;{(isSelected ? "background:#EBF0FF;" : "")}")"
+                              Style="@($"border:2px solid {(isSelected ? "#00B5A6" : "#e9ecef")};border-radius:10px;cursor:pointer;{(isSelected ? "background:#E6FAF8;" : "")}")"
                               @onclick="() => SelectCustomRole(capturedCr.Id)">
                         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
                             @if (isSelected)

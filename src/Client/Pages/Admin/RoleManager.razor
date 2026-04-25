@@ -31,7 +31,7 @@ else
                     <MudStack Spacing="2">
                         <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
                             <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                                <div style="@($"width:32px;height:32px;border-radius:8px;background:{(role.Color ?? "#4361EE")};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.8rem;")">
+                                <div style="@($"width:32px;height:32px;border-radius:8px;background:{(role.Color ?? "#00B5A6")};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.8rem;")">
                                     @role.Name[0].ToString().ToUpper()
                                 </div>
                                 <div>
@@ -146,7 +146,7 @@ else
     private Guid? _editingRoleId;
     private string _dlgName = "";
     private string _dlgDescription = "";
-    private string _dlgColor = "#4361EE";
+    private string _dlgColor = "#00B5A6";
     private HashSet<string> _dlgPermissions = [];
     private bool _saving;
 
@@ -167,7 +167,7 @@ else
         _editingRoleId = null;
         _dlgName = "";
         _dlgDescription = "";
-        _dlgColor = "#4361EE";
+        _dlgColor = "#00B5A6";
         _dlgPermissions = [];
         _dialogOpen = true;
     }
@@ -177,7 +177,7 @@ else
         _editingRoleId = role.Id;
         _dlgName = role.Name;
         _dlgDescription = role.Description ?? "";
-        _dlgColor = role.Color ?? "#4361EE";
+        _dlgColor = role.Color ?? "#00B5A6";
         _dlgPermissions = [.. role.Permissions];
         _dialogOpen = true;
     }

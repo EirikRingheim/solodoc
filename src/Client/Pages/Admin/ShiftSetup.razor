@@ -141,7 +141,7 @@
                             <MudText Typo="Typo.caption" Color="Color.Secondary">@preset.Description</MudText>
                         </MudStack>
                     </MudStack>
-                    <MudText Typo="Typo.body2" Style="font-weight:600;color:#4361EE;">@preset.RatePercent%</MudText>
+                    <MudText Typo="Typo.body2" Style="font-weight:600;color:#00B5A6;">@preset.RatePercent%</MudText>
                 </MudStack>
             </MudPaper>
         }
@@ -445,14 +445,14 @@
 
     // Color palette
     private readonly string[] _colorPalette = [
-        "#4361EE", "#3A86FF", "#0891B2", "#059669", "#16A34A",
+        "#00B5A6", "#3A86FF", "#0891B2", "#059669", "#16A34A",
         "#CA8A04", "#EA580C", "#DC2626", "#9333EA", "#7C3AED",
         "#6B7280", "#1F2937", "#7C2D12", "#155E75"
     ];
 
     // Shift dialog
     private bool _shiftDialogOpen;
-    private string _sName = "", _sColor = "#4361EE", _sStart = "07:00", _sEnd = "15:00";
+    private string _sName = "", _sColor = "#00B5A6", _sStart = "07:00", _sEnd = "15:00";
     private bool _sIsWork = true;
     private int _sBreak = 30;
 
@@ -539,7 +539,7 @@
     private void OpenNewShift()
     {
         _editingShiftId = null;
-        _sName = ""; _sColor = "#4361EE"; _sStart = "07:00"; _sEnd = "15:00"; _sIsWork = true; _sBreak = 30;
+        _sName = ""; _sColor = "#00B5A6"; _sStart = "07:00"; _sEnd = "15:00"; _sIsWork = true; _sBreak = 30;
         _shiftDialogOpen = true;
     }
 

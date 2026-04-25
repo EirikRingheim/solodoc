@@ -26,7 +26,7 @@ else if (_info is null)
 }
 else
 {
-    var accent = _info.AccentColor ?? "#4361EE";
+    var accent = _info.AccentColor ?? "#00B5A6";
     var accentLight = accent + "12";
     var siteLabel = _info.SiteType switch
     {
@@ -155,7 +155,7 @@ else
         if (_info is not null && !string.IsNullOrEmpty(_info.Slug))
         {
             var qrUrl = $"{Navigation.BaseUri}checkin/qr/{_info.Slug}";
-            var accent = _info.AccentColor ?? "#4361EE";
+            var accent = _info.AccentColor ?? "#00B5A6";
             await JS.InvokeVoidAsync("qrInterop.render",
                 "qr-container", qrUrl, _info.LogoUrl, accent, 280);
         }
@@ -198,7 +198,7 @@ else
             if (_info is not null)
             {
                 var qrUrl = $"{Navigation.BaseUri}checkin/qr/{_info.Slug}";
-                var accent = _info.AccentColor ?? "#4361EE";
+                var accent = _info.AccentColor ?? "#00B5A6";
                 await JS.InvokeVoidAsync("qrInterop.render",
                     "qr-container", qrUrl, _info.LogoUrl, accent, 280);
             }

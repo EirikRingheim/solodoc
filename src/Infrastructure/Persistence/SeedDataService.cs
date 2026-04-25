@@ -117,7 +117,7 @@ public class SeedDataService(
             BusinessType = BusinessType.AS,
             BusinessAddress = "Fjellveien 42, 5003 Bergen",
             DefaultTimeZoneId = "Europe/Oslo",
-            AccentColor = "#4361EE"
+            AccentColor = "#00B5A6"
         };
         db.Tenants.Add(tenant);
 

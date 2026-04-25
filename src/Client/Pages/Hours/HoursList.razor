@@ -73,12 +73,12 @@
                     <div style="min-width:160px;flex:1;display:flex;flex-direction:column;">
                         @* Day header *@
                         <MudPaper Elevation="0" Class="pa-2 mb-0"
-                                  Style="@($"border:1px solid {(isToday ? "#4361EE" : "#E9ECEF")};border-radius:12px 12px 0 0;{(isToday ? "background:#EBF0FF;" : isWeekend ? "background:#FAFAFA;" : "")}")">
+                                  Style="@($"border:1px solid {(isToday ? "#00B5A6" : "#E9ECEF")};border-radius:12px 12px 0 0;{(isToday ? "background:#E6FAF8;" : isWeekend ? "background:#FAFAFA;" : "")}")">
                             <MudStack AlignItems="AlignItems.Center" Spacing="0">
                                 <MudText Typo="Typo.caption" Style="font-weight:600;text-transform:capitalize;">
                                     @day.ToString("ddd", System.Globalization.CultureInfo.GetCultureInfo("nb-NO"))
                                 </MudText>
-                                <MudText Typo="Typo.body2" Style="@($"font-weight:700;{(isToday ? "color:#4361EE;" : "")}")">
+                                <MudText Typo="Typo.body2" Style="@($"font-weight:700;{(isToday ? "color:#00B5A6;" : "")}")">
                                     @day.Day
                                 </MudText>
                                 <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
@@ -206,7 +206,7 @@
                                     {
                                         var isWe = date.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday;
                                         var isTd = date == DateOnly.FromDateTime(DateTime.Today);
-                                        <th style="padding:3px;text-align:center;font-size:0.65rem;font-weight:@(isWe ? "400" : "500");color:@(isWe ? "#9CA3AF" : "#374151");@(isTd ? "background:#EBF0FF;border-radius:4px;" : "")">
+                                        <th style="padding:3px;text-align:center;font-size:0.65rem;font-weight:@(isWe ? "400" : "500");color:@(isWe ? "#9CA3AF" : "#374151");@(isTd ? "background:#E6FAF8;border-radius:4px;" : "")">
                                             @date.Day<br/>@date.ToString("ddd", System.Globalization.CultureInfo.GetCultureInfo("nb-NO")).Substring(0, 2)
                                         </th>
                                     }
@@ -225,13 +225,13 @@
                                         var isSel = _hmSelCol == capturedCi;
                                         var isConfirming = _hmConfirmCol == capturedCi;
 
-                                        <td style="padding:3px;text-align:center;font-size:0.7rem;font-weight:500;background:@bg;color:@fg;border-radius:4px;border:1px solid #E5E7EB;height:30px;cursor:pointer;@(isSel ? "outline:2px solid #4361EE;outline-offset:-1px;" : "")"
+                                        <td style="padding:3px;text-align:center;font-size:0.7rem;font-weight:500;background:@bg;color:@fg;border-radius:4px;border:1px solid #E5E7EB;height:30px;cursor:pointer;@(isSel ? "outline:2px solid #00B5A6;outline-offset:-1px;" : "")"
                                             title="@($"{cell.Date:dd.MM} — {cell.Hours:0.#}t — {cell.Status}")"
                                             @onclick="() => SelectHmCell(capturedCi)"
                                             @ondblclick="async () => await OpenNewForDay(cell.Date)">
                                             @if (isConfirming)
                                             {
-                                                <span style="font-size:0.55rem;color:#4361EE;">Send?</span>
+                                                <span style="font-size:0.55rem;color:#00B5A6;">Send?</span>
                                             }
                                             else if (cell.AbsenceType is not null)
                                             {
@@ -396,7 +396,7 @@
                             <span style="color:#9CA3AF;">-</span>
                             <span style="font-weight:600;color:@(ciOut.HasValue ? "#059669" : "#D97706");">@(ciOut?.ToString("HH:mm") ?? "aktiv")</span>
                             <span style="color:#6B7280;font-size:0.7rem;flex:1;">@ci.SiteName</span>
-                            <span style="background:@(ci.SiteType == "Prosjekt" ? "#4361EE15" : ci.SiteType == "Oppdrag" ? "#D9770615" : "#05966915");color:@(ci.SiteType == "Prosjekt" ? "#4361EE" : ci.SiteType == "Oppdrag" ? "#D97706" : "#059669");padding:1px 6px;border-radius:3px;font-size:0.6rem;">@ci.SiteType</span>
+                            <span style="background:@(ci.SiteType == "Prosjekt" ? "#00B5A615" : ci.SiteType == "Oppdrag" ? "#D9770615" : "#05966915");color:@(ci.SiteType == "Prosjekt" ? "#00B5A6" : ci.SiteType == "Oppdrag" ? "#D97706" : "#059669");padding:1px 6px;border-radius:3px;font-size:0.6rem;">@ci.SiteType</span>
                             <MudIcon Icon="@Icons.Material.Filled.ContentCopy" Size="Size.Small" Style="color:#9CA3AF;font-size:0.7rem;" />
                         </div>
                     }
@@ -445,17 +445,17 @@
                         </MudText>
                         <MudStack Row="true" Spacing="1" Style="flex-wrap:wrap;">
                             <MudChip T="string" Size="Size.Small"
-                                     Style="@($"height:32px;cursor:pointer;{(_dlgOvertimeChoice == "payout" ? "background:#4361EE;color:#FFF;" : "background:#E9ECEF;color:#374151;")}")"
+                                     Style="@($"height:32px;cursor:pointer;{(_dlgOvertimeChoice == "payout" ? "background:#00B5A6;color:#FFF;" : "background:#E9ECEF;color:#374151;")}")"
                                      OnClick="ChoosePayout">
                                 Utbetaling
                             </MudChip>
                             <MudChip T="string" Size="Size.Small"
-                                     Style="@($"height:32px;cursor:pointer;{(_dlgOvertimeChoice == "bank" ? "background:#4361EE;color:#FFF;" : "background:#E9ECEF;color:#374151;")}")"
+                                     Style="@($"height:32px;cursor:pointer;{(_dlgOvertimeChoice == "bank" ? "background:#00B5A6;color:#FFF;" : "background:#E9ECEF;color:#374151;")}")"
                                      OnClick="ChooseBank">
                                 Timebank
                             </MudChip>
                             <MudChip T="string" Size="Size.Small"
-                                     Style="@($"height:32px;cursor:pointer;{(_dlgOvertimeChoice == "split" ? "background:#4361EE;color:#FFF;" : "background:#E9ECEF;color:#374151;")}")"
+                                     Style="@($"height:32px;cursor:pointer;{(_dlgOvertimeChoice == "split" ? "background:#00B5A6;color:#FFF;" : "background:#E9ECEF;color:#374151;")}")"
                                      OnClick="ChooseSplit">
                                 Del opp
                             </MudChip>
@@ -504,7 +504,7 @@
                         var rid = rule.Id;
                         var sel = _dlgAllowanceIds.Contains(rid);
                         <MudChip T="string" Size="Size.Small"
-                                 Style="@($"height:28px;cursor:pointer;{(sel ? "background:#4361EE;color:#FFF;" : "background:#E9ECEF;color:#374151;")}")"
+                                 Style="@($"height:28px;cursor:pointer;{(sel ? "background:#00B5A6;color:#FFF;" : "background:#E9ECEF;color:#374151;")}")"
                                  OnClick="() => ToggleDlgAllowance(rid)">
                             @rule.Name (@rule.Amount kr)
                         </MudChip>
@@ -1181,8 +1181,8 @@
 
     private static string GetCategoryColor(string c) => c switch
     {
-        "Arbeid" => "#4361EE", "Reise" => "#7C3AED", "Kontorarbeid" => "#0891B2",
-        "Lagerarbeid" => "#CA8A04", "Kurs" => "#059669", "Annet" => "#6B7280", _ => "#4361EE"
+        "Arbeid" => "#00B5A6", "Reise" => "#7C3AED", "Kontorarbeid" => "#0891B2",
+        "Lagerarbeid" => "#CA8A04", "Kurs" => "#059669", "Annet" => "#6B7280", _ => "#00B5A6"
     };
 
     private static string GetStatusBg(string s) => s switch

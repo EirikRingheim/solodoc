@@ -92,10 +92,10 @@ window.mapInterop = {
                     if (f.properties && f.properties.radius && f.geometry.type === 'Point') {
                         var c = f.geometry.coordinates;
                         drawnItems.addLayer(L.circle([c[1], c[0]], {
-                            radius: f.properties.radius, color: '#4361EE', fillOpacity: 0.2
+                            radius: f.properties.radius, color: '#00B5A6', fillOpacity: 0.2
                         }));
                     } else {
-                        L.geoJSON(f, { style: { color: '#4361EE', fillOpacity: 0.2 } })
+                        L.geoJSON(f, { style: { color: '#00B5A6', fillOpacity: 0.2 } })
                             .eachLayer(function (l) { drawnItems.addLayer(l); });
                     }
                 });
@@ -103,7 +103,7 @@ window.mapInterop = {
                     map.fitBounds(drawnItems.getBounds().pad(0.2));
             } catch (e) { console.warn('Failed to load geofence:', e); }
         } else if (lat && lng && radius) {
-            var circle = L.circle([lat, lng], { radius: radius, color: '#4361EE', fillOpacity: 0.2 });
+            var circle = L.circle([lat, lng], { radius: radius, color: '#00B5A6', fillOpacity: 0.2 });
             drawnItems.addLayer(circle);
         }
 
@@ -116,9 +116,9 @@ window.mapInterop = {
         var drawControl = new L.Control.Draw({
             edit: { featureGroup: drawnItems },
             draw: {
-                polygon: { shapeOptions: { color: '#4361EE', fillOpacity: 0.2 } },
-                circle: { shapeOptions: { color: '#4361EE', fillOpacity: 0.2 } },
-                rectangle: { shapeOptions: { color: '#4361EE', fillOpacity: 0.2 } },
+                polygon: { shapeOptions: { color: '#00B5A6', fillOpacity: 0.2 } },
+                circle: { shapeOptions: { color: '#00B5A6', fillOpacity: 0.2 } },
+                rectangle: { shapeOptions: { color: '#00B5A6', fillOpacity: 0.2 } },
                 polyline: false,
                 marker: false,
                 circlemarker: false

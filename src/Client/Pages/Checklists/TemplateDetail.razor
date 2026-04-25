@@ -224,8 +224,8 @@ else
         }
 
         @* ── Add element buttons ── *@
-        <MudPaper Elevation="0" Style="border:2px dashed #4361EE40;border-radius:12px;background:#F8FAFF;" Class="pa-4 mb-4">
-            <MudText Typo="Typo.caption" Style="font-weight:600;color:#4361EE;" Class="mb-2">LEGG TIL ELEMENT</MudText>
+        <MudPaper Elevation="0" Style="border:2px dashed #00B5A640;border-radius:12px;background:#F8FAFF;" Class="pa-4 mb-4">
+            <MudText Typo="Typo.caption" Style="font-weight:600;color:#00B5A6;" Class="mb-2">LEGG TIL ELEMENT</MudText>
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
                 @foreach (var t in _itemTypes)
                 {
@@ -325,7 +325,7 @@ else
 
             @* Footer *@
             <div style="padding:12px 20px;border-top:1px solid #e9ecef;position:sticky;bottom:0;background:#fff;border-radius:0 0 16px 16px;">
-                <div style="padding:12px;background:#4361EE;color:#fff;border-radius:10px;text-align:center;font-weight:600;">
+                <div style="padding:12px;background:#00B5A6;color:#fff;border-radius:10px;text-align:center;font-weight:600;">
                     Send inn
                 </div>
             </div>
@@ -591,7 +591,7 @@ else
     private static string GetTypeColor(string type) => type switch
     {
         "Check" => "#10B981",
-        "TextInput" => "#4361EE",
+        "TextInput" => "#00B5A6",
         "NumberInput" => "#EA580C",
         "DateInput" => "#7C3AED",
         "Dropdown" => "#0891B2",

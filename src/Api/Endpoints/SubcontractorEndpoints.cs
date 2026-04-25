@@ -185,7 +185,7 @@ public static class SubcontractorEndpoints
             id = invitation.Id,
             email = invitation.Email,
             tenantName = invitation.Tenant.Name,
-            tenantAccentColor = invitation.Tenant.AccentColor ?? "#4361EE",
+            tenantAccentColor = invitation.Tenant.AccentColor ?? "#00B5A6",
             projectName = projectName ?? "Ukjent prosjekt",
             invitedByName = invitation.InvitedByName,
             expiresAt = invitation.ExpiresAt,

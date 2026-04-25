@@ -35,7 +35,7 @@
                 </MudPaper>
             }
 
-            <MudPaper Elevation="0" Style="border:2px dashed #4361EE;border-radius:10px;position:relative;cursor:pointer;"
+            <MudPaper Elevation="0" Style="border:2px dashed #00B5A6;border-radius:10px;position:relative;cursor:pointer;"
                       Class="pa-4">
                 <MudStack AlignItems="AlignItems.Center" Spacing="1">
                     @if (_uploading)
@@ -45,8 +45,8 @@
                     }
                     else
                     {
-                        <MudIcon Icon="@Icons.Material.Filled.CameraAlt" Style="color:#4361EE;" Size="Size.Large" />
-                        <MudText Typo="Typo.body2" Style="color:#4361EE;font-weight:500;">
+                        <MudIcon Icon="@Icons.Material.Filled.CameraAlt" Style="color:#00B5A6;" Size="Size.Large" />
+                        <MudText Typo="Typo.body2" Style="color:#00B5A6;font-weight:500;">
                             @(string.IsNullOrEmpty(_receiptKey) ? "Ta bilde eller velg fil" : "Bytt bilde")
                         </MudText>
                         <MudText Typo="Typo.caption" Color="Color.Secondary">JPG, PNG, PDF — maks 25 MB</MudText>

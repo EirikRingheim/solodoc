@@ -50,7 +50,7 @@ else
                 <MudStack Spacing="3">
                     @* Status badge *@
                     @{
-                        var statusColor = _expense.Status switch { "Approved" or "Paid" => "#059669", "Submitted" => "#4361EE", "Rejected" => "#DC2626", _ => "#6B7280" };
+                        var statusColor = _expense.Status switch { "Approved" or "Paid" => "#059669", "Submitted" => "#00B5A6", "Rejected" => "#DC2626", _ => "#6B7280" };
                         var statusLabel = _expense.Status switch { "Draft" => "Utkast", "Submitted" => "Innsendt", "Approved" => "Godkjent", "Rejected" => "Avvist", "Paid" => "Betalt", _ => _expense.Status };
                     }
                     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
@@ -60,7 +60,7 @@ else
                     @* Amount *@
                     <div>
                         <MudText Typo="Typo.caption" Color="Color.Secondary">Beløp</MudText>
-                        <MudText Typo="Typo.h4" Style="font-weight:700;color:#4361EE;">kr @_expense.Amount.ToString("N2")</MudText>
+                        <MudText Typo="Typo.h4" Style="font-weight:700;color:#00B5A6;">kr @_expense.Amount.ToString("N2")</MudText>
                     </div>
 
                     @* Info grid *@
@@ -107,7 +107,7 @@ else
                     }
                     @if (_expense.PaidByName is not null)
                     {
-                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Style="color:#4361EE;">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1" Style="color:#00B5A6;">
                             <MudIcon Icon="@Icons.Material.Filled.Paid" Size="Size.Small" />
                             <MudText Typo="Typo.caption">Betalt av @_expense.PaidByName — @_expense.PaidAt?.ToLocalTime().ToString("dd.MM.yy HH:mm")</MudText>
                         </MudStack>

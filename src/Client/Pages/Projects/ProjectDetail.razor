@@ -140,12 +140,12 @@ else
                 }
                 @if (hasSubs)
                 {
-                    <MudText Typo="Typo.subtitle2" Style="font-weight:700;color:#4361EE;" Class="mb-2">Totalt</MudText>
+                    <MudText Typo="Typo.subtitle2" Style="font-weight:700;color:#00B5A6;" Class="mb-2">Totalt</MudText>
                 }
                 <MudGrid Spacing="2" Class="mb-3">
                     <MudItem xs="6" sm="3">
-                        <div style="background:#EBF0FF;border-radius:10px;padding:14px;text-align:center;">
-                            <div style="font-size:1.5rem;font-weight:700;color:#4361EE;">@((hasSubs ? tHours : _dashHoursParent).ToString("N1"))</div>
+                        <div style="background:#E6FAF8;border-radius:10px;padding:14px;text-align:center;">
+                            <div style="font-size:1.5rem;font-weight:700;color:#00B5A6;">@((hasSubs ? tHours : _dashHoursParent).ToString("N1"))</div>
                             <div style="font-size:0.7rem;color:#6B7280;">Timer</div>
                         </div>
                     </MudItem>
@@ -183,7 +183,7 @@ else
                                 <MudGrid Spacing="2" Class="mb-4">
                                     <MudItem xs="6" sm="3">
                                         <div style="background:#F8F9FA;border:1px solid #e9ecef;border-radius:10px;padding:12px;text-align:center;">
-                                            <div style="font-size:1.2rem;font-weight:700;color:#4361EE;">@_dashHoursParent.ToString("N1")</div>
+                                            <div style="font-size:1.2rem;font-weight:700;color:#00B5A6;">@_dashHoursParent.ToString("N1")</div>
                                             <div style="font-size:0.65rem;color:#6B7280;">Timer</div>
                                         </div>
                                     </MudItem>
@@ -211,7 +211,7 @@ else
                                 @foreach (var sub in _project.SubProjects!)
                                 {
                                     var capturedSub = sub;
-                                    var sc = sub.Status switch { "Aktiv" => "#059669", "Fullført" or "Fullfort" => "#4361EE", _ => "#9CA3AF" };
+                                    var sc = sub.Status switch { "Aktiv" => "#059669", "Fullført" or "Fullfort" => "#00B5A6", _ => "#9CA3AF" };
                                     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-2">
                                         <MudText Typo="Typo.subtitle2" Style="font-weight:600;">↳ @sub.Name</MudText>
                                         <span style="@($"color:{sc};font-size:0.7rem;font-weight:600;")">@sub.Status</span>
@@ -223,7 +223,7 @@ else
                                     <MudGrid Spacing="2" Class="mb-4">
                                         <MudItem xs="6" sm="3">
                                             <div style="background:#F8F9FA;border:1px solid #e9ecef;border-radius:10px;padding:12px;text-align:center;">
-                                                <div style="font-size:1.2rem;font-weight:700;color:#4361EE;">@sub.TotalHours.ToString("N1")</div>
+                                                <div style="font-size:1.2rem;font-weight:700;color:#00B5A6;">@sub.TotalHours.ToString("N1")</div>
                                                 <div style="font-size:0.65rem;color:#6B7280;">Timer</div>
                                             </div>
                                         </MudItem>
@@ -334,7 +334,7 @@ else
                     @foreach (var post in _posts)
                     {
                         var capturedPost = post;
-                        <MudPaper Elevation="0" Style="@($"border:1px solid {(post.IsPinned ? "#4361EE" : "#E9ECEF")};border-radius:10px;{(post.IsPinned ? "background:#F8FAFF;" : "")}")" Class="pa-3 mb-2">
+                        <MudPaper Elevation="0" Style="@($"border:1px solid {(post.IsPinned ? "#00B5A6" : "#E9ECEF")};border-radius:10px;{(post.IsPinned ? "background:#F8FAFF;" : "")}")" Class="pa-3 mb-2">
                             <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Start">
                                 <MudAvatar Color="Color.Primary" Size="Size.Small" Style="font-size:0.7rem;">@post.AuthorInitials</MudAvatar>
                                 <div style="flex:1;min-width:0;">
@@ -343,7 +343,7 @@ else
                                         <MudText Typo="Typo.caption" Color="Color.Secondary">@post.CreatedAt.ToLocalTime().ToString("dd.MM HH:mm")</MudText>
                                         @if (post.IsPinned)
                                         {
-                                            <MudIcon Icon="@Icons.Material.Filled.PushPin" Size="Size.Small" Style="color:#4361EE;font-size:0.8rem;" />
+                                            <MudIcon Icon="@Icons.Material.Filled.PushPin" Size="Size.Small" Style="color:#00B5A6;font-size:0.8rem;" />
                                         }
                                     </MudStack>
                                     <MudText Typo="Typo.body2" Style="white-space:pre-wrap;margin-top:4px;">@post.Content</MudText>
@@ -396,7 +396,7 @@ else
                                 <MudText Typo="Typo.subtitle1" Style="font-weight:600;">
                                     @completedCount av @totalCount underprosjekter fullfort
                                 </MudText>
-                                <MudText Typo="Typo.body2" Style="font-weight:600;color:#4361EE;">@((int)progressPct)%</MudText>
+                                <MudText Typo="Typo.body2" Style="font-weight:600;color:#00B5A6;">@((int)progressPct)%</MudText>
                             </MudStack>
                             <MudProgressLinear Value="progressPct" Color="Color.Success" Rounded="true" Style="height:8px;" Class="mt-2" />
                         </MudPaper>
@@ -405,7 +405,7 @@ else
                             @foreach (var sub in _project.SubProjects)
                             {
                                 var capturedSub = sub;
-                                var subStatusColor = sub.Status switch { "Aktiv" => "#059669", "Fullfort" => "#4361EE", "Planlagt" => "#6B7280", _ => "#DC2626" };
+                                var subStatusColor = sub.Status switch { "Aktiv" => "#059669", "Fullfort" => "#00B5A6", "Planlagt" => "#6B7280", _ => "#DC2626" };
                                 var subCheckPct = sub.ChecklistsTotal > 0 ? (double)sub.ChecklistsCompleted / sub.ChecklistsTotal * 100 : 0;
                                 <MudItem xs="12" sm="6" md="4">
                                     <MudPaper Elevation="0" Class="pa-4"
@@ -705,7 +705,7 @@ else
                         <MudItem xs="6" sm="3">
                             <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:8px;" Class="pa-3">
                                 <MudText Typo="Typo.caption" Color="Color.Secondary">Totalt</MudText>
-                                <MudText Typo="Typo.h6" Style="font-weight:600;color:#4361EE;">
+                                <MudText Typo="Typo.h6" Style="font-weight:600;color:#00B5A6;">
                                     @_timeEntries.Sum(t => t.Hours).ToString("N1") t
                                 </MudText>
                             </MudPaper>
@@ -930,7 +930,7 @@ else
                                     @foreach (var exp in _projectExpenses)
                                     {
                                         var captured = exp;
-                                        var statusColor = exp.Status switch { "Approved" or "Paid" => "#059669", "Submitted" => "#4361EE", "Rejected" => "#DC2626", _ => "#6B7280" };
+                                        var statusColor = exp.Status switch { "Approved" or "Paid" => "#059669", "Submitted" => "#00B5A6", "Rejected" => "#DC2626", _ => "#6B7280" };
                                         var statusLabel = exp.Status switch { "Draft" => "Utkast", "Submitted" => "Innsendt", "Approved" => "Godkjent", "Rejected" => "Avvist", "Paid" => "Betalt", _ => exp.Status };
                                         <tr style="cursor:pointer;" @onclick="@(() => Navigation.NavigateTo($"/utlegg/{captured.Id}"))">
                                             <td style="font-weight:500;">@exp.EmployeeName</td>
@@ -972,7 +972,7 @@ else
                     <MudStack Row="true" Spacing="4" Style="padding:12px;background:#F8F9FA;border-radius:8px;margin-top:12px;flex-wrap:wrap;">
                         <div><span style="font-size:0.75rem;color:#6B7280;">Totalt:</span> <b>kr @_projectExpenses.Sum(e => e.Amount).ToString("N0")</b></div>
                         <div><span style="font-size:0.75rem;color:#6B7280;">Godkjent:</span> <b style="color:#059669;">kr @_projectExpenses.Where(e => e.IsApproved).Sum(e => e.Amount).ToString("N0")</b></div>
-                        <div><span style="font-size:0.75rem;color:#6B7280;">Betalt:</span> <b style="color:#4361EE;">kr @_projectExpenses.Where(e => e.IsPaid).Sum(e => e.Amount).ToString("N0")</b></div>
+                        <div><span style="font-size:0.75rem;color:#6B7280;">Betalt:</span> <b style="color:#00B5A6;">kr @_projectExpenses.Where(e => e.IsPaid).Sum(e => e.Amount).ToString("N0")</b></div>
                     </MudStack>
                 }
             </div>
@@ -1351,11 +1351,11 @@ else
                 <MudStack Spacing="0" Style="flex:1;min-width:0;">
                     @if (!string.IsNullOrWhiteSpace(cl.ObjectDisplayName))
                     {
-                        <MudText Typo="Typo.caption" Style="font-weight:600;color:#4361EE;">@cl.ObjectDisplayName</MudText>
+                        <MudText Typo="Typo.caption" Style="font-weight:600;color:#00B5A6;">@cl.ObjectDisplayName</MudText>
                     }
                     else if (!string.IsNullOrWhiteSpace(cl.LocationIdentifier))
                     {
-                        <MudText Typo="Typo.caption" Style="font-weight:600;color:#4361EE;">@cl.LocationIdentifier</MudText>
+                        <MudText Typo="Typo.caption" Style="font-weight:600;color:#00B5A6;">@cl.LocationIdentifier</MudText>
                     }
                     <MudText Typo="Typo.body2" Style="font-weight:500;">@cl.TemplateName</MudText>
                     <MudText Typo="Typo.caption" Color="Color.Secondary">

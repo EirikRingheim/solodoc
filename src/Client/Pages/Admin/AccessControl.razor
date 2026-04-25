@@ -36,11 +36,11 @@ else
                         var m = module;
                         <MudItem xs="12" sm="6" md="4">
                             <MudPaper Elevation="0" Class="pa-3"
-                                      Style="@($"border:1px solid {(IsModuleEnabled(m.Key) ? "#4361EE" : "#e9ecef")};border-radius:12px;{(IsModuleEnabled(m.Key) ? "background:#F0F3FF;" : "")}")">
+                                      Style="@($"border:1px solid {(IsModuleEnabled(m.Key) ? "#00B5A6" : "#e9ecef")};border-radius:12px;{(IsModuleEnabled(m.Key) ? "background:#E6FAF8;" : "")}")">
                                 <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
                                     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
                                         <MudIcon Icon="@m.Icon" Size="Size.Small"
-                                                 Style="@($"color:{(IsModuleEnabled(m.Key) ? "#4361EE" : "#ADB5BD")}")" />
+                                                 Style="@($"color:{(IsModuleEnabled(m.Key) ? "#00B5A6" : "#ADB5BD")}")" />
                                         <div>
                                             <MudText Typo="Typo.subtitle2" Style="font-weight:600;">@m.Name</MudText>
                                             <MudText Typo="Typo.caption" Color="Color.Secondary">@m.Description</MudText>
@@ -124,7 +124,7 @@ else
                                       @onclick="@(() => EditRole(r))">
                                 <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween">
                                     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                                        <div style="@($"width:12px;height:12px;border-radius:50%;background:{r.Color ?? "#4361EE"};")"></div>
+                                        <div style="@($"width:12px;height:12px;border-radius:50%;background:{r.Color ?? "#00B5A6"};")"></div>
                                         <div>
                                             <MudText Typo="Typo.subtitle2" Style="font-weight:600;">@r.Name</MudText>
                                             <MudText Typo="Typo.caption" Color="Color.Secondary">
@@ -182,11 +182,11 @@ else
                                 var selected = _editRoleModules.Contains(mod.Key);
                                 <MudItem xs="6" sm="4" md="3">
                                     <MudPaper Elevation="0" Class="pa-2"
-                                              Style="@($"border:1px solid {(selected ? "#4361EE" : "#e9ecef")};border-radius:10px;{(selected ? "background:#F0F3FF;" : "")}cursor:pointer;")"
+                                              Style="@($"border:1px solid {(selected ? "#00B5A6" : "#e9ecef")};border-radius:10px;{(selected ? "background:#E6FAF8;" : "")}cursor:pointer;")"
                                               @onclick="@(() => ToggleRoleModule(mod.Key))">
                                         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
                                             <MudIcon Icon="@mod.Icon" Size="Size.Small"
-                                                     Style="@($"color:{(selected ? "#4361EE" : "#ADB5BD")};font-size:1rem;")" />
+                                                     Style="@($"color:{(selected ? "#00B5A6" : "#ADB5BD")};font-size:1rem;")" />
                                             <MudText Typo="Typo.caption" Style="@($"font-weight:{(selected ? "600" : "400")};")">
                                                 @mod.Name
                                             </MudText>
@@ -414,7 +414,7 @@ else
     private void StartCreateRole()
     {
         _isNewRole = true;
-        _editingRole = new CustomRoleDto(Guid.Empty, "", null, "#4361EE", [], null, null, false, 0);
+        _editingRole = new CustomRoleDto(Guid.Empty, "", null, "#00B5A6", [], null, null, false, 0);
         _editRoleName = "";
         _editRoleDesc = null;
         _editRoleModules = _modules.Select(m => m.Key).ToHashSet();
@@ -461,7 +461,7 @@ else
         if (_isNewRole)
         {
             var id = await RoleService.CreateRoleAsync(
-                new CreateCustomRoleRequest(_editRoleName, _editRoleDesc, "#4361EE", perms, modules));
+                new CreateCustomRoleRequest(_editRoleName, _editRoleDesc, "#00B5A6", perms, modules));
             ok = id.HasValue;
         }
         else

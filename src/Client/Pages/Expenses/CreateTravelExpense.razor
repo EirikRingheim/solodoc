@@ -22,8 +22,8 @@
             var step = i;
             var isActive = _step == step;
             var isDone = _step > step;
-            <div style="@($"flex:1;text-align:center;padding:8px;border-bottom:3px solid {(isActive ? "#4361EE" : isDone ? "#059669" : "#E9ECEF")};")">
-                <span style="@($"font-size:0.8rem;font-weight:{(isActive ? "700" : "400")};color:{(isActive ? "#4361EE" : isDone ? "#059669" : "#9CA3AF")};")">
+            <div style="@($"flex:1;text-align:center;padding:8px;border-bottom:3px solid {(isActive ? "#00B5A6" : isDone ? "#059669" : "#E9ECEF")};")">
+                <span style="@($"font-size:0.8rem;font-weight:{(isActive ? "700" : "400")};color:{(isActive ? "#00B5A6" : isDone ? "#059669" : "#9CA3AF")};")">
                     @(step switch { 1 => "Reisedetaljer", 2 => "Kjøring", 3 => "Måltider", 4 => "Sammendrag", _ => "" })
                 </span>
             </div>
@@ -123,8 +123,8 @@
                 {
                     <MudGrid Spacing="2">
                         <MudItem xs="6" sm="3">
-                            <div style="background:#EBF0FF;border-radius:10px;padding:14px;text-align:center;">
-                                <div style="font-size:1.3rem;font-weight:700;color:#4361EE;">kr @_calculation.DietTotal.ToString("N0")</div>
+                            <div style="background:#E6FAF8;border-radius:10px;padding:14px;text-align:center;">
+                                <div style="font-size:1.3rem;font-weight:700;color:#00B5A6;">kr @_calculation.DietTotal.ToString("N0")</div>
                                 <div style="font-size:0.7rem;color:#6B7280;">Diett</div>
                             </div>
                         </MudItem>

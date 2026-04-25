@@ -5,7 +5,7 @@ window.qrInterop = {
      * @param {string} containerId - The ID of the DOM element to render into.
      * @param {string} data - The URL/data to encode.
      * @param {string|null} logoUrl - URL of the company logo (center of QR). Null = no logo.
-     * @param {string} accentColor - Hex color for QR dots (e.g., "#4361EE").
+     * @param {string} accentColor - Hex color for QR dots (e.g., "#00B5A6").
      * @param {number} size - QR code size in pixels.
      */
     render: function (containerId, data, logoUrl, accentColor, size) {

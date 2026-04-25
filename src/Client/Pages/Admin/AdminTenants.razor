@@ -46,8 +46,8 @@ else
     @* ── KPI cards ── *@
     <MudGrid Spacing="2" Class="mb-4">
         <MudItem xs="6" sm="4" md="2">
-            <div style="background:#EBF0FF;border-radius:10px;padding:14px;text-align:center;">
-                <div style="font-size:1.6rem;font-weight:700;color:#4361EE;">@_tenants.Count</div>
+            <div style="background:#E6FAF8;border-radius:10px;padding:14px;text-align:center;">
+                <div style="font-size:1.6rem;font-weight:700;color:#00B5A6;">@_tenants.Count</div>
                 <div style="font-size:0.7rem;color:#6B7280;">Bedrifter</div>
             </div>
         </MudItem>
@@ -85,7 +85,7 @@ else
 
     @* ── Subscription breakdown bar ── *@
     <div style="display:flex;height:24px;border-radius:8px;overflow:hidden;margin-bottom:16px;border:1px solid #e9ecef;">
-        @if (PaidPct > 0) { <div style="@($"width:{PaidPct}%;background:#4361EE;display:flex;align-items:center;justify-content:center;color:#fff;font-size:0.65rem;font-weight:600;")">Betalt @PaidCount</div> }
+        @if (PaidPct > 0) { <div style="@($"width:{PaidPct}%;background:#00B5A6;display:flex;align-items:center;justify-content:center;color:#fff;font-size:0.65rem;font-weight:600;")">Betalt @PaidCount</div> }
         @if (CouponPct > 0) { <div style="@($"width:{CouponPct}%;background:#10B981;display:flex;align-items:center;justify-content:center;color:#fff;font-size:0.65rem;font-weight:600;")">Kupong @CouponCount</div> }
         @if (TrialPct > 0) { <div style="@($"width:{TrialPct}%;background:#F59E0B;display:flex;align-items:center;justify-content:center;color:#fff;font-size:0.65rem;font-weight:600;")">Prøve @TrialCount</div> }
     </div>
@@ -109,7 +109,7 @@ else
         @foreach (var (idx, label) in new[] { (0, "Kunder"), (1, "Registreringstidslinje"), (3, $"Feillogg{(_errorCount > 0 ? $" ({_errorCount})" : "")}") })
         {
             var captured = idx;
-            <button style="@($"padding:6px 16px;border-radius:8px;border:1px solid {(_tab == captured ? "#4361EE" : "#e9ecef")};background:{(_tab == captured ? "#EBF0FF" : "#fff")};color:{(_tab == captured ? "#4361EE" : "#6B7280")};font-weight:{(_tab == captured ? "600" : "400")};font-size:0.8rem;cursor:pointer;")"
+            <button style="@($"padding:6px 16px;border-radius:8px;border:1px solid {(_tab == captured ? "#00B5A6" : "#e9ecef")};background:{(_tab == captured ? "#E6FAF8" : "#fff")};color:{(_tab == captured ? "#00B5A6" : "#6B7280")};font-weight:{(_tab == captured ? "600" : "400")};font-size:0.8rem;cursor:pointer;")"
                     @onclick="() => SwitchTab(captured)">@label</button>
         }
     </div>
@@ -138,7 +138,7 @@ else
                         @foreach (var t in _tenants)
                         {
                             var capturedT = t;
-                            var tierColor = t.SubscriptionTier switch { "trial" => "#F59E0B", "basic" => "#4361EE", "pro" => "#059669", "enterprise" => "#7C3AED", _ => "#6B7280" };
+                            var tierColor = t.SubscriptionTier switch { "trial" => "#F59E0B", "basic" => "#00B5A6", "pro" => "#059669", "enterprise" => "#7C3AED", _ => "#6B7280" };
                             var tierLabel = t.SubscriptionTier switch { "trial" => "Prøve", "basic" => "Basis", "pro" => "Pro", "enterprise" => "Enterprise", _ => t.SubscriptionTier };
                             var tenantMrr = t.HasCoupon ? 0 : t.MonthlyEstimateKr;
                             var trialExpired = t.TrialEndsAt.HasValue && t.TrialEndsAt.Value < DateTimeOffset.UtcNow;
@@ -146,7 +146,7 @@ else
                             <tr style="cursor:pointer;" @onclick="() => SelectTenant(capturedT)">
                                 <td>
                                     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                                        <div style="@($"width:26px;height:26px;border-radius:6px;background:{(t.AccentColor ?? "#4361EE")};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.65rem;flex-shrink:0;")">
+                                        <div style="@($"width:26px;height:26px;border-radius:6px;background:{(t.AccentColor ?? "#00B5A6")};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.65rem;flex-shrink:0;")">
                                             @t.Name[0]
                                         </div>
                                         <div>
@@ -207,7 +207,7 @@ else
                                     @if (t.LastActivityAt.HasValue)
                                     {
                                         var daysAgo = (int)(DateTimeOffset.UtcNow - t.LastActivityAt.Value).TotalDays;
-                                        var actColor = daysAgo == 0 ? "#059669" : daysAgo < 7 ? "#4361EE" : daysAgo < 30 ? "#D97706" : "#DC2626";
+                                        var actColor = daysAgo == 0 ? "#059669" : daysAgo < 7 ? "#00B5A6" : daysAgo < 30 ? "#D97706" : "#DC2626";
                                         <span style="@($"color:{actColor};font-size:0.75rem;font-weight:500;")">
                                             @(daysAgo == 0 ? "I dag" : daysAgo == 1 ? "I gar" : $"{daysAgo}d siden")
                                         </span>
@@ -250,8 +250,8 @@ else
                     var maxCount = byMonth.Max(x => x.Count);
                     var barHeight = maxCount > 0 ? (int)(m.Count * 160.0 / maxCount) : 0;
                     <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;">
-                        <span style="font-size:0.65rem;font-weight:600;color:#4361EE;">@m.Count</span>
-                        <div style="@($"width:100%;height:{Math.Max(barHeight, 4)}px;background:#4361EE;border-radius:4px 4px 0 0;min-width:20px;")"></div>
+                        <span style="font-size:0.65rem;font-weight:600;color:#00B5A6;">@m.Count</span>
+                        <div style="@($"width:100%;height:{Math.Max(barHeight, 4)}px;background:#00B5A6;border-radius:4px 4px 0 0;min-width:20px;")"></div>
                         <span style="font-size:0.6rem;color:#9CA3AF;">@m.Label</span>
                     </div>
                 }
@@ -310,7 +310,7 @@ else
                                 }
                                 @if (err.Page is not null)
                                 {
-                                    <span style="font-size:0.7rem;color:#4361EE;">@(new Uri(err.Page).PathAndQuery)</span>
+                                    <span style="font-size:0.7rem;color:#00B5A6;">@(new Uri(err.Page).PathAndQuery)</span>
                                 }
                             </MudStack>
                             @if (err.StackTrace is not null)
@@ -419,7 +419,7 @@ else
                                 <td style="text-align:right;font-weight:600;">kr @inv.TotalIncVatKr</td>
                                 <td>
                                     @{
-                                        var sColor = inv.Status switch { "Draft" => "#F59E0B", "Sent" => "#4361EE", "Paid" => "#059669", "Overdue" => "#DC2626", _ => "#6B7280" };
+                                        var sColor = inv.Status switch { "Draft" => "#F59E0B", "Sent" => "#00B5A6", "Paid" => "#059669", "Overdue" => "#DC2626", _ => "#6B7280" };
                                         var sLabel = inv.Status switch { "Draft" => "Utkast", "Approved" => "Godkjent", "Sent" => "Sendt", "Paid" => "Betalt", "Overdue" => "Forfalt", _ => inv.Status };
                                     }
                                     <span style="@($"color:{sColor};font-weight:600;font-size:0.75rem;")">@sLabel</span>

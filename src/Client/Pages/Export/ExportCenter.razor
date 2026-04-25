@@ -23,10 +23,10 @@
                 var selected = _selectedType == d.Key;
                 <MudItem xs="6" sm="4" md="3">
                     <MudPaper Elevation="0" Class="pa-3"
-                              Style="@($"border:2px solid {(selected ? "#4361EE" : "#e9ecef")};border-radius:12px;cursor:pointer;{(selected ? "background:#F0F3FF;" : "")}")"
+                              Style="@($"border:2px solid {(selected ? "#00B5A6" : "#e9ecef")};border-radius:12px;cursor:pointer;{(selected ? "background:#E6FAF8;" : "")}")"
                               @onclick="@(() => _selectedType = d.Key)">
                         <MudStack AlignItems="AlignItems.Center" Spacing="1">
-                            <MudIcon Icon="@d.Icon" Style="@($"color:{(selected ? "#4361EE" : "#ADB5BD")}")" />
+                            <MudIcon Icon="@d.Icon" Style="@($"color:{(selected ? "#00B5A6" : "#ADB5BD")}")" />
                             <MudText Typo="Typo.body2" Style="@($"font-weight:{(selected ? "600" : "400")};text-align:center;")">@d.Name</MudText>
                         </MudStack>
                     </MudPaper>
@@ -98,11 +98,11 @@
                 var f = fmt;
                 var selected = _selectedFormat == f.Key;
                 <MudPaper Elevation="0" Class="pa-4"
-                          Style="@($"border:2px solid {(selected ? "#4361EE" : "#e9ecef")};border-radius:12px;cursor:pointer;min-width:140px;{(selected ? "background:#F0F3FF;" : "")}")"
+                          Style="@($"border:2px solid {(selected ? "#00B5A6" : "#e9ecef")};border-radius:12px;cursor:pointer;min-width:140px;{(selected ? "background:#E6FAF8;" : "")}")"
                           @onclick="@(() => _selectedFormat = f.Key)">
                     <MudStack AlignItems="AlignItems.Center" Spacing="1">
                         <MudIcon Icon="@f.Icon" Size="Size.Large"
-                                 Style="@($"color:{(selected ? "#4361EE" : "#ADB5BD")}")" />
+                                 Style="@($"color:{(selected ? "#00B5A6" : "#ADB5BD")}")" />
                         <MudText Typo="Typo.subtitle2" Style="@($"font-weight:{(selected ? "600" : "400")};")">@f.Name</MudText>
                         <MudText Typo="Typo.caption" Color="Color.Secondary">@f.Description</MudText>
                     </MudStack>

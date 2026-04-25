@@ -16,7 +16,7 @@
 </MudStack>
 
 @* ── Pricing banner ── *@
-<MudPaper Elevation="0" Style="border:1px solid #C7D2FE;border-radius:12px;background:linear-gradient(135deg,#EBF0FF,#F8FAFF);" Class="pa-4 mb-4">
+<MudPaper Elevation="0" Style="border:1px solid #C7D2FE;border-radius:12px;background:linear-gradient(135deg,#E6FAF8,#F8FAFF);" Class="pa-4 mb-4">
     <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Style="flex-wrap:wrap;gap:12px;">
         <div>
             <MudText Typo="Typo.subtitle1" Style="font-weight:600;">Ferdiglagde maler for din bransje</MudText>
@@ -24,7 +24,7 @@
         </div>
         <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
             <div style="text-align:center;padding:8px 16px;background:#fff;border-radius:8px;border:1px solid #e9ecef;">
-                <div style="font-weight:700;color:#4361EE;">kr @(PricingConfig.SingleTemplatePrice)</div>
+                <div style="font-weight:700;color:#00B5A6;">kr @(PricingConfig.SingleTemplatePrice)</div>
                 <div style="font-size:0.6rem;color:#9CA3AF;">per mal</div>
             </div>
             <div style="text-align:center;padding:8px 16px;background:#fff;border-radius:8px;border:1px solid #10B981;">
@@ -79,7 +79,7 @@ else
                             </div>
                         }
                         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                            <div style="@($"width:36px;height:36px;border-radius:8px;background:{(tmpl.Color ?? "#4361EE")};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.8rem;flex-shrink:0;")">
+                            <div style="@($"width:36px;height:36px;border-radius:8px;background:{(tmpl.Color ?? "#00B5A6")};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:0.8rem;flex-shrink:0;")">
                                 @tmpl.Name[0]
                             </div>
                             <div style="flex:1;min-width:0;">
@@ -92,7 +92,7 @@ else
                             <MudText Typo="Typo.body2" Color="Color.Secondary" Style="font-size:0.8rem;">@tmpl.Description</MudText>
                         }
                         <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
-                            <MudText Typo="Typo.body2" Style="font-weight:600;color:#4361EE;">kr @tmpl.PriceKr</MudText>
+                            <MudText Typo="Typo.body2" Style="font-weight:600;color:#00B5A6;">kr @tmpl.PriceKr</MudText>
                             @if (tmpl.AlreadyPurchased)
                             {
                                 <MudChip T="string" Size="Size.Small" Color="Color.Success" Style="height:28px;">
