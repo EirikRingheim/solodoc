@@ -116,16 +116,28 @@ public class PowerOfficeService(
                 && (t.Status == TimeEntryStatus.Approved || t.Status == TimeEntryStatus.Submitted))
             .ToListAsync(ct);
 
-        logger.LogInformation("Syncing {Count} hour entries to PowerOffice for {From}-{To}", entries.Count, from, to);
+        // Build employee mapping
+        var personIds = entries.Select(e => e.PersonId).Distinct().ToList();
+        var employeeMap = await db.Persons
+            .Where(p => personIds.Contains(p.Id) && p.PowerOfficeEmployeeId != null)
+            .ToDictionaryAsync(p => p.Id, p => p.PowerOfficeEmployeeId!.Value, ct);
+
+        logger.LogInformation("Syncing {Count} hour entries to PowerOffice for {From}-{To} ({Mapped} mapped employees)",
+            entries.Count, from, to, employeeMap.Count);
 
         foreach (var entry in entries)
         {
-            // Check if already synced (using ExternalImportReference)
+            if (!employeeMap.TryGetValue(entry.PersonId, out var poEmployeeId))
+            {
+                logger.LogWarning("Skipping hours {EntryId} — no PowerOffice employee mapping for person {PersonId}", entry.Id, entry.PersonId);
+                continue;
+            }
+
             var extRef = $"solodoc-hours-{entry.Id}";
 
             var salaryLine = new
             {
-                employeeId = (long?)null, // TODO: map Solodoc person to PowerOffice employee ID
+                employeeId = poEmployeeId,
                 quantity = (double)entry.Hours,
                 fromDate = entry.Date.ToDateTime(TimeOnly.MinValue),
                 toDate = entry.Date.ToDateTime(TimeOnly.MaxValue),
@@ -160,15 +172,26 @@ public class PowerOfficeService(
                 && (e.Status == ExpenseStatus.Approved || e.Status == ExpenseStatus.Paid))
             .ToListAsync(ct);
 
+        var expPersonIds = expenses.Select(e => e.PersonId).Distinct().ToList();
+        var expEmployeeMap = await db.Persons
+            .Where(p => expPersonIds.Contains(p.Id) && p.PowerOfficeEmployeeId != null)
+            .ToDictionaryAsync(p => p.Id, p => p.PowerOfficeEmployeeId!.Value, ct);
+
         logger.LogInformation("Syncing {Count} expenses to PowerOffice for {From}-{To}", expenses.Count, from, to);
 
         foreach (var expense in expenses)
         {
+            if (!expEmployeeMap.TryGetValue(expense.PersonId, out var poEmpId))
+            {
+                logger.LogWarning("Skipping expense {Id} — no PowerOffice employee mapping", expense.Id);
+                continue;
+            }
+
             var extRef = $"solodoc-expense-{expense.Id}";
 
             var salaryLine = new
             {
-                employeeId = (long?)null, // TODO: map
+                employeeId = poEmpId,
                 amount = (double)expense.Amount,
                 fromDate = expense.Date.ToDateTime(TimeOnly.MinValue),
                 toDate = expense.Date.ToDateTime(TimeOnly.MaxValue),
@@ -192,6 +215,29 @@ public class PowerOfficeService(
         }
     }
 
+    public async Task<List<PowerOfficePayItem>> GetPayItemsAsync(CancellationToken ct = default)
+    {
+        var client = await GetAuthenticatedClientAsync(ct);
+        var response = await client.GetAsync("PayItems", ct);
+        response.EnsureSuccessStatusCode();
+
+        var items = await response.Content.ReadFromJsonAsync<List<PoPayItemDto>>(ct);
+        return items?.Select(p => new PowerOfficePayItem(
+            p.Id, p.Code ?? "", p.Name ?? "", p.IsActive
+        )).ToList() ?? [];
+    }
+
+    public async Task MapEmployeeAsync(Guid personId, long powerOfficeEmployeeId, CancellationToken ct = default)
+    {
+        var person = await db.Persons.FindAsync([personId], ct);
+        if (person is not null)
+        {
+            person.PowerOfficeEmployeeId = powerOfficeEmployeeId;
+            await db.SaveChangesAsync(ct);
+            logger.LogInformation("Mapped person {PersonId} to PowerOffice employee {PoId}", personId, powerOfficeEmployeeId);
+        }
+    }
+
     // ── Internal DTOs ──
 
     private record TokenResponse(
@@ -206,4 +252,10 @@ public class PowerOfficeService(
         string? FirstName,
         string? LastName,
         string? EmailAddress);
+
+    private record PoPayItemDto(
+        Guid Id,
+        string? Code,
+        string? Name,
+        bool IsActive);
 }

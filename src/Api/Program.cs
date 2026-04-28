@@ -314,6 +314,25 @@ app.MapPost("/api/integrations/poweroffice/sync-hours", async (
     return Results.Ok(new { status = "synced" });
 }).RequireAuthorization();
 
+app.MapGet("/api/integrations/poweroffice/employees", async (IPowerOfficeService po, CancellationToken ct) =>
+{
+    var employees = await po.GetEmployeesAsync(ct);
+    return Results.Ok(employees);
+}).RequireAuthorization();
+
+app.MapGet("/api/integrations/poweroffice/pay-items", async (IPowerOfficeService po, CancellationToken ct) =>
+{
+    var items = await po.GetPayItemsAsync(ct);
+    return Results.Ok(items);
+}).RequireAuthorization();
+
+app.MapPost("/api/integrations/poweroffice/map-employee", async (
+    MapEmployeeRequest request, IPowerOfficeService po, CancellationToken ct) =>
+{
+    await po.MapEmployeeAsync(request.PersonId, request.PowerOfficeEmployeeId, ct);
+    return Results.Ok();
+}).RequireAuthorization();
+
 // Pay periods
 app.MapGet("/api/pay-periods/current", (ITenantProvider tp, SolodocDbContext db) =>
 {

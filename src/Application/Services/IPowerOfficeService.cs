@@ -6,6 +6,8 @@ public interface IPowerOfficeService
     Task<List<PowerOfficeEmployee>> GetEmployeesAsync(CancellationToken ct = default);
     Task SyncHoursAsync(Guid tenantId, DateOnly from, DateOnly to, CancellationToken ct = default);
     Task SyncExpensesAsync(Guid tenantId, DateOnly from, DateOnly to, CancellationToken ct = default);
+    Task<List<PowerOfficePayItem>> GetPayItemsAsync(CancellationToken ct = default);
+    Task MapEmployeeAsync(Guid personId, long powerOfficeEmployeeId, CancellationToken ct = default);
 }
 
 public record PowerOfficeEmployee(long Id, string FirstName, string LastName, string? Email);

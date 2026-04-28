@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Solodoc.Infrastructure.Persistence;
@@ -11,9 +12,11 @@ using Solodoc.Infrastructure.Persistence;
 namespace Solodoc.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(SolodocDbContext))]
-    partial class SolodocDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260428205401_AddPowerOfficeEmployeeId")]
+    partial class AddPowerOfficeEmployeeId
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

@@ -16,6 +16,7 @@ public class Person : BaseEntity
     public string PasswordHash { get; set; } = string.Empty;
     public string? PasswordResetToken { get; set; }
     public DateTimeOffset? PasswordResetExpiry { get; set; }
+    public long? PowerOfficeEmployeeId { get; set; }
 
     // Navigation properties
     public ICollection<TenantMembership> TenantMemberships { get; set; } = [];
