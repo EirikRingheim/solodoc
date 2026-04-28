@@ -19,12 +19,19 @@ public class EmailService : IEmailService
         var port = int.Parse(configuration["Email:SmtpPort"] ?? "1025");
         _fromAddress = configuration["Email:FromAddress"] ?? "noreply@solodoc.dev";
         _clientBaseUrl = configuration["Email:ClientBaseUrl"] ?? "http://localhost:5063";
+        var username = configuration["Email:SmtpUser"] ?? configuration["Email:SmtpUsername"];
+        var password = configuration["Email:SmtpPassword"];
 
         _smtp = new SmtpClient(host, port)
         {
-            EnableSsl = false,
+            EnableSsl = port != 1025, // SSL for real SMTP, not dev mailcatcher
             DeliveryMethod = SmtpDeliveryMethod.Network
         };
+
+        if (!string.IsNullOrEmpty(username) && !string.IsNullOrEmpty(password))
+        {
+            _smtp.Credentials = new System.Net.NetworkCredential(username, password);
+        }
     }
 
     public async Task SendAsync(string to, string subject, string htmlBody, CancellationToken ct = default)

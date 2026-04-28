@@ -8,6 +8,7 @@
 @inject NavigationManager Navigation
 @inject ExpenseService ExpenseService
 @inject EquipmentService EquipmentService
+@inject ApiHttpClient Api
 @using Solodoc.Shared.Onboarding
 
 <PageTitle>Solodoc - Innstillinger</PageTitle>
@@ -883,15 +884,34 @@
         _poConnectionStatus = null;
         StateHasChanged();
 
-        await Task.Delay(1500); // Simulate connection test
-        // TODO: Call API to test Power Office connection
-        _poConnectionOk = !string.IsNullOrWhiteSpace(_powerOfficeClientId);
-        _poConnectionStatus = _poConnectionOk
-            ? "Tilkobling vellykket!"
-            : "Kunne ikke koble til. Sjekk Client ID og Secret.";
+        try
+        {
+            var r = await Api.PostAsync("api/integrations/poweroffice/test");
+            if (r.IsSuccessStatusCode)
+            {
+                var result = await r.Content.ReadFromJsonAsync<PoTestResult>();
+                _poConnectionOk = result?.Connected ?? false;
+                _poConnectionStatus = _poConnectionOk
+                    ? "Tilkobling vellykket!"
+                    : "Kunne ikke koble til PowerOffice Go.";
+            }
+            else
+            {
+                _poConnectionOk = false;
+                _poConnectionStatus = "Feil ved tilkoblingstest.";
+            }
+        }
+        catch
+        {
+            _poConnectionOk = false;
+            _poConnectionStatus = "Kunne ikke nå serveren.";
+        }
+
         _poTesting = false;
         StateHasChanged();
     }
+
+    private record PoTestResult(bool Connected);
 
     // Expense settings
     private bool _expRequireDate = true;

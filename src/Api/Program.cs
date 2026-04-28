@@ -71,6 +71,8 @@ builder.Services.AddScoped<IPdfReportService, PdfReportService>();
 // Export
 builder.Services.AddScoped<IExportService, ExportService>();
 builder.Services.AddScoped<IExcelExportService, ExcelExportService>();
+builder.Services.AddScoped<IPowerOfficeService, PowerOfficeService>();
+builder.Services.AddHttpClient();
 
 // Validators
 builder.Services.AddValidatorsFromAssemblyContaining<LoginRequestValidator>();
@@ -245,6 +247,24 @@ app.MapGet("/api/auth/tenants", async (
         .ToListAsync(ct);
 
     return Results.Ok(tenants);
+}).RequireAuthorization();
+
+// PowerOffice integration
+app.MapPost("/api/integrations/poweroffice/test", async (IPowerOfficeService po, CancellationToken ct) =>
+{
+    var ok = await po.TestConnectionAsync(ct);
+    return Results.Ok(new { connected = ok });
+}).RequireAuthorization();
+
+app.MapPost("/api/integrations/poweroffice/sync-hours", async (
+    IPowerOfficeService po, ITenantProvider tp, CancellationToken ct,
+    string? from = null, string? to = null) =>
+{
+    if (tp.TenantId is null) return Results.Unauthorized();
+    var fromDate = DateOnly.TryParse(from, out var fd) ? fd : DateOnly.FromDateTime(DateTime.Today.AddDays(-30));
+    var toDate = DateOnly.TryParse(to, out var td) ? td : DateOnly.FromDateTime(DateTime.Today);
+    await po.SyncHoursAsync(tp.TenantId.Value, fromDate, toDate, ct);
+    return Results.Ok(new { status = "synced" });
 }).RequireAuthorization();
 
 // Pay periods
