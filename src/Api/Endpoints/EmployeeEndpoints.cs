@@ -17,6 +17,7 @@ public static class EmployeeEndpoints
         // Employee management (admin)
         app.MapGet("/api/employees", ListEmployees).RequireAuthorization();
         app.MapGet("/api/employees/{personId:guid}", GetEmployeeDetail).RequireAuthorization();
+        app.MapGet("/api/employees/invitations", ListInvitations).RequireAuthorization();
         app.MapPost("/api/employees/invite", InviteEmployee).RequireAuthorization();
         app.MapPatch("/api/employees/{personId:guid}/suspend", SuspendEmployee).RequireAuthorization();
         app.MapPatch("/api/employees/{personId:guid}/activate", ActivateEmployee).RequireAuthorization();
@@ -268,6 +269,29 @@ public static class EmployeeEndpoints
             trainings);
 
         return Results.Ok(dto);
+    }
+
+    private static async Task<IResult> ListInvitations(
+        ClaimsPrincipal user, SolodocDbContext db, ITenantProvider tp, CancellationToken ct)
+    {
+        var (pid, valid) = GetPersonId(user);
+        if (!valid || tp.TenantId is null) return Results.Unauthorized();
+
+        var invitations = await db.Invitations
+            .Where(i => i.TenantId == tp.TenantId.Value)
+            .OrderByDescending(i => i.CreatedAt)
+            .Select(i => new
+            {
+                i.Id, i.Email,
+                Role = i.IntendedRole.ToString(),
+                State = i.State.ToString(),
+                i.InvitedByName,
+                i.CreatedAt,
+                i.ExpiresAt
+            })
+            .ToListAsync(ct);
+
+        return Results.Ok(invitations);
     }
 
     private static async Task<IResult> InviteEmployee(

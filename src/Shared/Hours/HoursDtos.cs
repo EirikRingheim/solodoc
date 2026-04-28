@@ -58,8 +58,9 @@ public record ClockInRequest(
     DateTimeOffset? StartTime = null);
 
 public record ClockOutRequest(
+    int? BreakMinutes,
     double? Latitude,
-    double? Longitude);
+    double? Longitude = null);
 
 public record ManualTimeEntryRequest(
     DateOnly Date,

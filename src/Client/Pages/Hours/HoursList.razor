@@ -422,6 +422,9 @@
                 </MudItem>
             </MudGrid>
 
+            <MudNumericField T="int" @bind-Value="_dlgBreak" Label="Pause (minutter)" Min="0" Max="480"
+                             Variant="Variant.Outlined" Margin="Margin.Dense" />
+
             @{
                 var preview = CalcHoursPreview();
                 var dailyThreshold = _dlgDailyThreshold;
@@ -844,7 +847,12 @@
             }
         }
 
-        if (success) { Snackbar.Add(_editingEntryId.HasValue ? "Oppdatert" : "Lagret", Severity.Success); await LoadEntriesInternal(); }
+        if (success)
+        {
+            Snackbar.Add(_editingEntryId.HasValue ? "Oppdatert" : "Lagret", Severity.Success);
+            _dialogOpen = false;
+            await LoadEntriesInternal();
+        }
         else Snackbar.Add("Feil ved lagring", Severity.Error);
 
         _dlgSaving = false; StateHasChanged();

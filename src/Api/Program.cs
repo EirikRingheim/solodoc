@@ -21,6 +21,7 @@ using Solodoc.Api.Endpoints;
 using System.Threading.RateLimiting;
 using Solodoc.Shared.Projects;
 using Solodoc.Shared.Admin;
+using Solodoc.Application.Auth;
 
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
@@ -224,6 +225,52 @@ app.MapPost("/api/auth/logout", async (
     await authService.LogoutAsync(request.RefreshToken, ct);
     return Results.Ok();
 });
+
+// Forgot / Reset password
+app.MapPost("/api/auth/forgot-password", async (
+    ForgotPasswordRequest request, SolodocDbContext db, IEmailService emailService, IConfiguration config, CancellationToken ct) =>
+{
+    if (string.IsNullOrWhiteSpace(request.Email)) return Results.BadRequest();
+
+    var person = await db.Persons.FirstOrDefaultAsync(p => p.Email == request.Email.Trim().ToLowerInvariant(), ct);
+    if (person is null) return Results.Ok(); // Don't reveal if email exists
+
+    // Generate reset token
+    var token = Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32));
+    person.PasswordResetToken = token;
+    person.PasswordResetExpiry = DateTimeOffset.UtcNow.AddHours(2);
+    await db.SaveChangesAsync(ct);
+
+    var clientUrl = config["Email:ClientBaseUrl"] ?? "https://solodoc.app";
+    var resetUrl = $"{clientUrl}/reset-password?token={Uri.EscapeDataString(token)}&email={Uri.EscapeDataString(person.Email)}";
+
+    await emailService.SendAsync(person.Email,
+        "Tilbakestill passord — Solodoc",
+        $"<h2>Tilbakestill passord</h2><p>Klikk lenken under for å sette nytt passord:</p><p><a href='{resetUrl}'>{resetUrl}</a></p><p>Lenken utløper om 2 timer.</p>");
+
+    return Results.Ok();
+}).AllowAnonymous();
+
+app.MapPost("/api/auth/reset-password", async (
+    ResetPasswordRequest request, SolodocDbContext db, IPasswordHasher hasher, CancellationToken ct) =>
+{
+    if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Token) || string.IsNullOrWhiteSpace(request.NewPassword))
+        return Results.BadRequest(new { error = "Alle felt er påkrevd." });
+
+    if (request.NewPassword.Length < 8)
+        return Results.BadRequest(new { error = "Passord må være minst 8 tegn." });
+
+    var person = await db.Persons.FirstOrDefaultAsync(p => p.Email == request.Email.Trim().ToLowerInvariant(), ct);
+    if (person is null || person.PasswordResetToken != request.Token || person.PasswordResetExpiry < DateTimeOffset.UtcNow)
+        return Results.BadRequest(new { error = "Ugyldig eller utløpt tilbakestillingslenke." });
+
+    person.PasswordHash = hasher.Hash(request.NewPassword);
+    person.PasswordResetToken = null;
+    person.PasswordResetExpiry = null;
+    await db.SaveChangesAsync(ct);
+
+    return Results.Ok();
+}).AllowAnonymous();
 
 app.MapGet("/api/auth/tenants", async (
     ClaimsPrincipal user,
@@ -964,7 +1011,7 @@ app.MapPost("/api/contact", async (
             Melding:
             {request.Message}
             """;
-        await emailService.SendAsync("kontakt@solodoc.no", subject, body, ct);
+        await emailService.SendAsync("post@solodoc.no", subject, body, ct);
     }
     catch { /* SMTP not configured — message still saved in DB */ }
 

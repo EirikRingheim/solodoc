@@ -387,8 +387,14 @@ public static class HoursEndpoints
         entry.GpsLatitudeOut = request.Latitude;
         entry.GpsLongitudeOut = request.Longitude;
 
+        // Update break if provided
+        if (request.BreakMinutes.HasValue)
+            entry.BreakMinutes = request.BreakMinutes.Value;
+
         // Calculate hours: (ClockOut - ClockIn).TotalHours - BreakMinutes / 60
         var totalHours = (decimal)(now - entry.ClockIn!.Value).TotalHours;
+        // Cap at 24 hours max per entry
+        totalHours = Math.Min(totalHours, 24m);
         entry.Hours = Math.Max(0, totalHours - (decimal)entry.BreakMinutes / 60m);
 
         // Auto check-out: when clocking out, also check out from worksite

@@ -7,6 +7,7 @@
 @inject Blazored.LocalStorage.ILocalStorageService LocalStorage
 @inject SyncService SyncService
 @inject EmployeeService EmployeeService
+@inject ApiHttpClient Api
 @using Solodoc.Shared.Auth
 @implements IAsyncDisposable
 
@@ -88,8 +89,11 @@
                         Icon="@Icons.Material.Filled.Handyman">Oppdrag</MudNavLink>
 
             <div class="nav-group-label mt-4">ARBEIDSVERKTØY</div>
-            <MudNavLink Href="/hours" Match="NavLinkMatch.Prefix"
-                        Icon="@Icons.Material.Filled.Schedule">Timelister</MudNavLink>
+            @if (Mod("hours"))
+            {
+                <MudNavLink Href="/hours" Match="NavLinkMatch.Prefix"
+                            Icon="@Icons.Material.Filled.Schedule">Timelister</MudNavLink>
+            }
             <MudNavLink Href="/deviations" Match="NavLinkMatch.Prefix"
                         Icon="@Icons.Material.Filled.ReportProblem">
                 <div class="d-flex align-center justify-space-between" style="width:100%">
@@ -103,16 +107,25 @@
             </MudNavLink>
             <MudNavLink Href="/checkin/scan" Match="NavLinkMatch.Prefix"
                         Icon="@Icons.Material.Filled.QrCodeScanner">Skann QR</MudNavLink>
-            <MudNavLink Href="/utlegg" Match="NavLinkMatch.Prefix"
-                        Icon="@Icons.Material.Filled.Receipt">Utlegg</MudNavLink>
+            @if (Mod("expenses"))
+            {
+                <MudNavLink Href="/utlegg" Match="NavLinkMatch.Prefix"
+                            Icon="@Icons.Material.Filled.Receipt">Utlegg</MudNavLink>
+            }
             <MudNavLink Href="/forefallende" Match="NavLinkMatch.Prefix"
                         Icon="@Icons.Material.Filled.AssignmentLate">
                 Forefallende
             </MudNavLink>
-            <MudNavLink Href="/calendar" Match="NavLinkMatch.Prefix"
-                        Icon="@Icons.Material.Filled.CalendarMonth">Kalender</MudNavLink>
-            <MudNavLink Href="/checklists" Match="NavLinkMatch.All"
-                        Icon="@Icons.Material.Filled.Checklist">Sjekklister</MudNavLink>
+            @if (Mod("calendar"))
+            {
+                <MudNavLink Href="/calendar" Match="NavLinkMatch.Prefix"
+                            Icon="@Icons.Material.Filled.CalendarMonth">Kalender</MudNavLink>
+            }
+            @if (Mod("checklists"))
+            {
+                <MudNavLink Href="/checklists" Match="NavLinkMatch.All"
+                            Icon="@Icons.Material.Filled.Checklist">Sjekklister</MudNavLink>
+            }
             <MudNavLink Href="/templates/marketplace" Match="NavLinkMatch.Prefix"
                         Icon="@Icons.Material.Filled.ShoppingCart" Style="font-size:0.85rem;color:#059669;">
                 Malbutikk
@@ -405,6 +418,8 @@
 
     // Sync state
     private bool _syncOnline = true;
+    private HashSet<string> _enabledModules = [];
+    private bool Mod(string key) => _enabledModules.Count == 0 || _enabledModules.Contains(key);
     private int _syncPendingCount;
     private DateTimeOffset? _syncLastSynced;
 
@@ -522,6 +537,19 @@
                         var gps = await EmployeeService.GetGpsConsentAsync();
                         if (gps is { GpsEnabledByTenant: true, ConsentGiven: false } && gps.ConsentChangedAt is null)
                             _showGpsConsent = true;
+                    }
+                    catch { }
+
+                    // Load enabled modules
+                    try
+                    {
+                        var modR = await Api.GetAsync("api/tenant/modules");
+                        if (modR.IsSuccessStatusCode)
+                        {
+                            var mods = await modR.Content.ReadFromJsonAsync<List<string>>();
+                            if (mods is { Count: > 0 })
+                                _enabledModules = mods.ToHashSet();
+                        }
                     }
                     catch { }
                 }

@@ -14,6 +14,8 @@ public class Person : BaseEntity
     public string? TimeZoneId { get; set; }
     public string? PhoneNumber { get; set; }
     public string PasswordHash { get; set; } = string.Empty;
+    public string? PasswordResetToken { get; set; }
+    public DateTimeOffset? PasswordResetExpiry { get; set; }
 
     // Navigation properties
     public ICollection<TenantMembership> TenantMemberships { get; set; } = [];
