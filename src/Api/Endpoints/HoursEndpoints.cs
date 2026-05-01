@@ -274,11 +274,12 @@ public static class HoursEndpoints
                 && m.State == TenantMembershipState.Active, ct);
         if (membership is null)
         {
-            // Check if subcontractor — they can only check in, not register hours
-            var isSub = await db.SubcontractorAccesses
-                .AnyAsync(s => s.PersonId == personId!.Value && s.TenantId == tenantProvider.TenantId.Value
+            // Check if subcontractor — blocked unless HoursRegistrationEnabled
+            var subAccess = await db.SubcontractorAccesses
+                .FirstOrDefaultAsync(s => s.PersonId == personId!.Value && s.TenantId == tenantProvider.TenantId.Value
                     && s.State == SubcontractorAccessState.Active, ct);
-            if (isSub) return Results.BadRequest(new { error = "Underentreprenører kan ikke registrere timer. Bruk innsjekking." });
+            if (subAccess is not null && !subAccess.HoursRegistrationEnabled)
+                return Results.BadRequest(new { error = "Underentreprenører kan ikke registrere timer. Admin kan aktivere dette i innstillinger." });
             return Results.Unauthorized();
         }
 
@@ -445,10 +446,11 @@ public static class HoursEndpoints
                 && m.State == TenantMembershipState.Active, ct);
         if (!hasMembership)
         {
-            var isSub = await db.SubcontractorAccesses
-                .AnyAsync(s => s.PersonId == personId!.Value && s.TenantId == tenantProvider.TenantId.Value
+            var subAccess2 = await db.SubcontractorAccesses
+                .FirstOrDefaultAsync(s => s.PersonId == personId!.Value && s.TenantId == tenantProvider.TenantId.Value
                     && s.State == SubcontractorAccessState.Active, ct);
-            if (isSub) return Results.BadRequest(new { error = "Underentreprenører kan ikke registrere timer." });
+            if (subAccess2 is not null && !subAccess2.HoursRegistrationEnabled)
+                return Results.BadRequest(new { error = "Underentreprenører kan ikke registrere timer." });
             return Results.Unauthorized();
         }
 
@@ -606,13 +608,13 @@ public static class HoursEndpoints
         var (personId, valid) = GetPersonId(user);
         if (!valid) return Results.Unauthorized();
 
-        // Admin check
+        // Admin or ProjectLeader check
         var membership = await db.TenantMemberships
             .FirstOrDefaultAsync(m =>
                 m.PersonId == personId!.Value &&
                 m.State == TenantMembershipState.Active, ct);
 
-        if (membership is null || membership.Role != TenantRole.TenantAdmin)
+        if (membership is null || (membership.Role != TenantRole.TenantAdmin && membership.Role != TenantRole.ProjectLeader))
             return Results.Forbid();
 
         var tenantId = membership.TenantId;
@@ -644,7 +646,7 @@ public static class HoursEndpoints
 
         var membership = await db.TenantMemberships
             .FirstOrDefaultAsync(m => m.PersonId == personId!.Value && m.State == TenantMembershipState.Active, ct);
-        if (membership is null || membership.Role != TenantRole.TenantAdmin)
+        if (membership is null || (membership.Role != TenantRole.TenantAdmin && membership.Role != TenantRole.ProjectLeader))
             return Results.Forbid();
 
         var entry = await db.TimeEntries

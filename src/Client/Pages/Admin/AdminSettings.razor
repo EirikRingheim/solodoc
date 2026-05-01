@@ -874,8 +874,19 @@
 
     private async Task SavePowerOfficeSettings()
     {
-        // TODO: Persist to tenant integration settings via API
-        Snackbar.Add("Power Office-innstillinger lagret", Severity.Success);
+        var settings = new Dictionary<string, object>
+        {
+            ["poweroffice.enabled"] = _powerOfficeEnabled,
+            ["poweroffice.clientId"] = _powerOfficeClientId ?? "",
+            ["poweroffice.clientSecret"] = _powerOfficeClientSecret ?? "",
+            ["poweroffice.environment"] = _powerOfficeEnvironment ?? "test",
+            ["poweroffice.syncHours"] = _poSyncHours,
+            ["poweroffice.syncExpenses"] = _poSyncExpenses,
+            ["poweroffice.syncInvoices"] = _poSyncInvoices,
+            ["poweroffice.syncEmployees"] = _poSyncEmployees
+        };
+        var r = await Api.PostAsJsonAsync("api/tenant/feature-flags", settings);
+        Snackbar.Add(r.IsSuccessStatusCode ? "Innstillinger lagret" : "Kunne ikke lagre", r.IsSuccessStatusCode ? Severity.Success : Severity.Error);
     }
 
     private async Task TestPowerOfficeConnection()

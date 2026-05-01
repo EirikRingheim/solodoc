@@ -360,7 +360,15 @@ public static class EmployeeEndpoints
             _ => "Bruker"
         };
 
-        await emailService.SendInvitationAsync(request.Email, inviterName, tenantName, roleDisplay, invitation.Id, ct);
+        try
+        {
+            await emailService.SendInvitationAsync(request.Email, inviterName, tenantName, roleDisplay, invitation.Id, ct);
+        }
+        catch
+        {
+            // Invitation saved but email failed — return success with warning
+            return Results.Ok(new { id = invitation.Id, warning = "Invitasjon opprettet, men e-post kunne ikke sendes. Del lenken manuelt." });
+        }
 
         return Results.Created($"/api/employees/invite/{invitation.Id}", new { id = invitation.Id });
     }

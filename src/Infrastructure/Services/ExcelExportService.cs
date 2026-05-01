@@ -11,7 +11,8 @@ public class ExcelExportService(SolodocDbContext db) : IExcelExportService
     public async Task<byte[]> GeneratePayrollExportAsync(Guid tenantId, DateOnly from, DateOnly to, CancellationToken ct)
     {
         var entries = await db.TimeEntries
-            .Where(t => t.TenantId == tenantId && t.Date >= from && t.Date <= to)
+            .Where(t => t.TenantId == tenantId && t.Date >= from && t.Date <= to
+                && (t.Status == TimeEntryStatus.Approved || t.Status == TimeEntryStatus.Submitted))
             .GroupBy(t => t.PersonId)
             .Select(g => new
             {
@@ -132,7 +133,8 @@ public class ExcelExportService(SolodocDbContext db) : IExcelExportService
 
     public async Task<byte[]> GenerateHoursExportAsync(Guid tenantId, DateOnly from, DateOnly to, Guid? projectId, Guid? personId, CancellationToken ct)
     {
-        var query = db.TimeEntries.Where(t => t.TenantId == tenantId && t.Date >= from && t.Date <= to);
+        var query = db.TimeEntries.Where(t => t.TenantId == tenantId && t.Date >= from && t.Date <= to
+            && (t.Status == TimeEntryStatus.Approved || t.Status == TimeEntryStatus.Submitted));
         if (projectId.HasValue) query = query.Where(t => t.ProjectId == projectId.Value);
         if (personId.HasValue) query = query.Where(t => t.PersonId == personId.Value);
 

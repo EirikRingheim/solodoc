@@ -18,6 +18,8 @@ public class ChecklistTemplateItem : BaseEntity
     public bool AllowPhoto { get; set; }
     public bool AllowComment { get; set; }
     public string Source { get; set; } = "tenant";
+    public Guid? ParentItemId { get; set; }
+    public int? SubNumber { get; set; } // For 1.1, 1.2 numbering
 
     // Navigation properties
     public ChecklistTemplateVersion TemplateVersion { get; set; } = null!;

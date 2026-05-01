@@ -581,7 +581,8 @@ public static class ReportEndpoints
         var fromDate = DateOnly.TryParse(from, out var fd) ? fd : DateOnly.FromDateTime(DateTimeOffset.UtcNow.AddDays(-30).UtcDateTime);
         var toDate = DateOnly.TryParse(to, out var td) ? td : DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime);
 
-        var query = db.TimeEntries.Where(t => t.TenantId == tenantId && t.Date >= fromDate && t.Date <= toDate);
+        var query = db.TimeEntries.Where(t => t.TenantId == tenantId && t.Date >= fromDate && t.Date <= toDate
+            && (t.Status == Domain.Enums.TimeEntryStatus.Approved || t.Status == Domain.Enums.TimeEntryStatus.Submitted));
         if (projectId.HasValue) query = query.Where(t => t.ProjectId == projectId.Value);
         if (personId.HasValue) query = query.Where(t => t.PersonId == personId.Value);
 
