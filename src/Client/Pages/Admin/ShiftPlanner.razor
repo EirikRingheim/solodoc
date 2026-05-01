@@ -122,7 +122,8 @@
 else
 {
     @* ═══ Planner grid ═══ *@
-    <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-2">
+    <MudPaper Elevation="0" Style="border:1px solid #E9ECEF;border-radius:12px;" Class="pa-2"
+              tabindex="0" @onkeydown="HandleKeyDown">
         <table style="border-collapse:separate;border-spacing:2px;width:100%;">
             <thead>
                 <tr>
@@ -278,6 +279,11 @@ else
 
     private readonly DialogOptions _dlgOpts = new() { MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true };
     private readonly DialogOptions _calDlgOpts = new() { MaxWidth = MaxWidth.Large, FullWidth = true, CloseOnEscapeKey = true };
+
+    // Keyboard focus
+    private int _focusRow;
+    private int _focusCol;
+    private Guid? _selectedShiftId;
 
     // Selection
     private Guid? _selPersonId;
@@ -600,5 +606,73 @@ else
         var fileName = $"kalender-{_empCalendar.EmployeeName.Replace(" ", "-")}-{_month:yyyy-MM}.csv";
         await JS.InvokeVoidAsync("eval", $"{{var a=document.createElement('a');a.href='data:text/csv;base64,{base64}';a.download='{fileName}';a.click();}}");
         Snackbar.Add("Eksportert", Severity.Success);
+    }
+
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (_rows.Count == 0 || _dates.Count == 0) return;
+
+        switch (e.Key)
+        {
+            case "ArrowRight":
+                _focusCol = Math.Min(_focusCol + 1, _dates.Count - 1);
+                SelectFocusedCell();
+                break;
+            case "ArrowLeft":
+                _focusCol = Math.Max(_focusCol - 1, 0);
+                SelectFocusedCell();
+                break;
+            case "ArrowDown":
+                _focusRow = Math.Min(_focusRow + 1, _rows.Count - 1);
+                SelectFocusedCell();
+                break;
+            case "ArrowUp":
+                _focusRow = Math.Max(_focusRow - 1, 0);
+                SelectFocusedCell();
+                break;
+            case "Enter":
+                if (HasSelection)
+                    await ApplyShiftToSelection();
+                break;
+            default:
+                // D-key shortcut for dagskift
+                if (e.Key.Length == 1 && char.IsLetter(e.Key[0]))
+                {
+                    var shortcut = e.Key.ToUpperInvariant()[0];
+                    var matchingShift = _shifts.FirstOrDefault(s =>
+                        s.Name.Length > 0 && char.ToUpperInvariant(s.Name[0]) == shortcut);
+                    if (matchingShift is not null && HasSelection)
+                    {
+                        _selectedShiftId = matchingShift.Id;
+                        await ApplyShiftToSelection();
+                    }
+                }
+                break;
+        }
+        StateHasChanged();
+    }
+
+    private void SelectFocusedCell()
+    {
+        if (_focusRow < _rows.Count)
+        {
+            var row = _rows[_focusRow];
+            _selPersonId = row.PersonId;
+            _selEmployeeName = row.EmployeeName;
+            _selStartIdx = _focusCol;
+            _selEndIdx = _focusCol;
+            if (_focusCol < _dates.Count)
+            {
+                var d = _dates[_focusCol];
+                _selStart = d;
+                _selEnd = d;
+            }
+        }
+    }
+
+    private async Task ApplyShiftToSelection()
+    {
+        if (!_selectedShiftId.HasValue || !HasSelection) return;
+        await AssignShift(_selectedShiftId.Value);
     }
 }

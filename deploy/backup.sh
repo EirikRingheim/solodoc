@@ -14,7 +14,7 @@ mkdir -p "$BACKUP_DIR"
 echo "$(date) — Starting database backup..."
 
 # Dump and compress
-docker compose -f /root/solodoc/docker-compose.production.yml exec -T postgres \
+docker compose -f /root/solodoc/docker-compose.production.yml --env-file /root/solodoc/.env.production exec -T postgres \
     pg_dump -U solodoc solodoc | gzip > "$BACKUP_FILE"
 
 SIZE=$(du -h "$BACKUP_FILE" | cut -f1)

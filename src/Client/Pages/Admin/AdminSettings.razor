@@ -732,7 +732,10 @@
                     @foreach (var rate in _travelRates)
                     {
                         <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:8px;" Class="pa-3">
-                            <MudText Typo="Typo.subtitle2" Style="font-weight:600;" Class="mb-2">@rate.Year</MudText>
+                            <MudText Typo="Typo.subtitle2" Style="font-weight:600;" Class="mb-2">Satser @rate.Year</MudText>
+                            <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mb-2">
+                                Satsene er forhåndsutfylt med statens satser. Endre ved behov.
+                            </MudText>
                             <MudGrid Spacing="2">
                                 <MudItem xs="6" sm="4">
                                     <MudText Typo="Typo.caption" Color="Color.Secondary">Diett 6-12t</MudText>

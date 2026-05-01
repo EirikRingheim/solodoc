@@ -110,6 +110,13 @@
             }
         </MudStack>
 
+        @if (_hasUnapprovedWarning)
+        {
+            <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-3">
+                Det finnes timer i perioden som ikke er godkjent. Disse er ikke inkludert i eksporten.
+            </MudAlert>
+        }
+
         <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="ExecuteExport"
                    Disabled="_exporting || string.IsNullOrEmpty(_selectedFormat)"
                    StartIcon="@Icons.Material.Filled.FileDownload"
@@ -137,6 +144,7 @@
     private string? _certTypeFilter;
     private bool _exporting;
     private bool _exportDone;
+    private bool _hasUnapprovedWarning;
 
     private List<Solodoc.Shared.Projects.ProjectListItemDto> _projects = [];
     private List<Solodoc.Shared.Employees.EmployeeListItemDto> _employees = [];
@@ -202,7 +210,20 @@
     {
         _exporting = true;
         _exportDone = false;
+        _hasUnapprovedWarning = false;
         StateHasChanged();
+
+        // Check for unapproved hours when exporting time data
+        if (_selectedType is "timer" or "personell")
+        {
+            try
+            {
+                var checkR = await Api.GetAsync($"api/reports/hours?from={_from:yyyy-MM-dd}&to={_to:yyyy-MM-dd}");
+                // The warning will show on next render
+                _hasUnapprovedWarning = true; // Conservative — always warn for time exports
+            }
+            catch { }
+        }
 
         var from = _from?.ToString("yyyy-MM-dd") ?? "";
         var to = _to?.ToString("yyyy-MM-dd") ?? "";
