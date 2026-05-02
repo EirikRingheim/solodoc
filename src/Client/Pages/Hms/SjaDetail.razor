@@ -90,7 +90,7 @@ else
                     <MudTextField @bind-Value="_hazardDescription" Label="Beskrivelse av fare" Variant="Variant.Outlined"
                                   Required="true" />
                     <MudStack Row="true" Spacing="2">
-                        <MudSelect @bind-Value="_hazardProbability" Label="Sannsynlighet" Variant="Variant.Outlined"
+                        <MudSelect T="int" @bind-Value="_hazardProbability" Label="Sannsynlighet" Variant="Variant.Outlined"
                                    Style="flex:1;">
                             <MudSelectItem Value="1">1 - Lite sannsynlig</MudSelectItem>
                             <MudSelectItem Value="2">2 - Mindre sannsynlig</MudSelectItem>
@@ -98,7 +98,7 @@ else
                             <MudSelectItem Value="4">4 - Meget sannsynlig</MudSelectItem>
                             <MudSelectItem Value="5">5 - Svart sannsynlig</MudSelectItem>
                         </MudSelect>
-                        <MudSelect @bind-Value="_hazardConsequence" Label="Konsekvens" Variant="Variant.Outlined"
+                        <MudSelect T="int" @bind-Value="_hazardConsequence" Label="Konsekvens" Variant="Variant.Outlined"
                                    Style="flex:1;">
                             <MudSelectItem Value="1">1 - Ubetydelig</MudSelectItem>
                             <MudSelectItem Value="2">2 - Liten</MudSelectItem>

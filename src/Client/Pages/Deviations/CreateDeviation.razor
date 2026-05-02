@@ -34,16 +34,16 @@
         <div>
             <MudText Typo="Typo.subtitle1" Style="font-weight:600;" Class="mb-2">Klassifiser</MudText>
             <MudStack Spacing="3">
-                <MudSelect @bind-Value="_severity" Label="Alvorlighet" Variant="Variant.Outlined">
+                <MudSelect T="string" @bind-Value="_severity" Label="Alvorlighet" Variant="Variant.Outlined">
                     <MudSelectItem Value="@("Lav")">Lav</MudSelectItem>
                     <MudSelectItem Value="@("Middels")">Middels</MudSelectItem>
                     <MudSelectItem Value="@("Høy")">Høy</MudSelectItem>
                 </MudSelect>
-                <MudSelect @bind-Value="_categoryId" Label="Kategori" Variant="Variant.Outlined"
-                           Clearable="true" AnchorOrigin="Origin.BottomCenter">
+                <MudSelect T="Guid?" @bind-Value="_categoryId" Label="Kategori" Variant="Variant.Outlined"
+                           Clearable="true">
                     @foreach (var cat in _categories)
                     {
-                        <MudSelectItem Value="@((Guid?)cat.Id)">@cat.Name</MudSelectItem>
+                        <MudSelectItem T="Guid?" Value="@((Guid?)cat.Id)">@cat.Name</MudSelectItem>
                     }
                 </MudSelect>
             </MudStack>
@@ -56,32 +56,32 @@
             <MudText Typo="Typo.subtitle1" Style="font-weight:600;" Class="mb-2">Koble til sted</MudText>
             <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-2">Valgfritt — velg hvor avviket ble oppdaget.</MudText>
             <MudStack Spacing="3">
-                <MudSelect @bind-Value="_projectId" Label="Prosjekt" Variant="Variant.Outlined"
-                           Clearable="true" AnchorOrigin="Origin.BottomCenter"
+                <MudSelect T="Guid?" @bind-Value="_projectId" Label="Prosjekt" Variant="Variant.Outlined"
+                           Clearable="true"
                            AdornmentIcon="@Icons.Material.Filled.Folder">
                     @foreach (var p in _projects.Where(p => p.ParentProjectId is null))
                     {
-                        <MudSelectItem Value="@((Guid?)p.Id)">@p.Name</MudSelectItem>
+                        <MudSelectItem T="Guid?" Value="@((Guid?)p.Id)">@p.Name</MudSelectItem>
                         @foreach (var sub in _projects.Where(s => s.ParentProjectId == p.Id))
                         {
-                            <MudSelectItem Value="@((Guid?)sub.Id)">
+                            <MudSelectItem T="Guid?" Value="@((Guid?)sub.Id)">
                                 <span style="padding-left:16px;color:#6B7280;">↳ @sub.Name</span>
                             </MudSelectItem>
                         }
                     }
                 </MudSelect>
-                <MudSelect @bind-Value="_jobId" Label="Oppdrag" Variant="Variant.Outlined"
-                           Clearable="true" AnchorOrigin="Origin.BottomCenter">
+                <MudSelect T="Guid?" @bind-Value="_jobId" Label="Oppdrag" Variant="Variant.Outlined"
+                           Clearable="true">
                     @foreach (var j in _jobs)
                     {
-                        <MudSelectItem Value="@((Guid?)j.Id)">@j.Description</MudSelectItem>
+                        <MudSelectItem T="Guid?" Value="@((Guid?)j.Id)">@j.Description</MudSelectItem>
                     }
                 </MudSelect>
-                <MudSelect @bind-Value="_locationId" Label="Lokasjon" Variant="Variant.Outlined"
-                           Clearable="true" AnchorOrigin="Origin.BottomCenter">
+                <MudSelect T="Guid?" @bind-Value="_locationId" Label="Lokasjon" Variant="Variant.Outlined"
+                           Clearable="true">
                     @foreach (var l in _locations)
                     {
-                        <MudSelectItem Value="@((Guid?)l.Id)">@l.Name</MudSelectItem>
+                        <MudSelectItem T="Guid?" Value="@((Guid?)l.Id)">@l.Name</MudSelectItem>
                     }
                 </MudSelect>
             </MudStack>

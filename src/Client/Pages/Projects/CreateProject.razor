@@ -182,7 +182,7 @@
                 if (_parentProject is not null)
                 {
                     _clientName = _parentProject.ClientName;
-                    _address = _parentProject.Address;
+                    // Address intentionally NOT inherited — sub-projects have their own address
                 }
             }
             catch { }

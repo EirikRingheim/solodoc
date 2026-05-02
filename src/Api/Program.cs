@@ -142,13 +142,16 @@ using (var migrationScope = app.Services.CreateScope())
     }
 }
 
+// Always ensure default categories exist for all tenants
+{
+    using var seedScope = app.Services.CreateScope();
+    var seeder = seedScope.ServiceProvider.GetRequiredService<SeedDataService>();
+    await seeder.SeedAsync();
+}
+
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
-
-    using var scope = app.Services.CreateScope();
-    var seeder = scope.ServiceProvider.GetRequiredService<SeedDataService>();
-    await seeder.SeedAsync();
 }
 
 if (!app.Environment.IsDevelopment())

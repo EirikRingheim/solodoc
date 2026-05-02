@@ -291,11 +291,11 @@ else
     </TitleContent>
     <DialogContent>
         <MudStack Spacing="3">
-            <MudSelect @bind-Value="_assignToId" Label="Tildel til" Variant="Variant.Outlined"
+            <MudSelect T="Guid?" @bind-Value="_assignToId" Label="Tildel til" Variant="Variant.Outlined"
                        Required="true" RequiredError="Velg en person">
                 @foreach (var emp in _employees)
                 {
-                    <MudSelectItem Value="@((Guid?)emp.PersonId)">@emp.FullName</MudSelectItem>
+                    <MudSelectItem T="Guid?" Value="@((Guid?)emp.PersonId)">@emp.FullName</MudSelectItem>
                 }
             </MudSelect>
             <MudDatePicker @bind-Date="_assignDeadline" Label="Frist for korrigerende tiltak"

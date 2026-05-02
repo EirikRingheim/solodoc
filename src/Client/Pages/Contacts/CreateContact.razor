@@ -22,7 +22,7 @@
                               Variant="Variant.Outlined" Margin="Margin.Dense" />
             </MudItem>
             <MudItem xs="12" sm="6">
-                <MudSelect @bind-Value="_model.Type" Label="Type"
+                <MudSelect T="string" @bind-Value="_model.Type" Label="Type"
                            Variant="Variant.Outlined" Margin="Margin.Dense">
                     <MudSelectItem Value="@("Kunde")">Kunde</MudSelectItem>
                     <MudSelectItem Value="@("Underleverandor")">Underleverandor</MudSelectItem>

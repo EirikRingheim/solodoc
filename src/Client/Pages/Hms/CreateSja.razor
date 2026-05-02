@@ -21,15 +21,15 @@
         <MudTextField @bind-Value="_description" Label="Beskrivelse" Variant="Variant.Outlined"
                       Lines="4" Placeholder="Detaljert beskrivelse av arbeidsoppgaven (valgfritt)" />
 
-        <MudSelect @bind-Value="_projectId" Label="Prosjekt (valgfritt)" Variant="Variant.Outlined"
-                   Clearable="true" AnchorOrigin="Origin.BottomCenter"
+        <MudSelect T="Guid?" @bind-Value="_projectId" Label="Prosjekt (valgfritt)" Variant="Variant.Outlined"
+                   Clearable="true"
                    AdornmentIcon="@Icons.Material.Filled.Folder">
             @foreach (var p in _projects.Where(p => p.ParentProjectId is null))
             {
-                <MudSelectItem Value="@((Guid?)p.Id)">@p.Name</MudSelectItem>
+                <MudSelectItem T="Guid?" Value="@((Guid?)p.Id)">@p.Name</MudSelectItem>
                 @foreach (var sub in _projects.Where(s => s.ParentProjectId == p.Id))
                 {
-                    <MudSelectItem Value="@((Guid?)sub.Id)">
+                    <MudSelectItem T="Guid?" Value="@((Guid?)sub.Id)">
                         <span style="padding-left:16px;color:#6B7280;">↳ @sub.Name</span>
                     </MudSelectItem>
                 }
