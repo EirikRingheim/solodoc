@@ -205,7 +205,18 @@ else
                             {
                                 <MudItem xs="12" sm="6" md="4">
                                     <MudPaper Elevation="0" Style="border:1px solid #f0f0f0;border-radius:10px;" Class="pa-3">
-                                        <MudText Typo="Typo.caption" Color="Color.Primary" Style="font-weight:700;" Class="mb-2">@group.Label</MudText>
+                                        <MudStack Row="true" AlignItems="AlignItems.Center" Justify="Justify.SpaceBetween" Class="mb-2">
+                                            <MudText Typo="Typo.caption" Color="Color.Primary" Style="font-weight:700;">@group.Label</MudText>
+                                            @{
+                                                var grp = group;
+                                                var allSelected = grp.Permissions.All(p => _editRolePerms.Contains(p.Key));
+                                            }
+                                            <MudButton Variant="Variant.Text" Size="Size.Small" Color="Color.Primary"
+                                                       OnClick="@(() => ToggleGroupPerms(grp))"
+                                                       Style="text-transform:none;font-size:0.7rem;padding:0 4px;min-width:auto;">
+                                                @(allSelected ? "Fjern alle" : "Velg alle")
+                                            </MudButton>
+                                        </MudStack>
                                         @foreach (var perm in group.Permissions)
                                         {
                                             var p = perm;
@@ -447,6 +458,15 @@ else
     {
         if (on) _editRolePerms.Add(key);
         else _editRolePerms.Remove(key);
+    }
+
+    private void ToggleGroupPerms(PermissionGroup group)
+    {
+        var allSelected = group.Permissions.All(p => _editRolePerms.Contains(p.Key));
+        if (allSelected)
+            foreach (var p in group.Permissions) _editRolePerms.Remove(p.Key);
+        else
+            foreach (var p in group.Permissions) _editRolePerms.Add(p.Key);
     }
 
     private async Task SaveRole()

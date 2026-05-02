@@ -54,15 +54,10 @@
             <MudStack Row="true" Spacing="1" AlignItems="AlignItems.End">
                 <MudSelect T="Guid?" @bind-Value="_customerId" Label="Kunde (valgfritt)"
                            Variant="Variant.Outlined" Clearable="true" Style="flex:1;"
-                           AnchorOrigin="Origin.BottomCenter">
+                           ToStringFunc="@(id => id.HasValue ? _contacts.FirstOrDefault(c => c.Id == id.Value)?.Name ?? "" : "")">
                     @foreach (var contact in _contacts)
                     {
-                        <MudSelectItem T="Guid?" Value="@((Guid?)contact.Id)">
-                            <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                                <span>@contact.Name</span>
-                                <MudText Typo="Typo.caption" Color="Color.Secondary">@contact.Type</MudText>
-                            </MudStack>
-                        </MudSelectItem>
+                        <MudSelectItem T="Guid?" Value="@((Guid?)contact.Id)">@contact.Name</MudSelectItem>
                     }
                 </MudSelect>
                 <MudIconButton Icon="@Icons.Material.Filled.PersonAdd" Color="Color.Primary"

@@ -89,7 +89,7 @@
                         Icon="@Icons.Material.Filled.Handyman">Oppdrag</MudNavLink>
 
             <div class="nav-group-label mt-4">ARBEIDSVERKTØY</div>
-            @if (Mod("hours"))
+            @if (Mod("hours") && !(_viewAsRole == "subcontractor" && !_featureFlags.GetValueOrDefault("hours.allowSubcontractorHours", false)))
             {
                 <MudNavLink Href="/hours" Match="NavLinkMatch.Prefix"
                             Icon="@Icons.Material.Filled.Schedule">Timeoversikt</MudNavLink>
@@ -419,6 +419,7 @@
     // Sync state
     private bool _syncOnline = true;
     private HashSet<string> _enabledModules = [];
+    private Dictionary<string, bool> _featureFlags = [];
     private bool Mod(string key) => _enabledModules.Count == 0 || _enabledModules.Contains(key);
     private int _syncPendingCount;
     private DateTimeOffset? _syncLastSynced;
@@ -549,6 +550,14 @@
                             var mods = await modR.Content.ReadFromJsonAsync<List<string>>();
                             if (mods is { Count: > 0 })
                                 _enabledModules = mods.ToHashSet();
+                        }
+
+                        var flagR = await Api.GetAsync("api/tenant/feature-flags");
+                        if (flagR.IsSuccessStatusCode)
+                        {
+                            var flags = await flagR.Content.ReadFromJsonAsync<Dictionary<string, bool>>();
+                            if (flags is not null)
+                                _featureFlags = flags;
                         }
                     }
                     catch { }
