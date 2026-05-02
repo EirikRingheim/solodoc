@@ -296,6 +296,15 @@ app.MapGet("/api/auth/tenants", async (
     return Results.Ok(tenants);
 }).RequireAuthorization();
 
+// HMS handbook PDF
+app.MapGet("/api/reports/hms-handbook", async (
+    IPdfReportService pdfService, ITenantProvider tp, CancellationToken ct) =>
+{
+    if (tp.TenantId is null) return Results.Unauthorized();
+    var bytes = await pdfService.GenerateHmsHandbookAsync(tp.TenantId.Value, ct);
+    return Results.File(bytes, "application/pdf", "HMS-haandbok.pdf");
+}).RequireAuthorization();
+
 // PowerOffice integration
 app.MapPost("/api/integrations/poweroffice/test", async (IPowerOfficeService po, CancellationToken ct) =>
 {

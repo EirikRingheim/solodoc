@@ -1027,7 +1027,7 @@ public static class HoursEndpoints
                         absType = AbsenceTypeToShort(dayAbsence.Type);
                     }
                     else if (dayEntries.Count == 0)
-                        status = isWeekend ? "" : "Mangler";
+                        status = (isWeekend || date >= DateOnly.FromDateTime(DateTime.Today)) ? "" : "Mangler";
                     else if (dayEntries.All(e => e.Status == TimeEntryStatus.Approved))
                         status = "Godkjent";
                     else
@@ -1087,7 +1087,7 @@ public static class HoursEndpoints
                 absenceType = AbsenceTypeToShort(dayAbsence.Type);
             }
             else if (dayEntries.Count == 0)
-                status = isWeekend ? "" : "Mangler";
+                status = (isWeekend || date >= DateOnly.FromDateTime(DateTime.Today)) ? "" : "Mangler";
             else if (dayEntries.All(e => e.Status == TimeEntryStatus.Approved))
                 status = "Godkjent";
             else

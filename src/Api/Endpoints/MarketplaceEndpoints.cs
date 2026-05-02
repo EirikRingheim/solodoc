@@ -51,7 +51,16 @@ public static class MarketplaceEndpoints
                 .Select(p => p.MarketplaceTemplateId)
                 .ToListAsync(ct);
 
-            return Results.Ok(templates.Select(t => t with { AlreadyPurchased = purchased.Contains(t.Id) }).ToList());
+            // Get source tenant IDs to mark own templates
+            var ownSourceIds = await db.MarketplaceTemplates
+                .Where(m => m.SourceTenantId == tp.TenantId.Value)
+                .Select(m => m.Id).ToListAsync(ct);
+
+            return Results.Ok(templates.Select(t => t with
+            {
+                AlreadyPurchased = purchased.Contains(t.Id),
+                IsOwnTemplate = ownSourceIds.Contains(t.Id)
+            }).ToList());
         }
 
         return Results.Ok(templates);

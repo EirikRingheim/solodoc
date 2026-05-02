@@ -4,6 +4,7 @@
 @inject ProjectService ProjectService
 @inject ISnackbar Snackbar
 @inject NavigationManager Navigation
+@inject IJSRuntime JS
 
 <PageTitle>Solodoc - Bedriftsdokumentasjon</PageTitle>
 
@@ -246,16 +247,27 @@
         _loading = false;
     }
 
-    private Task ExportHmsHandbook()
+    private async Task ExportHmsHandbook()
     {
-        Snackbar.Add("HMS-håndbok PDF-generering er under utvikling", Severity.Info);
-        return Task.CompletedTask;
+        Snackbar.Add("Genererer HMS-håndbok...", Severity.Info);
+        var r = await Api.GetAsync("api/reports/hms-handbook");
+        if (r.IsSuccessStatusCode)
+        {
+            var bytes = await r.Content.ReadAsByteArrayAsync();
+            var b64 = Convert.ToBase64String(bytes);
+            await JS.InvokeVoidAsync("eval",
+                $"{{var a=document.createElement('a');a.href='data:application/pdf;base64,{b64}';a.download='HMS-haandbok.pdf';a.click();}}");
+            Snackbar.Add("HMS-håndbok lastet ned", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add("Kunne ikke generere HMS-håndbok", Severity.Error);
+        }
     }
 
-    private Task ExportReferencePortfolio()
+    private async Task ExportReferencePortfolio()
     {
-        Snackbar.Add("Referanseprosjekter PDF-generering er under utvikling", Severity.Info);
-        return Task.CompletedTask;
+        Snackbar.Add("Referanseprosjekter PDF er under utvikling", Severity.Info);
     }
 
     private async Task LoadDocuments()

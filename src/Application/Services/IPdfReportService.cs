@@ -10,4 +10,5 @@ public interface IPdfReportService
     Task<byte[]> GenerateMiniCvAsync(Guid personId, CancellationToken ct = default);
     Task<byte[]> GenerateFullCvAsync(Guid personId, CancellationToken ct = default);
     Task<byte[]> GenerateEquipmentReportAsync(Guid equipmentId, CancellationToken ct = default);
+    Task<byte[]> GenerateHmsHandbookAsync(Guid tenantId, CancellationToken ct = default);
 }

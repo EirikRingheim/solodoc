@@ -93,7 +93,13 @@ else
                         }
                         <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
                             <MudText Typo="Typo.body2" Style="font-weight:600;color:#00B5A6;">kr @tmpl.PriceKr</MudText>
-                            @if (tmpl.AlreadyPurchased)
+                            @if (tmpl.IsOwnTemplate)
+                            {
+                                <MudChip T="string" Size="Size.Small" Color="Color.Default" Style="height:28px;">
+                                    Din mal
+                                </MudChip>
+                            }
+                            else if (tmpl.AlreadyPurchased)
                             {
                                 <MudChip T="string" Size="Size.Small" Color="Color.Success" Style="height:28px;">
                                     Kjøpt
@@ -105,7 +111,7 @@ else
                                            OnClick="() => BuyTemplate(capturedTmpl)"
                                            Disabled="_buying"
                                            Style="text-transform:none;border-radius:8px;">
-                                    Kjøp
+                                    @(tmpl.PriceKr > 0 ? $"Kjøp ({tmpl.PriceKr} kr)" : "Hent gratis")
                                 </MudButton>
                             }
                         </MudStack>

@@ -1204,4 +1204,162 @@ public class PdfReportService(SolodocDbContext db, ILogger<PdfReportService> log
         TimeEntryStatus.Rejected => "Avvist",
         _ => status.ToString()
     };
+
+    public async Task<byte[]> GenerateHmsHandbookAsync(Guid tenantId, CancellationToken ct = default)
+    {
+        var tenant = await db.Tenants.FirstOrDefaultAsync(t => t.Id == tenantId, ct);
+        if (tenant is null) return [];
+
+        var now = DateTimeOffset.UtcNow;
+        var yearStart = new DateOnly(now.Year, 1, 1);
+        var yearEnd = new DateOnly(now.Year, 12, 31);
+
+        // Gather HMS data
+        var sjaCount = await db.SjaForms.CountAsync(s => s.TenantId == tenantId && s.Date >= yearStart, ct);
+        var deviationTotal = await db.Deviations.CountAsync(d => d.TenantId == tenantId && d.CreatedAt.Year == now.Year, ct);
+        var deviationClosed = await db.Deviations.CountAsync(d => d.TenantId == tenantId && d.CreatedAt.Year == now.Year && d.Status == DeviationStatus.Closed, ct);
+        var safetyRounds = await db.SafetyRoundSchedules.CountAsync(s => s.TenantId == tenantId && s.IsActive, ct);
+        var hmsMeetings = await db.HmsMeetings.CountAsync(m => m.TenantId == tenantId && m.Date >= yearStart, ct);
+
+        // Certifications summary
+        var certCount = await db.EmployeeCertifications.CountAsync(c => c.TenantId == tenantId, ct);
+        var certExpired = await db.EmployeeCertifications.CountAsync(c => c.TenantId == tenantId
+            && c.ExpiryDate.HasValue && c.ExpiryDate.Value < DateOnly.FromDateTime(DateTime.Today), ct);
+
+        // Employee count
+        var employeeCount = await db.TenantMemberships.CountAsync(m => m.TenantId == tenantId
+            && m.State == TenantMembershipState.Active, ct);
+
+        // Recent SJAs
+        var recentSjas = await db.SjaForms
+            .Where(s => s.TenantId == tenantId && s.Date >= yearStart)
+            .OrderByDescending(s => s.Date)
+            .Take(10)
+            .Select(s => new { s.Title, s.Date, s.Status, s.Location })
+            .ToListAsync(ct);
+
+        // Deviation by type
+        var devByType = await db.Deviations
+            .Where(d => d.TenantId == tenantId && d.CreatedAt.Year == now.Year)
+            .GroupBy(d => d.Type)
+            .Select(g => new { Type = g.Key, Count = g.Count() })
+            .ToListAsync(ct);
+
+        var docNumber = $"HMS-{now:yyyyMMdd}";
+
+        var document = Document.Create(container =>
+        {
+            container.Page(page =>
+            {
+                page.Size(PageSizes.A4);
+                page.Margin(40);
+                page.DefaultTextStyle(x => x.FontSize(10));
+
+                page.Header().Element(h => ComposeHeader(h, "HMS-håndbok", tenant.Name, docNumber));
+
+                page.Content().Column(col =>
+                {
+                    // Title page
+                    col.Item().PaddingVertical(30).AlignCenter().Text(text =>
+                    {
+                        text.Line("HMS-HÅNDBOK").Bold().FontSize(24);
+                        text.Line(tenant.Name).FontSize(16).FontColor(Colors.Grey.Darken1);
+                        text.Line($"Generert: {now:dd.MM.yyyy}").FontSize(10).FontColor(Colors.Grey.Medium);
+                    });
+
+                    col.Item().PaddingVertical(10).LineHorizontal(1).LineColor(Colors.Grey.Lighten2);
+
+                    // 1. Bedriftsinformasjon
+                    col.Item().PaddingVertical(10).Text("1. Bedriftsinformasjon").Bold().FontSize(14);
+                    col.Item().Table(table =>
+                    {
+                        table.ColumnsDefinition(c => { c.ConstantColumn(150); c.RelativeColumn(); });
+                        table.Cell().Padding(4).Text("Bedrift:").SemiBold();
+                        table.Cell().Padding(4).Text(tenant.Name);
+                        table.Cell().Padding(4).Text("Org.nummer:").SemiBold();
+                        table.Cell().Padding(4).Text(tenant.OrgNumber);
+                        table.Cell().Padding(4).Text("Antall ansatte:").SemiBold();
+                        table.Cell().Padding(4).Text(employeeCount.ToString());
+                    });
+
+                    // 2. HMS-statistikk
+                    col.Item().PaddingVertical(10).Text($"2. HMS-statistikk {now.Year}").Bold().FontSize(14);
+                    col.Item().Table(table =>
+                    {
+                        table.ColumnsDefinition(c => { c.RelativeColumn(); c.ConstantColumn(80); });
+                        void Row(string label, int val) { table.Cell().Padding(4).Text(label); table.Cell().Padding(4).AlignRight().Text(val.ToString()).Bold(); }
+                        Row("SJA-er gjennomført", sjaCount);
+                        Row("Avvik rapportert", deviationTotal);
+                        Row("Avvik lukket", deviationClosed);
+                        Row("Vernerunder (aktive planer)", safetyRounds);
+                        Row("HMS-møter gjennomført", hmsMeetings);
+                    });
+
+                    // 3. Avvik etter type
+                    if (devByType.Count > 0)
+                    {
+                        col.Item().PaddingVertical(10).Text("3. Avvik etter type").Bold().FontSize(14);
+                        col.Item().Table(table =>
+                        {
+                            table.ColumnsDefinition(c => { c.RelativeColumn(); c.ConstantColumn(80); });
+                            table.Cell().Padding(4).Text("Type").SemiBold();
+                            table.Cell().Padding(4).AlignRight().Text("Antall").SemiBold();
+                            foreach (var d in devByType.OrderByDescending(d => d.Count))
+                            {
+                                table.Cell().Padding(4).Text(d.Type?.ToString() ?? "Uspesifisert");
+                                table.Cell().Padding(4).AlignRight().Text(d.Count.ToString());
+                            }
+                        });
+                    }
+
+                    // 4. Sertifikater
+                    col.Item().PaddingVertical(10).Text("4. Sertifikatoversikt").Bold().FontSize(14);
+                    col.Item().Table(table =>
+                    {
+                        table.ColumnsDefinition(c => { c.RelativeColumn(); c.ConstantColumn(80); });
+                        table.Cell().Padding(4).Text("Totalt sertifikater");
+                        table.Cell().Padding(4).AlignRight().Text(certCount.ToString()).Bold();
+                        table.Cell().Padding(4).Text("Utløpte sertifikater").FontColor(Colors.Red.Medium);
+                        table.Cell().Padding(4).AlignRight().Text(certExpired.ToString()).Bold().FontColor(Colors.Red.Medium);
+                    });
+
+                    // 5. Gjennomførte SJA-er
+                    if (recentSjas.Count > 0)
+                    {
+                        col.Item().PaddingVertical(10).Text("5. Gjennomførte SJA-er").Bold().FontSize(14);
+                        col.Item().Table(table =>
+                        {
+                            table.ColumnsDefinition(c => { c.RelativeColumn(3); c.ConstantColumn(80); c.RelativeColumn(2); c.ConstantColumn(80); });
+                            table.Cell().Padding(4).Text("Tittel").SemiBold();
+                            table.Cell().Padding(4).Text("Dato").SemiBold();
+                            table.Cell().Padding(4).Text("Sted").SemiBold();
+                            table.Cell().Padding(4).Text("Status").SemiBold();
+                            foreach (var s in recentSjas)
+                            {
+                                table.Cell().Padding(4).Text(s.Title);
+                                table.Cell().Padding(4).Text(s.Date.ToString("dd.MM.yyyy"));
+                                table.Cell().Padding(4).Text(s.Location ?? "—");
+                                table.Cell().Padding(4).Text(s.Status ?? "—");
+                            }
+                        });
+                    }
+
+                    // Footer note
+                    col.Item().PaddingVertical(20).Text(text =>
+                    {
+                        text.Line("Denne HMS-håndboken er generert automatisk av Solodoc basert på registrerte data.")
+                            .FontSize(8).FontColor(Colors.Grey.Medium).Italic();
+                        text.Line($"Generert: {now:dd.MM.yyyy HH:mm}")
+                            .FontSize(8).FontColor(Colors.Grey.Medium);
+                    });
+                });
+
+                page.Footer().Element(f => ComposeFooter(f, docNumber, now));
+            });
+        });
+
+        using var ms = new MemoryStream();
+        document.GeneratePdf(ms);
+        return ms.ToArray();
+    }
 }
