@@ -9,7 +9,7 @@ public class DocumentFolder : TenantScopedEntity
     public string? Description { get; set; }
     public Guid? ParentFolderId { get; set; }
     public Guid? ProjectId { get; set; }
-    public UploadPermission UploadPermission { get; set; } = UploadPermission.AdminAndProjectLeader;
+    public UploadPermission UploadPermission { get; set; } = UploadPermission.Everyone;
     public bool IsSystemFolder { get; set; }
 
     // Navigation

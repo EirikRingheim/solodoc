@@ -23,33 +23,40 @@
             var currentTenant = _tenants.FirstOrDefault(t => t.Id.ToString() == _selectedTenantId);
             var accent = currentTenant?.AccentColor ?? "#00B5A6";
         }
-        <div @onclick="ToggleCompanySwitcher"
-             style="padding:16px;cursor:pointer;display:flex;align-items:center;gap:10px;user-select:none;">
-            <div style="@($"width:40px;height:40px;border-radius:10px;background:{accent};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1rem;flex-shrink:0;")">
-                @(_tenantName.Length > 0 ? _tenantName[0].ToString().ToUpper() : "S")
-            </div>
-            <div style="flex:1;min-width:0;">
-                <div style="font-weight:600;font-size:0.95rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-                    @(_tenantName == "Bedrift" ? "SoloDoc" : _tenantName)
+        <div style="padding:16px;display:flex;align-items:center;gap:10px;user-select:none;">
+            <div @onclick="@(() => Navigation.NavigateTo("/profile"))" style="cursor:pointer;display:flex;align-items:center;gap:10px;flex:1;min-width:0;">
+                <div style="@($"width:40px;height:40px;border-radius:10px;background:{accent};color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1rem;flex-shrink:0;")">
+                    @(_userInitials.Length > 0 ? _userInitials : "?")
                 </div>
-                <div style="font-size:0.7rem;color:#9CA3AF;">
-                    @(currentTenant?.Role ?? "")
-                    @if (_tenants.Count > 1)
+                <div style="flex:1;min-width:0;">
+                    <div style="font-weight:600;font-size:0.95rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                        @(_userName.Length > 0 ? _userName : "Min profil")
+                    </div>
+                    <div style="font-size:0.7rem;color:#9CA3AF;">
+                        @(_tenantName == "Bedrift" ? "SoloDoc" : _tenantName)
+                    </div>
+                </div>
+            </div>
+            <div style="flex-shrink:0;">
+                @if (_tenants.Count > 1)
+                {
+                    <MudIconButton Icon="@Icons.Material.Filled.SwapHoriz" Size="Size.Small" Color="Color.Secondary"
+                                   OnClick="ToggleCompanySwitcher" Title="Bytt bedrift" />
+                }
+            </div>
+            @if (_tenants.Count > 1)
+            {
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" stroke-width="2" style="flex-shrink:0;cursor:pointer;" @onclick="ToggleCompanySwitcher">
+                    @if (_companySwitcherOpen)
                     {
-                        <span> · @_tenants.Count bedrifter</span>
+                        <polyline points="18 15 12 9 6 15"/>
                     }
-                </div>
-            </div>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" stroke-width="2" style="flex-shrink:0;">
-                @if (_companySwitcherOpen)
-                {
-                    <polyline points="18 15 12 9 6 15"/>
-                }
-                else
-                {
-                    <polyline points="6 9 12 15 18 9"/>
-                }
-            </svg>
+                    else
+                    {
+                        <polyline points="6 9 12 15 18 9"/>
+                    }
+                </svg>
+            }
         </div>
 
         @* ── Company Switcher Panel ── *@
