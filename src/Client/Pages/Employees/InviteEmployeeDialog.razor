@@ -98,7 +98,7 @@
         }
         else
         {
-            Snackbar.Add("Kunne ikke opprette invitasjon", Severity.Error);
+            Snackbar.Add(EmployeeService.LastInviteError ?? "Kunne ikke opprette invitasjon", Severity.Error);
         }
     }
 

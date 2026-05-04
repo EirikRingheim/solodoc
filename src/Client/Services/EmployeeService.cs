@@ -29,16 +29,33 @@ public class EmployeeService(ApiHttpClient api)
         return null;
     }
 
+    public string? LastInviteError { get; private set; }
+
     public async Task<Guid?> InviteAsync(InviteEmployeeRequest request)
     {
+        LastInviteError = null;
         var response = await api.PostAsJsonAsync("api/employees/invite", request);
         if (response.IsSuccessStatusCode)
         {
             var result = await response.Content.ReadFromJsonAsync<InviteResult>();
             return result?.Id;
         }
+
+        if ((int)response.StatusCode == 403)
+            LastInviteError = "Du har ikke tilgang til å invitere ansatte. Kun admin og prosjektleder kan gjøre dette.";
+        else
+        {
+            try
+            {
+                var err = await response.Content.ReadFromJsonAsync<ErrorDto>();
+                LastInviteError = err?.Error ?? "Ukjent feil ved invitasjon.";
+            }
+            catch { LastInviteError = "Feil ved invitasjon."; }
+        }
         return null;
     }
+
+    private record ErrorDto(string? Error);
 
     private record InviteResult(Guid Id);
 

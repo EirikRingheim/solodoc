@@ -93,12 +93,15 @@ public static class EmployeeEndpoints
     /// (TenantAdmin or ProjectLeader). Returns null when forbidden.
     /// </summary>
     private static async Task<TenantMembership?> RequireAdminRole(
-        Guid personId, SolodocDbContext db, CancellationToken ct)
+        Guid personId, SolodocDbContext db, CancellationToken ct, Guid? tenantId = null)
     {
-        var membership = await db.TenantMemberships
-            .FirstOrDefaultAsync(m =>
-                m.PersonId == personId &&
-                m.State == TenantMembershipState.Active, ct);
+        var query = db.TenantMemberships
+            .Where(m => m.PersonId == personId && m.State == TenantMembershipState.Active);
+
+        if (tenantId.HasValue)
+            query = query.Where(m => m.TenantId == tenantId.Value);
+
+        var membership = await query.FirstOrDefaultAsync(ct);
 
         if (membership is null)
             return null;
@@ -167,7 +170,7 @@ public static class EmployeeEndpoints
         if (!valid || tenantProvider.TenantId is null)
             return Results.Unauthorized();
 
-        var admin = await RequireAdminRole(personId!.Value, db, ct);
+        var admin = await RequireAdminRole(personId!.Value, db, ct, tenantProvider.TenantId);
         if (admin is null) return Results.Forbid();
 
         var tenantId = tenantProvider.TenantId.Value;
@@ -306,7 +309,7 @@ public static class EmployeeEndpoints
         if (!valid || tenantProvider.TenantId is null)
             return Results.Unauthorized();
 
-        var admin = await RequireAdminRole(personId!.Value, db, ct);
+        var admin = await RequireAdminRole(personId!.Value, db, ct, tenantProvider.TenantId);
         if (admin is null) return Results.Forbid();
 
         if (string.IsNullOrWhiteSpace(request.Email))
