@@ -50,7 +50,7 @@
             <MudChip T="string" Size="Size.Small" Color="@color">@_project.Status</MudChip>
         }
     </MudStack>
-    @if (_project is not null)
+    @if (_project is not null && _canManageProject)
     {
         <MudStack Row="true" Spacing="1">
             @if (_project.Status is "Planlagt")
@@ -1266,6 +1266,7 @@ else
     private List<ExpenseListItemDto> _projectExpenses = [];
     private bool _loadingExpenses;
     private bool _isExpenseAdmin;
+    private bool _canManageProject;
     private bool _isExpenseAccountant;
 
     // Objects
@@ -1435,6 +1436,14 @@ else
         _crewLoaded = false;
 
         _project = await ProjectService.GetProjectByIdAsync(Id);
+
+        // Check role for project management buttons
+        var auth = await AuthStateProvider.GetAuthenticationStateAsync();
+        var roles = auth.User.Claims.Where(c => c.Type == "role" || c.Type.Contains("/role"))
+            .Select(c => c.Value).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        _canManageProject = auth.User.HasClaim("sa", "1") || roles.Contains("tenant-admin") || roles.Contains("TenantAdmin")
+            || roles.Contains("project-leader") || roles.Contains("ProjectLeader");
+
         _loading = false;
 
         // Load dashboard KPIs in parallel

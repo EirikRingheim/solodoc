@@ -319,12 +319,20 @@ public static class EmployeeEndpoints
         if (role is null)
             return Results.BadRequest(new { error = $"Ugyldig rolle: {request.Role}" });
 
-        // Check if there's already a pending invitation
-        var existing = await db.Invitations
-            .AnyAsync(i =>
-                i.TenantId == tenantProvider.TenantId.Value &&
-                i.Email == request.Email &&
-                i.State == InvitationState.Pending, ct);
+        // Check if there's already a pending invitation (cancel old ones automatically)
+        var existingInvites = await db.Invitations
+            .Where(i => i.TenantId == tenantProvider.TenantId.Value
+                && i.Email == request.Email.Trim().ToLowerInvariant()
+                && i.State == InvitationState.Pending && !i.IsDeleted)
+            .ToListAsync(ct);
+
+        // Cancel old pending invitations for this email (allow re-invite)
+        foreach (var old in existingInvites)
+        {
+            old.IsDeleted = true;
+            old.DeletedAt = DateTimeOffset.UtcNow;
+        }
+        var existing = false; // Always allow re-invite now
 
         if (existing)
             return Results.BadRequest(new { error = "Det finnes allerede en ventende invitasjon for denne e-posten." });

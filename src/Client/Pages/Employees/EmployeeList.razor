@@ -4,6 +4,8 @@
 @inject NavigationManager Navigation
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
+@inject ApiHttpClient Api
+@inject IJSRuntime JS
 
 <PageTitle>Solodoc - Ansatte</PageTitle>
 
@@ -95,9 +97,72 @@
     </MudDataGrid>
 </MudPaper>
 
+@* Invitations section *@
+@if (_invitations.Count > 0)
+{
+    <MudPaper Elevation="0" Style="border:1px solid #e9ecef;border-radius:12px;" Class="pa-4 mt-4">
+        <MudText Typo="Typo.subtitle1" Style="font-weight:600;" Class="mb-3">Invitasjoner</MudText>
+        <MudSimpleTable Dense="true" Hover="true">
+            <thead>
+                <tr>
+                    <th>E-post</th>
+                    <th>Rolle</th>
+                    <th>Status</th>
+                    <th>Invitert av</th>
+                    <th>Sendt</th>
+                    <th>Utløper</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var inv in _invitations)
+                {
+                    var statusColor = inv.State switch
+                    {
+                        "Accepted" => Color.Success,
+                        "Pending" => Color.Warning,
+                        "Expired" => Color.Error,
+                        _ => Color.Default
+                    };
+                    var statusText = inv.State switch
+                    {
+                        "Accepted" => "Akseptert",
+                        "Pending" => "Venter",
+                        "Expired" => "Utløpt",
+                        _ => inv.State
+                    };
+                    var capturedInv = inv;
+                    <tr>
+                        <td style="font-weight:500;">@inv.Email</td>
+                        <td>@inv.Role</td>
+                        <td>
+                            <MudChip T="string" Size="Size.Small" Color="@statusColor" Variant="Variant.Outlined"
+                                     Style="height:22px;">@statusText</MudChip>
+                        </td>
+                        <td>@inv.InvitedByName</td>
+                        <td>@inv.CreatedAt.ToLocalTime().ToString("dd.MM.yyyy")</td>
+                        <td>@inv.ExpiresAt.ToLocalTime().ToString("dd.MM.yyyy")</td>
+                        <td style="text-align:right;">
+                            @if (inv.State == "Pending")
+                            {
+                                <MudButton Variant="Variant.Text" Size="Size.Small" Color="Color.Primary"
+                                           OnClick="@(() => CopyInviteLink(capturedInv.Id))"
+                                           Style="text-transform:none;">
+                                    Kopier lenke
+                                </MudButton>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </MudSimpleTable>
+    </MudPaper>
+}
+
 @code {
     private List<EmployeeListItemDto> _employees = [];
     private List<EmployeeListItemDto> _filteredEmployees = [];
+    private List<InvitationItem> _invitations = [];
     private string? _search;
     private bool _loading = true;
 
@@ -105,6 +170,13 @@
     {
         _employees = await EmployeeService.GetEmployeesAsync();
         _filteredEmployees = _employees;
+        try
+        {
+            var r = await Api.GetAsync("api/employees/invitations");
+            if (r.IsSuccessStatusCode)
+                _invitations = await r.Content.ReadFromJsonAsync<List<InvitationItem>>() ?? [];
+        }
+        catch { }
         _loading = false;
     }
 
@@ -149,6 +221,31 @@
             _employees = await EmployeeService.GetEmployeesAsync();
             _filteredEmployees = _employees;
             _loading = false;
+            // Reload invitations too
+            try
+            {
+                var r = await Api.GetAsync("api/employees/invitations");
+                if (r.IsSuccessStatusCode)
+                    _invitations = await r.Content.ReadFromJsonAsync<List<InvitationItem>>() ?? [];
+            }
+            catch { }
         }
     }
+
+    private async Task CopyInviteLink(Guid invitationId)
+    {
+        var link = $"{Navigation.BaseUri.TrimEnd('/')}/invite/{invitationId}";
+        try
+        {
+            await JS.InvokeVoidAsync("navigator.clipboard.writeText", link);
+            Snackbar.Add("Lenke kopiert til utklippstavle", Severity.Success);
+        }
+        catch
+        {
+            Snackbar.Add(link, Severity.Info);
+        }
+    }
+
+    private record InvitationItem(Guid Id, string Email, string Role, string State,
+        string InvitedByName, DateTimeOffset CreatedAt, DateTimeOffset ExpiresAt);
 }
