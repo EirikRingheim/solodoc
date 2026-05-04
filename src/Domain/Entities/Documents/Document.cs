@@ -1,4 +1,5 @@
 using Solodoc.Domain.Common;
+using Solodoc.Domain.Enums;
 
 namespace Solodoc.Domain.Entities.Documents;
 
@@ -12,6 +13,7 @@ public class Document : TenantScopedEntity
     public string ContentType { get; set; } = string.Empty;
     public Guid UploadedById { get; set; }
     public string? Category { get; set; }
+    public UploadPermission Visibility { get; set; } = UploadPermission.Everyone;
 
     // Navigation
     public DocumentFolder Folder { get; set; } = null!;

@@ -235,6 +235,18 @@ public static class DocumentEndpoints
         var docName = form["name"].FirstOrDefault();
         if (string.IsNullOrWhiteSpace(docName)) docName = file.FileName;
 
+        // Visibility: field workers always upload as Everyone, admin/PL can choose
+        var visibilityStr = form["visibility"].FirstOrDefault();
+        var visibility = UploadPermission.Everyone;
+        if (!string.IsNullOrEmpty(visibilityStr) && Enum.TryParse<UploadPermission>(visibilityStr, true, out var vis))
+        {
+            // Only admin/PL can set restricted visibility
+            var membership = await db.TenantMemberships
+                .FirstOrDefaultAsync(m => m.PersonId == pid.Value && m.TenantId == tenantId && m.State == TenantMembershipState.Active, ct);
+            if (membership?.Role is TenantRole.TenantAdmin or TenantRole.ProjectLeader)
+                visibility = vis;
+        }
+
         var doc = new Document
         {
             TenantId = tenantId,
@@ -245,7 +257,8 @@ public static class DocumentEndpoints
             FileSize = file.Length,
             ContentType = file.ContentType,
             UploadedById = pid.Value,
-            Category = form["category"].FirstOrDefault()
+            Category = form["category"].FirstOrDefault(),
+            Visibility = visibility
         };
 
         db.Documents.Add(doc);
